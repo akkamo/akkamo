@@ -15,7 +15,7 @@ class Main {
 		import scala.reflect.runtime.universe.TypeTag
 		import scala.collection._
 
-		val default = "$DEFAULT$"
+		val Default = "$DEFAULT$"
 		val tpe2Key2Inst = mutable.Map.empty[Types#Type, mutable.Map[String, AnyRef]]
 
 		/**
@@ -26,7 +26,7 @@ class Main {
 			* @return implementation of interface `T`
 			*/
 		override def inject[T](implicit tt: TypeTag[T]): Option[T] = {
-			inject(default)
+			inject(Default)
 		}
 
 		/**
@@ -51,7 +51,11 @@ class Main {
 		override def register[T<:AnyRef](value: T, key: Option[String])(implicit tt: TypeTag[T]): Unit = {
 			val tpe = tt.tpe
 			val key2Inst = tpe2Key2Inst.getOrElse(tpe, mutable.Map.empty)
-			key2Inst += (key.getOrElse(default)->value)
+			val realKey = key.getOrElse(Default)
+			if(key2Inst.contains(realKey)) {
+				throw InitializationError(s"module: $value under key: $key already registered")
+			}
+			key2Inst += (key.getOrElse(Default)->value)
 			tpe2Key2Inst += (tpe->key2Inst)
 		}
 	}
