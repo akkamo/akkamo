@@ -100,8 +100,17 @@ object Main extends App {
 			System.exit(0)
 		}
 		case _ => {
+			shutdownHook()
 
 		}
+	}
+
+	def shutdownHook() = {
+		Runtime.getRuntime.addShutdownHook(new Thread() {
+			override def run() = {
+				println("Shutdown...")  // TODO modules shutdown to be here
+			}
+		})
 	}
 }
 
