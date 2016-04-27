@@ -1,0 +1,105 @@
+package com.github.jurajburian.makka
+
+import sun.invoke.empty.Empty
+
+import scala.reflect.api.Types
+import scala.util.{Failure, Try}
+
+class Main {
+
+	import scala.collection.JavaConversions._
+	val modules= java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
+
+	val ctx = new Context {
+
+		import scala.reflect.runtime.universe.TypeTag
+		import scala.collection._
+
+		val default = "$DEFAULT$"
+		val tpe2Key2Inst = mutable.Map.empty[Types#Type, mutable.Map[String, AnyRef]]
+
+		/**
+			* inject service
+			*
+			* @param tt
+			* @tparam T require
+			* @return implementation of interface `T`
+			*/
+		override def inject[T](implicit tt: TypeTag[T]): Option[T] = {
+			inject(default)
+		}
+
+		/**
+			* inject service
+			*
+			* @param key additional mapping identifier
+			* @tparam T
+			* @return
+			*/
+		override def inject[T](key: String)(implicit tt: TypeTag[T]): Option[T] = {
+			val tpe = tt.tpe
+			tpe2Key2Inst.get(tpe).flatMap(_.get(key)).map(_.asInstanceOf[T])
+		}
+
+		/**
+			*
+			* @param value
+			* @param key
+			* @param tt
+			* @tparam T
+			*/
+		override def register[T<:AnyRef](value: T, key: Option[String])(implicit tt: TypeTag[T]): Unit = {
+			val tpe = tt.tpe
+			val key2Inst = tpe2Key2Inst.getOrElse(tpe, mutable.Map.empty)
+			key2Inst += (key.getOrElse(default)->value)
+			tpe2Key2Inst += (tpe->key2Inst)
+		}
+	}
+
+	def run() = {
+		// init modules
+		init(modules)
+		// run modules
+		modules.map {case p:Startable=> p.start(ctx); case _ =>}
+	}
+
+
+	/**
+		*
+		* @param modules - input modules
+		* @return remaining, not initialized modules
+		*/
+	protected def init(modules:List[Module]):List[Module] = {
+		val ret = modules.filter{
+			case p:Initializable=> !p.initialize(ctx)
+			case _=> false
+		}
+		if(ret.size >= modules.size) {
+			throw InitializationError(s"Can't initialize modules: $ret, cycle or unresolved dependency")
+		}
+		if(ret.isEmpty) {
+			ret
+		} else {
+			init(ret)
+		}
+	}
+}
+
+
+/**
+	* @author jubu
+	*/
+object Main extends App {
+	val main = new Main()
+	Try(main.run) match {
+		case Failure(th) => {
+			th.printStackTrace(Console.err)
+			System.exit(0)
+		}
+		case _ => {
+
+		}
+	}
+}
+
+case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
