@@ -1,8 +1,6 @@
-package com.github.jurajburian.makka.akka
+package com.github.jurajburian.makka
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, Materializer}
-import com.github.jurajburian.makka.{Context, Initializable, Module}
 import com.typesafe.config.Config
 
 import scala.util.Try
@@ -10,7 +8,6 @@ import scala.util.Try
 /**
 	* Register one or more Actor System
 	*
-	* @author jubu
 	*/
 class AkkaModule extends Module with Initializable {
 

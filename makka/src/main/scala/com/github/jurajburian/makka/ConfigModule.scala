@@ -1,6 +1,5 @@
-package com.github.jurajburian.makka.config
+package com.github.jurajburian.makka
 
-import com.github.jurajburian.makka.{Context, Initializable, Module}
 import com.typesafe.config.ConfigFactory
 
 /**

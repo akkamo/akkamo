@@ -1,13 +1,11 @@
+import sbt.Keys._
+
 lazy val cScalaVersion =  "2.11.8"
 lazy val cAkkaVersion =  "2.4.4"
 
-organization := "com.github.jurajburian"
+organization in Global := "com.github.jurajburian"
 
-name := "makka"
-
-version := "1.0.0"
-
-description := "Injection & configuration wraper on top of Typesafe config"
+description := "Makka modules in Akka. Runtime assembly of several modules running on top of Akka."
 
 crossScalaVersions := Seq("2.11.8", cScalaVersion)
 
@@ -36,7 +34,6 @@ publishArtifact in Test := false
 
 pomIncludeRepository := { _ => false }
 
-
 pomExtra := (
 	<url>https://github.com/JurajBurian/ic</url>
 		<licenses>
@@ -63,7 +60,7 @@ pomExtra := (
 			</developer>
 		</developers>)
 
-scalacOptions := Seq(
+scalacOptions in Global := Seq(
 	"-encoding", "UTF-8",
 	"-unchecked",
 	"-deprecation",
@@ -74,10 +71,23 @@ scalacOptions := Seq(
 	"-language:postfixOps"
 )
 
-libraryDependencies ++= Seq(
-	"org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
-	"com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
-	"com.typesafe.akka" %% "akka-stream" % cAkkaVersion withSources,
-	"com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
-	"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
+lazy val root = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp)
+
+lazy val makka = project.in(file("makka")).settings(
+	name := "makka",
+	version := "1.0.0",
+	libraryDependencies ++= Seq(
+		"org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
+		"com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
+		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
+	)
 )
+
+lazy val makkaAkkaHttp = project.in(file("makkaAkkaHttp")).settings(
+	name := "makka-akka-http",
+	version := "1.0.0",
+	libraryDependencies ++= Seq(
+		"com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
+		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
+	)
+).dependsOn(makka)

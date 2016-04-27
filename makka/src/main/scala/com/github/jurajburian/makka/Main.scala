@@ -1,6 +1,5 @@
 package com.github.jurajburian.makka
 
-import com.github.jurajburian.makka.logging.LoggingAdapterFactory
 import sun.invoke.empty.Empty
 
 import scala.reflect.api.Types

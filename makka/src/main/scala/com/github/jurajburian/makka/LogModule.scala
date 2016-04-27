@@ -1,11 +1,33 @@
-package com.github.jurajburian.makka.logging
+package com.github.jurajburian.makka
 
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
-import com.github.jurajburian.makka.{Context, Initializable, Module}
 import com.typesafe.config.Config
 
 import scala.util.Try
+
+/**
+	* factory provided by `LogModule`
+	* @author jubu
+	*/
+trait LoggingAdapterFactory {
+
+	/**
+		*
+		* @param category
+		* @return concrete `LoggingAdapter` for
+		*/
+	def apply[T](category:Class[T]):LoggingAdapter
+
+
+	/**
+		*
+		* @param category
+		* @return concrete `LoggingAdapter` for
+		*/
+	def apply(category:AnyRef):LoggingAdapter
+}
+
 
 
 /**
@@ -19,7 +41,6 @@ class LogModule extends Module with Initializable {
 
 	override def initialize(ctx: Context): Boolean = ctx.inject[Config] match {
 		case Some(cfg) => {
-			import scala.collection.JavaConversions._
 			val actorSystem = Try(cfg.getString(LoggingActorSystem)).toOption.map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
 			actorSystem match {
 				case Some(as)=> {
