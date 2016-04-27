@@ -1,4 +1,4 @@
 com.github.jurajburian.makka.config.ConfigModule
-com.github.jurajburian.makka.logging.LogModule
 com.github.jurajburian.makka.akka.AkkaModule
+com.github.jurajburian.makka.logging.LogModule
 

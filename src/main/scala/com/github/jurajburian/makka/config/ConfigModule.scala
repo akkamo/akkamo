@@ -13,4 +13,6 @@ class ConfigModule extends Module  with Initializable {
 		ctx.register(c)
 		true
 	}
+
+	override def toString: String = this.getClass.getSimpleName
 }

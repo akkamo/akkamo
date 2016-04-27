@@ -1,5 +1,6 @@
 package com.github.jurajburian.makka
 
+import com.github.jurajburian.makka.logging.LoggingAdapterFactory
 import sun.invoke.empty.Empty
 
 import scala.reflect.api.Types
@@ -57,10 +58,12 @@ class Main {
 	}
 
 	def run() = {
+		println(s"Installing modules: $modules")
 		// init modules
 		init(modules)
 		// run modules
 		modules.map {case p:Startable=> p.start(ctx); case _ =>}
+		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
 	}
 
 
