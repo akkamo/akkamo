@@ -1,5 +1,6 @@
 package com.github.jurajburian.makka
 
+import com.typesafe.config.ConfigFactory
 import sun.invoke.empty.Empty
 
 import scala.reflect.api.Types
@@ -96,6 +97,7 @@ class Main {
 	* @author jubu
 	*/
 object Main extends App {
+
 	val main = new Main()
 	Try(main.run) match {
 		case Failure(th) => {

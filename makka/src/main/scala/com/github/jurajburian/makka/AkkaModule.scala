@@ -1,18 +1,17 @@
 package com.github.jurajburian.makka
 
 import akka.actor.ActorSystem
+import com.github.jurajburian.makka
 import com.typesafe.config.Config
-
-import scala.util.Try
 
 /**
 	* Register one or more Actor System
 	* {{{
 	*   configuration example:
 	*   makka.akka = [
-	*     { // one block with akka configuration contains several aliases and has name
+	*     // one block with akka configuration contains several aliases with the name name
+	*     name1 = {
 	*       aliases = ["alias1, "alias2"]
-	*       name = "akka-instance1" // name is not mandatory - generated "default"
 	*       // standard akka attributes for example:
 	*      	loglevel = "DEBUG"
 	*      	debug {
@@ -20,13 +19,14 @@ import scala.util.Try
 	*      	}
 	*      	// ....
 	*     },
-	*     { // not aliases - only one block allowed
-	*       name = "akka-instance2" // name is not mandatory - generated "default"
+	*     name2 = { // not aliases - only one block allowed
+	*       default = true
 	*       ....
 	*     }
 	*   ]
 	* }}}
-	* in a case when name is generated, only one actor system can be instantiated
+	* In a case when more than one akka configuration exists, one must be denoted as `default` <br/>
+	* In case when missing configuration one default Akka system is created with name default.
 	*/
 class AkkaModule extends Module with Initializable {
 
@@ -46,26 +46,32 @@ class AkkaModule extends Module with Initializable {
 
 	override def initialize(ctx: Context): Boolean = ctx.inject[Config] match {
 		case Some(cfg) => {
-			import scala.collection.JavaConversions._
-			val systems = Try(cfg.getConfigList(AkkaSystemsKey).toList).toOption.fold {
-				ctx.register(ActorSystem("default", cfg)) // empty configuration just create default
-			} { cfgs =>
-				cfgs.map {
-					cfg => {
-						val as = Try(cfg.getString(Name)).toOption
-							.map(name => ActorSystem(name, cfg)).getOrElse(ActorSystem("default", cfg))
-						Try(cfg.getStringList(Aliases)).toOption.fold {
-							ctx.register(as)
-						} { aliases =>
-							aliases.map { alias =>
-								ctx.register(as, Some(alias))
-							}
-						}
+			import makka.config
+			val systems = config.blockAsMap(AkkaSystemsKey)(cfg).fold {
+				ctx.register(ActorSystem("default")) // empty configuration just create default
+			} { bloks =>
+				val bloksWithDefault = if (bloks.size == 1) {
+					bloks.map(p => (p._1, p._2, true))
+				} else {
+					val ret = bloks.map { case (key, cfg) =>
+						val default = cfg.hasPath("default") && cfg.getBoolean("default")
+						(key, cfg, default)
 					}
+					val defaultCount = ret.count({ case (_, _, x) => x })
+					if (defaultCount != 1) {
+						throw new InitializationError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
+					}
+					ret
+				}
+				bloksWithDefault.map { case (key, cfg, default) =>
+					val system = ActorSystem(key, cfg)
+					// register under key as name
+					ctx.register(system, Some(key))
+					val aliases = config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
 				}
 			}
-			true
 		}
+			true
 		case _ => false
 	}
 
