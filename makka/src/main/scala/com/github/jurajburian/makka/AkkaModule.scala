@@ -71,7 +71,7 @@ class AkkaModule extends Module with Initializable {
 					ctx.register(system, Some(key))
 					// register default
 					if(default) {
-						ctx.register(system, Some(key))
+						ctx.register(system)
 					}
 					config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
 				}
