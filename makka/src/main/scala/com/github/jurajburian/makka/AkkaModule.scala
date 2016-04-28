@@ -8,22 +8,24 @@ import com.typesafe.config.Config
 	* Register one or more Actor System
 	* {{{
 	*   configuration example:
-	*   makka.akka = [
+	*   makka.akka = {
 	*     // one block with akka configuration contains several aliases with the name name
 	*     name1 = {
 	*       aliases = ["alias1, "alias2"]
 	*       // standard akka attributes for example:
-	*      	loglevel = "DEBUG"
-	*      	debug {
-	*      	  lifecycle = on
-	*      	}
+	*      	akka{
+	*      	  loglevel = "DEBUG"
+	*        	debug {
+	*        	  lifecycle = on
+	*       	}
+	*       }
 	*      	// ....
 	*     },
 	*     name2 = { // not aliases - only one block allowed
 	*       default = true
 	*       ....
 	*     }
-	*   ]
+	*   }
 	* }}}
 	* In a case when more than one akka configuration exists, one must be denoted as `default` <br/>
 	* In case when missing configuration one default Akka system is created with name default.
@@ -67,7 +69,11 @@ class AkkaModule extends Module with Initializable {
 					val system = ActorSystem(key, cfg)
 					// register under key as name
 					ctx.register(system, Some(key))
-					val aliases = config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
+					// register default
+					if(default) {
+						ctx.register(system, Some(key))
+					}
+					config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
 				}
 			}
 		}
