@@ -8,15 +8,15 @@ class Makka {
 
 	import scala.collection.JavaConversions._
 
-	val ctx = new Context {
+	private class CTX extends Context {
 
 		import scala.collection._
 		import scala.reflect.runtime.universe.TypeTag
 
 		val Default = "$DEFAULT$"
 		val tpe2Key2Inst = mutable.Map.empty[Types#Type, mutable.Map[String, AnyRef]]
-		val running = mutable.Set.empty[Types#Type]
-		val initialized = mutable.Set.empty[Types#Type]
+		val runningSet = mutable.Set.empty[Types#Type]
+		val initializedSet = mutable.Set.empty[Types#Type]
 
 		/**
 			* inject service
@@ -59,14 +59,16 @@ class Makka {
 			tpe2Key2Inst += (tpe -> key2Inst)
 		}
 
-		override def initialized[T <: Module with Initializable](implicit tt: TypeTag[T]): Unit = ???
+		override def initialized[T <: Module with Initializable](implicit tt: TypeTag[T]): Boolean = { initializedSet.contains(tt.tpe)}
 
-		override def running[T <: Module with Runnable](implicit tt: TypeTag[T]): Unit = ???
+		override def running[T <: Module with Runnable](implicit tt: TypeTag[T]): Boolean = {runningSet.contains(tt.tpe)}
+
+		private[Makka] def addInitialized[T <: Module with Initializable](p:T)(implicit tt: TypeTag[T])= { initializedSet += tt.tpe}
+
+		private[Makka] def addRunning[T <: Module with Runnable](p:T)(implicit tt: TypeTag[T]) = {runningSet += tt.tpe}
 	}
 
-	import scala.reflect.runtime.universe.TypeTag
-	private def tpe[T](p:T)(implicit tt: TypeTag[T]) = tt.tpe
-
+	private val ctx = new CTX
 
 	def run() = {
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
@@ -76,7 +78,7 @@ class Makka {
 		// run modules
 		initializedModules.reverse.map { case p: Runnable => {
 			p.run(ctx)
-			ctx.running += tpe(p)
+			ctx.addRunning(p)
 		}; case _ => }
 		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
 	}
@@ -93,7 +95,7 @@ class Makka {
 			case p: Initializable => {
 				val isInitialized = p.initialize(ctx)
 				if(isInitialized) {
-					ctx.initialized +=  tpe(p)
+					ctx.addInitialized(p)
 					is = p::is
 				}
 				!isInitialized
