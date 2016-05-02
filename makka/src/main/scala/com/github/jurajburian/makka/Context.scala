@@ -8,7 +8,7 @@ trait Context {
 	import scala.reflect.runtime.universe.TypeTag
 
 	/**
-		* inject service
+		* inject bean
 		* @param tt
 		* @tparam T require
 		* @return implementation of interface `T` if initialized
@@ -24,11 +24,23 @@ trait Context {
 	def inject[T](key:String)(implicit tt: TypeTag[T]):Option[T]
 
 	/**
-		*
+		* register bean
 		* @param value
 		* @param key
 		* @param tt
 		* @tparam T
 		*/
 	def register[T<:AnyRef](value:T, key:Option[String] = None)(implicit tt: TypeTag[T])
+
+	/**
+		*
+		* @tparam T
+		*/
+	def initialized[T<:(Module with Initializable)](implicit tt: TypeTag[T]):Boolean
+
+	/**
+		*
+		* @tparam T
+		*/
+	def running[T<:(Module with Runnable)](implicit tt: TypeTag[T]):Boolean
 }

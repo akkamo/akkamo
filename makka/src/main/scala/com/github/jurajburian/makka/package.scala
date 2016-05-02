@@ -14,7 +14,7 @@ package object config {
 	def blockAsMap(key:String)(implicit cfg:Config):Option[Map[String, Config]] = Try {
 
 		val keys = cfg.getObject(key).keySet()
-		keys.map{p=>(p, cfg.getConfig("makka.akka." + p))}.toMap.map(p=>(p._1, p._2.resolve()))
+		keys.map{p=>(p, cfg.getConfig(s"$key.$p"))}.toMap.map(p=>(p._1, p._2.resolve()))
 	}.toOption
 
 	def getStringList(path:String)(implicit cfg:Config):Option[List[String]] =  {

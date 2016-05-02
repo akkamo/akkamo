@@ -3,24 +3,26 @@ package com.github.jurajburian.makka
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
+import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
 
 import scala.collection.mutable
-import scala.util.Try
+import scala.concurrent.{Await, Future}
 
 
 /**
 	* @author jubu
 	*/
 trait HttpRegister {
-	def register(route:Route):Unit
+	def register(route: Route): Unit
 }
 
 
 /**
 	* {{{
-	*   makka.akkaHttp = [\
+	*   makka.akkaHttp = {
 	*     // complete configuration with several name aliases
 	*     name1 = {
 	*       aliases = ["alias1", "alias2"]
@@ -30,22 +32,42 @@ trait HttpRegister {
 	*     },
 	*     // configuration registered as default (only one instance is allowed)
 	*     name2 = {
-	*      protocol = "http" // http, https, ...
+	*       default = true
+	*       protocol = "http" // http, https, ...
 	*     }
-	*   ]
+	*   }
 	* }}}
 	* if section `makka.akkaHttp` is missing, then default configuration is generated on port 9000 with http protocol
+	*
 	* @author jubu
 	*/
 class AkkaHttpModule extends Module with Initializable with Runnable {
 
 	val AkkaHttpKey = "makka.akkaHttp"
 
-	private case class HttpConfig(aliases:List[String], port:Int, protocol:String)(implicit as:ActorSystem) extends HttpRegister {
+	val Protocol = "protocol"
+
+	val Port = "port"
+
+	val AkkaAlias = "akkaAlias"
+
+	val Aliases = "aliases"
+
+	var httpConfigs = List.empty[HttpConfig]
+	var bindings = List.empty[ServerBinding]
+
+	private case class HttpConfig(aliases: List[String], port: Int, protocol: String)(implicit as: ActorSystem) extends HttpRegister {
 		val routes = mutable.Set.empty[Route]
+
 
 		override def register(route: Route): Unit = {
 			routes += route
+		}
+
+		def run():Future[ServerBinding] = {
+			import akka.http.scaladsl.server.RouteConcatenation
+			implicit val am = ActorMaterializer()
+			Http().bindAndHandle(RouteConcatenation.concat(routes.toList: _*), protocol, port)
 		}
 	}
 
@@ -58,27 +80,45 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		*         Incomplete initialization mean That component is not able to find all dependencies.
 		*/
 	override def initialize(ctx: Context): Boolean = {
-		val cfg = ctx.inject[Config]
-		val log = ctx.inject[LoggingAdapterFactory].map(_(this))
-		if(cfg.isDefined && log.isDefined) {
+		if (ctx.initialized[ConfigModule] && ctx.initialized[LogModule] && ctx.initialized[AkkaModule]) {
+			val cfg = ctx.inject[Config]
+			val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
+			// TODO if cfg or log is None - throw exception
 			initialize(ctx, cfg.get, log.get)
 		} else {
 			false
 		}
 	}
 
-	def initialize(ctx: Context, cfg:Config, log:LoggingAdapter): Boolean = {
-		import scala.collection.JavaConversions._
-		Try(cfg.getConfigList(AkkaHttpKey).toList).toOption.fold {
-
-			false
-		} {p=>
-			false
+	@throws[InitializationError]
+	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Boolean = {
+		// create list of configuration tuples
+		val httpCfgs = config.blockAsMap(AkkaHttpKey)(cfg).toList.map { case (key, cfg) =>
+			val system = config.getString(AkkaAlias).map {
+				ctx.inject[ActorSystem](_)
+			}.getOrElse(ctx.inject[ActorSystem])
+			if (system.isEmpty) {
+				throw InitializationError(s"Can't find akka system for http configuration: $cfg")
+			}
+			val protocol = config.getString(Protocol).getOrElse("http")
+			val port = config.getInt(Port).getOrElse(-1)
+			val aliases = config.getStringList(Aliases).getOrElse(List.empty[String])
+			(key::aliases, port, protocol, system.get, cfg)
 		}
+		val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_+_)
+		if(combinations != httpCfgs.size) {
+			throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
+		}
+		httpConfigs = httpCfgs.map{case(aliases, port, protocol, system, _)=>HttpConfig(aliases, port, protocol)(system)}
+		true
 	}
 
-	override def run(): Unit = {
 
+	override def run(ctx:Context): Unit = {
+		import scala.concurrent.duration._
+		val futures = httpConfigs.map(p=>p.run())
+		val f = Future.sequence(futures)
+		bindings = Await.result(f, 10 seconds)
 	}
 }
 

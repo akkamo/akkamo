@@ -1,23 +1,22 @@
 package com.github.jurajburian.makka
 
-import com.typesafe.config.ConfigFactory
-import sun.invoke.empty.Empty
 
 import scala.reflect.api.Types
 import scala.util.{Failure, Try}
 
-class Main {
+class Makka {
 
 	import scala.collection.JavaConversions._
-	val modules= java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 
 	val ctx = new Context {
 
-		import scala.reflect.runtime.universe.TypeTag
 		import scala.collection._
+		import scala.reflect.runtime.universe.TypeTag
 
 		val Default = "$DEFAULT$"
 		val tpe2Key2Inst = mutable.Map.empty[Types#Type, mutable.Map[String, AnyRef]]
+		val running = mutable.Set.empty[Types#Type]
+		val initialized = mutable.Set.empty[Types#Type]
 
 		/**
 			* inject service
@@ -49,24 +48,36 @@ class Main {
 			* @param tt
 			* @tparam T
 			*/
-		override def register[T<:AnyRef](value: T, key: Option[String])(implicit tt: TypeTag[T]): Unit = {
+		override def register[T <: AnyRef](value: T, key: Option[String])(implicit tt: TypeTag[T]): Unit = {
 			val tpe = tt.tpe
 			val key2Inst = tpe2Key2Inst.getOrElse(tpe, mutable.Map.empty)
 			val realKey = key.getOrElse(Default)
-			if(key2Inst.contains(realKey)) {
+			if (key2Inst.contains(realKey)) {
 				throw InitializationError(s"module: $value under key: $key already registered")
 			}
-			key2Inst += (key.getOrElse(Default)->value)
-			tpe2Key2Inst += (tpe->key2Inst)
+			key2Inst += (key.getOrElse(Default) -> value)
+			tpe2Key2Inst += (tpe -> key2Inst)
 		}
+
+		override def initialized[T <: Module with Initializable](implicit tt: TypeTag[T]): Unit = ???
+
+		override def running[T <: Module with Runnable](implicit tt: TypeTag[T]): Unit = ???
 	}
 
+	import scala.reflect.runtime.universe.TypeTag
+	private def tpe[T](p:T)(implicit tt: TypeTag[T]) = tt.tpe
+
+
 	def run() = {
+		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 		println(s"Installing modules: $modules")
 		// init modules
-		init(modules)
+		val initializedModules = init(modules)
 		// run modules
-		modules.map {case p:Startable=> p.start(ctx); case _ =>}
+		initializedModules.reverse.map { case p: Runnable => {
+			p.run(ctx)
+			ctx.running += tpe(p)
+		}; case _ => }
 		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
 	}
 
@@ -74,20 +85,28 @@ class Main {
 	/**
 		*
 		* @param modules - input modules
-		* @return remaining, not initialized modules
+		* @return initialized modules
 		*/
-	protected def init(modules:List[Module]):List[Module] = {
-		val ret = modules.filter{
-			case p:Initializable=> !p.initialize(ctx)
-			case _=> false
+	protected def init(modules: List[Module]): List[Module] = {
+		var is = List.empty[Module]
+		val ret = modules.filter {
+			case p: Initializable => {
+				val isInitialized = p.initialize(ctx)
+				if(isInitialized) {
+					ctx.initialized +=  tpe(p)
+					is = p::is
+				}
+				!isInitialized
+			}
+			case _ => false
 		}
-		if(ret.size >= modules.size) {
+		if (ret.size >= modules.size) {
 			throw InitializationError(s"Can't initialize modules: $ret, cycle or unresolved dependency")
 		}
-		if(ret.isEmpty) {
+		if (ret.isEmpty) {
 			ret
 		} else {
-			init(ret)
+			is ++ init(ret)
 		}
 	}
 }
@@ -96,9 +115,9 @@ class Main {
 /**
 	* @author jubu
 	*/
-object Main extends App {
+object Makka extends App {
 
-	val main = new Main()
+	val main = new Makka()
 	Try(main.run) match {
 		case Failure(th) => {
 			th.printStackTrace(Console.err)
@@ -113,7 +132,7 @@ object Main extends App {
 	def shutdownHook() = {
 		Runtime.getRuntime.addShutdownHook(new Thread() {
 			override def run() = {
-				println("Shutdown...")  // TODO modules shutdown to be here
+				println("Shutdown...") // TODO modules shutdown to be here
 			}
 		})
 	}
