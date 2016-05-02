@@ -53,12 +53,11 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 
 	val Aliases = "aliases"
 
-	var httpConfigs = List.empty[HttpConfig]
-	var bindings = List.empty[ServerBinding]
+	private var httpConfigs = List.empty[HttpConfig]
+	private var bindings = List.empty[ServerBinding]
 
-	private case class HttpConfig(aliases: List[String], port: Int, protocol: String)(implicit as: ActorSystem) extends HttpRegister {
+	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, protocol: String)(implicit as: ActorSystem) extends HttpRegister {
 		val routes = mutable.Set.empty[Route]
-
 
 		override def register(route: Route): Unit = {
 			routes += route
@@ -93,16 +92,18 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 	@throws[InitializationError]
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Boolean = {
 		// create list of configuration tuples
-		val httpCfgs = config.blockAsMap(AkkaHttpKey)(cfg).toList.map { case (key, cfg) =>
-			val system = config.getString(AkkaAlias).map {
-				ctx.inject[ActorSystem](_)
-			}.getOrElse(ctx.inject[ActorSystem])
+		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
+		if(mp.isEmpty) {
+			throw InitializationError("Missing Akka http configuration.")
+		}
+		val httpCfgs = mp.get.toList.map {case (key, cfg) =>
+			val system = config.getString(AkkaAlias)(cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
 			if (system.isEmpty) {
 				throw InitializationError(s"Can't find akka system for http configuration: $cfg")
 			}
-			val protocol = config.getString(Protocol).getOrElse("http")
-			val port = config.getInt(Port).getOrElse(-1)
-			val aliases = config.getStringList(Aliases).getOrElse(List.empty[String])
+			val protocol = config.getString(Protocol)(cfg).getOrElse("http")
+			val port = config.getInt(Port)(cfg).getOrElse(-1)
+			val aliases = config.getStringList(Aliases)(cfg).getOrElse(List.empty[String])
 			(key::aliases, port, protocol, system.get, cfg)
 		}
 		val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_+_)
@@ -116,6 +117,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 
 	override def run(ctx:Context): Unit = {
 		import scala.concurrent.duration._
+		import scala.concurrent.ExecutionContext.Implicits.global
 		val futures = httpConfigs.map(p=>p.run())
 		val f = Future.sequence(futures)
 		bindings = Await.result(f, 10 seconds)
