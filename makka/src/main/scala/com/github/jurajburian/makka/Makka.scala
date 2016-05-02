@@ -74,9 +74,9 @@ class Makka {
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 		println(s"Installing modules: $modules")
 		// init modules
-		val initializedModules = init(modules)
+		val initializedModules = init(modules).reverse
 		// run modules
-		initializedModules.reverse.map { case p: Runnable => {
+		(modules.diff(initializedModules) ++ initializedModules).map { case p: Runnable => {
 			p.run(ctx)
 			ctx.addRunning(p)
 		}; case _ => }
