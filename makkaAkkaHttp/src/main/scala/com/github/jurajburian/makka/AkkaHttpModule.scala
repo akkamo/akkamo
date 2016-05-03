@@ -56,10 +56,12 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 
 	val Aliases = "aliases"
 
+	val Default = "default"
+
 	private var httpConfigs = List.empty[HttpConfig]
 	private var bindings = List.empty[ServerBinding]
 
-	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, interface:String, protocol: String)(implicit as: ActorSystem) extends RouteRegistry {
+	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, interface:String, protocol: String, default:Boolean)(implicit as: ActorSystem) extends RouteRegistry {
 		val routes = mutable.Set.empty[Route]
 
 		override def register(route: Route): Unit = {
@@ -70,7 +72,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 			import akka.http.scaladsl.server.RouteConcatenation
 			implicit val am = ActorMaterializer()
 			// TODO protocol configuration
-			Http().bindAndHandle(RouteConcatenation.concat(routes.toList: _*), interface, port)
+			val rts = RouteConcatenation.concat(routes.toList: _*)
+			Http().bindAndHandle(rts, interface, port)
 		}
 	}
 
@@ -100,6 +103,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		if (mp.isEmpty) {
 			throw InitializationError("Missing Akka http configuration.")
 		}
+		val autoDefault = mp.size == 1
 		val httpCfgs = mp.get.toList.map { case (key, cfg) =>
 			val system = config.getString(AkkaAlias)(cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
 			if (system.isEmpty) {
@@ -109,13 +113,20 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 			val port = config.getInt(Port)(cfg).getOrElse(-1)
 			val interface = config.getString(Interface)(cfg).getOrElse("localhost")
 			val aliases = config.getStringList(Aliases)(cfg).getOrElse(List.empty[String])
-			(key :: aliases, port, interface, protocol, system.get, cfg)
+			val default = config.getBoolean(Default)(cfg).getOrElse(autoDefault)
+			(key :: aliases, port, interface, protocol, system.get, default)
+
 		}
 		val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_ + _)
 		if (combinations != httpCfgs.size) {
 			throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
 		}
-		httpConfigs = httpCfgs.map { case (aliases, port, interface, protocol, system, _) => HttpConfig(aliases, port, interface, protocol)(system) }
+		httpConfigs = httpCfgs.map { case rr@(aliases, port, interface, protocol, system, default) =>
+			log.debug(s"route registry: $rr created")
+			HttpConfig(aliases, port, interface, protocol, default)(system) }
+		for(cfg<-httpConfigs if(cfg.default)) {
+			ctx.register[RouteRegistry](cfg)
+		}
 		for(cfg<-httpConfigs; as<-cfg.aliases) {
 			ctx.register[RouteRegistry](cfg,Some(as))
 		}

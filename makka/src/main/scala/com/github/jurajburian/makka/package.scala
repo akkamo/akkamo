@@ -41,4 +41,13 @@ package object config {
 		}
 	}
 
+	def getBoolean(path:String)(implicit cfg:Config):Option[Boolean] =  {
+		if(cfg.hasPath(path)) {
+			Some(cfg.getBoolean(path))
+		} else {
+			None
+		}
+	}
+
+
 }
