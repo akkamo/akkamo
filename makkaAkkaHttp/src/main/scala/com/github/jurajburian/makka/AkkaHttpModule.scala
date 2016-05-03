@@ -15,7 +15,7 @@ import scala.concurrent.{Await, Future}
 /**
 	* @author jubu
 	*/
-trait RouteRegister {
+trait RouteRegistery {
 	def register(route: Route): Unit
 }
 
@@ -56,7 +56,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 	private var httpConfigs = List.empty[HttpConfig]
 	private var bindings = List.empty[ServerBinding]
 
-	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, protocol: String)(implicit as: ActorSystem) extends RouteRegister {
+	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, protocol: String)(implicit as: ActorSystem) extends RouteRegistery {
 		val routes = mutable.Set.empty[Route]
 
 		override def register(route: Route): Unit = {
@@ -112,7 +112,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		}
 		httpConfigs = httpCfgs.map { case (aliases, port, protocol, system, _) => HttpConfig(aliases, port, protocol)(system) }
 		for(cfg<-httpConfigs; as<-cfg.aliases) {
-			ctx.register[RouteRegister](cfg,Some(as))
+			ctx.register[RouteRegistery](cfg,Some(as))
 		}
 		true
 	}
@@ -126,4 +126,3 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		bindings = Await.result(f, 10 seconds)
 	}
 }
-
