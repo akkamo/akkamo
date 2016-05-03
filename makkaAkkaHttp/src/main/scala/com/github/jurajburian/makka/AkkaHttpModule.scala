@@ -125,4 +125,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		val f = Future.sequence(futures)
 		bindings = Await.result(f, 10 seconds)
 	}
+
+	override def toString: String = this.getClass.getSimpleName
 }
