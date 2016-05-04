@@ -1,121 +1,136 @@
 package com.github.jurajburian.makka
 
 
-import scala.reflect.api.Types
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
-class Makka {
+
+private[makka] class CTX extends Context {
+
+	import scala.collection._
+	import scala.reflect.ClassTag
+
+	val Default = "$DEFAULT$"
+	val class2Key2Inst = mutable.Map.empty[Class[_], mutable.Map[String, AnyRef]]
+	val runningSet = mutable.Set.empty[Class[_]]
+	val initializedSet = mutable.Set.empty[Class[_]]
+
+
+	/**
+		* inject service
+		*
+		* @param ct
+		* @tparam T require
+		* @return implementation of interface `T`
+		*/
+
+	override def inject[T](implicit ct: ClassTag[T]): Option[T] = {
+		inject(Default)
+	}
+
+	/**
+		* inject service
+		*
+		* @param key additional mapping identifier
+		* @tparam T
+		* @return
+		*/
+	override def inject[T](key: String)(implicit ct: ClassTag[T]): Option[T] = {
+		class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).map(_.asInstanceOf[T])
+	}
+
+	/**
+		*
+		* @param value
+		* @param key
+		* @param ct
+		* @tparam T
+		*/
+	override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
+		val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
+		val realKey = key.getOrElse(Default)
+		if (key2Inst.contains(realKey)) {
+			throw InitializationError(s"module: $value under key: $key already registered")
+		}
+		key2Inst += (key.getOrElse(Default) -> value)
+		class2Key2Inst += (ct.runtimeClass -> key2Inst)
+	}
+
+	override def initialized[T <: Module with Initializable](implicit ct: ClassTag[T]): Boolean = {
+		val ret = initializedSet.contains(ct.runtimeClass)
+		ret
+	}
+
+	override def running[T <: Module with Runnable](implicit ct: ClassTag[T]): Boolean = {
+		val ret = runningSet.contains(ct.runtimeClass)
+		ret
+	}
+
+	private[makka] def addInitialized[T <: Module with Initializable](p: T) = {
+		initializedSet += p.getClass
+	}
+
+	private[makka] def addRunning[T <: Module with Runnable](p: T)(implicit ct: ClassTag[T]) = {
+		runningSet += p.getClass
+	}
+}
+
+
+object MakkaRun extends ((CTX)=>List[Module]) {
 
 	import scala.collection.JavaConversions._
 
-	private class CTX extends Context {
+	def apply(ctx:CTX) = {
 
-		import scala.collection._
-		import scala.reflect.ClassTag
-
-		val Default = "$DEFAULT$"
-		val class2Key2Inst = mutable.Map.empty[Class[_], mutable.Map[String, AnyRef]]
-		val runningSet = mutable.Set.empty[Class[_]]
-		val initializedSet = mutable.Set.empty[Class[_]]
-
-		/**
-			* inject service
-			*
-			* @param ct
-			* @tparam T require
-			* @return implementation of interface `T`
-			*/
-
-		override def inject[T](implicit ct: ClassTag[T]): Option[T] = {
-			inject(Default)
-		}
-
-		/**
-			* inject service
-			*
-			* @param key additional mapping identifier
-			* @tparam T
-			* @return
-			*/
-		override def inject[T](key: String)(implicit ct: ClassTag[T]): Option[T] = {
-			class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).map(_.asInstanceOf[T])
-		}
-
-		/**
-			*
-			* @param value
-			* @param key
-			* @param ct
-			* @tparam T
-			*/
-		override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
-			val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
-			val realKey = key.getOrElse(Default)
-			if (key2Inst.contains(realKey)) {
-				throw InitializationError(s"module: $value under key: $key already registered")
+		def init(modules: List[Module]): List[Module] = {
+			var is = List.empty[Module]
+			val ret = modules.filter {
+				case p: Initializable => {
+					val isInitialized = p.initialize(ctx)
+					if (isInitialized) {
+						ctx.addInitialized(p)
+						is = p :: is
+					}
+					!isInitialized
+				}
+				case _ => false
 			}
-			key2Inst += (key.getOrElse(Default) -> value)
-			class2Key2Inst += (ct.runtimeClass -> key2Inst)
+			if (ret.size >= modules.size) {
+				throw InitializationError(s"Can't initialize modules: $ret, cycle or unresolved dependency")
+			}
+			if (ret.isEmpty) {
+				ret
+			} else {
+				is ++ init(ret)
+			}
 		}
 
-		override def initialized[T <: Module with Initializable](implicit ct: ClassTag[T]): Boolean = {
-			val ret = initializedSet.contains(ct.runtimeClass)
-			ret
-		}
-
-		override def running[T <: Module with Runnable](implicit ct: ClassTag[T]): Boolean = {
-			val ret = runningSet.contains(ct.runtimeClass)
-			ret
-		}
-
-		private[Makka] def addInitialized[T <: Module with Initializable](p:T)= { initializedSet += p.getClass}
-
-		private[Makka] def addRunning[T <: Module with Runnable](p:T)(implicit ct: ClassTag[T]) = {runningSet += p.getClass}
-	}
-
-	private val ctx = new CTX
-
-	def run() = {
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 		println(s"Installing modules: $modules")
 		// init modules
 		val initializedModules = init(modules).reverse
 		// run modules
-		(modules.diff(initializedModules) ++ initializedModules).map { case p: Runnable => {
-			p.run(ctx)
-			ctx.addRunning(p)
-		}; case _ => }
-		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
-	}
-
-
-	/**
-		*
-		* @param modules - input modules
-		* @return initialized modules
-		*/
-	protected def init(modules: List[Module]): List[Module] = {
-		var is = List.empty[Module]
-		val ret = modules.filter {
-			case p: Initializable => {
-				val isInitialized = p.initialize(ctx)
-				if(isInitialized) {
-					ctx.addInitialized(p)
-					is = p::is
-				}
-				!isInitialized
+		val ret = (modules.diff(initializedModules) ++ initializedModules)
+		ret.map {
+			case p: Runnable => {
+				p.run(ctx)
+				ctx.addRunning(p)
 			}
-			case _ => false
+			case _ =>
 		}
-		if (ret.size >= modules.size) {
-			throw InitializationError(s"Can't initialize modules: $ret, cycle or unresolved dependency")
-		}
-		if (ret.isEmpty) {
-			ret
-		} else {
-			is ++ init(ret)
-		}
+		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
+		ret
 	}
+}
+
+case object MakkaDispose extends ((CTX, List[Module])=>Unit) {
+
+	def apply(ctx:CTX, modules:List[Module]):Unit = modules.map{
+			case p:Disposable => {
+				println(s"Executing dispose on: $p")
+				Try(p.dispose(ctx))
+			}
+			case _ =>
+		}
 }
 
 
@@ -123,25 +138,21 @@ class Makka {
 	* @author jubu
 	*/
 object Makka extends App {
-
-	val main = new Makka()
-	Try(main.run) match {
+	val ctx:CTX = new CTX
+	Try(MakkaRun(ctx)) match {
 		case Failure(th) => {
+			Console.err.println(s"Can't initialize application, reason: ${th.getMessage}!")
 			th.printStackTrace(Console.err)
-			System.exit(0)
+			Console.err.println("System exit")
+			sys.exit(-1)
 		}
-		case _ => {
-			shutdownHook()
-
+		case Success(modules) => {
+			Runtime.getRuntime.addShutdownHook(new Thread() {
+				override def run() = {
+					MakkaDispose(ctx, modules)
+				}
+			})
 		}
-	}
-
-	def shutdownHook() = {
-		Runtime.getRuntime.addShutdownHook(new Thread() {
-			override def run() = {
-				println("Shutdown...") // TODO modules shutdown to be here
-			}
-		})
 	}
 }
 

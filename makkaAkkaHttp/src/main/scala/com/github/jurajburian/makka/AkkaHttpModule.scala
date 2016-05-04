@@ -42,7 +42,7 @@ trait RouteRegistry {
 	*
 	* @author jubu
 	*/
-class AkkaHttpModule extends Module with Initializable with Runnable {
+class AkkaHttpModule extends Module with Initializable with Runnable with Disposable {
 
 	val AkkaHttpKey = "makka.akkaHttp"
 
@@ -138,8 +138,18 @@ class AkkaHttpModule extends Module with Initializable with Runnable {
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._
 		val futures = httpConfigs.map(p => p.run())
-		val f = Future.sequence(futures)
-		bindings = Await.result(f, 10 seconds)
+		val future = Future.sequence(futures)
+		bindings = Await.result(future, 10 seconds)
+	}
+
+
+	@throws[DisposableError]("If dispose execution fails")
+	override def dispose(ctx: Context): Unit = {
+		import scala.concurrent.ExecutionContext.Implicits.global
+		import scala.concurrent.duration._
+		val futures = bindings.map(_.unbind())
+		val future = Future.sequence(futures)
+		Await.result(future, 10 seconds)
 	}
 
 	override def toString: String = this.getClass.getSimpleName

@@ -4,6 +4,9 @@ import akka.actor.ActorSystem
 import com.github.jurajburian.makka
 import com.typesafe.config.Config
 
+import scala.concurrent.{Await, Future}
+import scala.collection.mutable
+
 /**
 	* Register one or more Actor System
 	* {{{
@@ -30,7 +33,7 @@ import com.typesafe.config.Config
 	* In a case when more than one akka configuration exists, one must be denoted as `default` <br/>
 	* In case when missing configuration one default Akka system is created with name default.
 	*/
-class AkkaModule extends Module with Initializable {
+class AkkaModule extends Module with Initializable with Disposable {
 
 	/**
 		* pointer to array containing set of akka Actor System names in configuration
@@ -45,6 +48,8 @@ class AkkaModule extends Module with Initializable {
 		* the name of actor system
 		*/
 	val Name = "name"
+
+	val actorSystems = mutable.Set.empty[ActorSystem]
 
 	override def initialize(ctx: Context): Boolean = ctx.inject[Config] match {
 		case Some(cfg) => {
@@ -67,10 +72,11 @@ class AkkaModule extends Module with Initializable {
 				}
 				bloksWithDefault.map { case (key, cfg, default) =>
 					val system = ActorSystem(key, cfg)
+					actorSystems += system
 					// register under key as name
 					ctx.register(system, Some(key))
 					// register default
-					if(default) {
+					if (default) {
 						ctx.register(system)
 					}
 					config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
@@ -82,4 +88,15 @@ class AkkaModule extends Module with Initializable {
 	}
 
 	override def toString: String = this.getClass.getSimpleName
+
+	@throws[DisposableError]("If dispose execution fails")
+	override def dispose(ctx: Context): Unit = {
+		val log = ctx.inject[LoggingAdapterFactory].map(_(getClass)).get
+		log.info(s"Terminating Actor systems: $actorSystems")
+		import scala.concurrent.ExecutionContext.Implicits.global
+		import scala.concurrent.duration._
+		val futures  = actorSystems.map(_.terminate)
+		val future = Future.sequence(futures)
+		Await.result(future, 10 seconds)
+	}
 }
