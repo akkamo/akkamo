@@ -7,7 +7,7 @@ organization in Global := "com.github.jurajburian"
 
 description := "Makka modules in Akka. Runtime assembly of several modules running on top of Akka."
 
-crossScalaVersions := Seq("2.11.8", cScalaVersion)
+crossScalaVersions in Global := Seq("2.11.8", cScalaVersion)
 
 scalaVersion in Global := cScalaVersion
 
@@ -63,7 +63,7 @@ pomExtra := (
 		</developers>)
 
 scalacOptions in Global := Seq(
-	"-encoding", "UTF-8",
+	"-encoding", "utf-8",
 	"-unchecked",
 	"-deprecation",
 	"-feature",
@@ -73,7 +73,7 @@ scalacOptions in Global := Seq(
 	"-language:postfixOps"
 )
 
-lazy val root = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp)
+lazy val root = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp, makkaSbtPlugin)
 
 lazy val makka = project.in(file("makka")).settings(
 	name := "makka",
@@ -93,3 +93,12 @@ lazy val makkaAkkaHttp = project.in(file("makkaAkkaHttp")).settings(
 		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
 	)
 ).dependsOn(makka)
+
+
+lazy val makkaSbtPlugin = project.in(file("makkaSbtPlugin")).settings(
+	name := "sbt-makka",
+	version := "1.0.0",
+	scalaVersion := "2.10.6",
+	sbtPlugin := true,
+	scalacOptions := Seq("-deprecation", "-encoding", "utf8")
+)

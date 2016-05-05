@@ -4,7 +4,7 @@ package com.github.jurajburian.makka
 import scala.util.{Failure, Success, Try}
 
 
-private[makka] class CTX extends Context {
+class CTX extends Context {
 
 	import scala.collection._
 	import scala.reflect.ClassTag
@@ -75,11 +75,11 @@ private[makka] class CTX extends Context {
 }
 
 
-object MakkaRun extends ((CTX)=>List[Module]) {
+class MakkaRun extends ((CTX)=>List[Module]) {
 
 	import scala.collection.JavaConversions._
 
-	def apply(ctx:CTX) = {
+	override def apply(ctx:CTX) = {
 
 		def init(modules: List[Module]): List[Module] = {
 			var is = List.empty[Module]
@@ -122,9 +122,9 @@ object MakkaRun extends ((CTX)=>List[Module]) {
 	}
 }
 
-case object MakkaDispose extends ((CTX, List[Module])=>Unit) {
+class MakkaDispose extends ((CTX, List[Module])=>Unit) {
 
-	def apply(ctx:CTX, modules:List[Module]):Unit = modules.map{
+	override def apply(ctx:CTX, modules:List[Module]):Unit = modules.map{
 			case p:Disposable => {
 				println(s"Executing dispose on: $p")
 				Try(p.dispose(ctx))
@@ -138,8 +138,11 @@ case object MakkaDispose extends ((CTX, List[Module])=>Unit) {
 	* @author jubu
 	*/
 object Makka extends App {
+	val makkaRun = new MakkaRun
+	val makkaDispose = new MakkaDispose
+
 	val ctx:CTX = new CTX
-	Try(MakkaRun(ctx)) match {
+	Try(makkaRun(ctx)) match {
 		case Failure(th) => {
 			Console.err.println(s"Can't initialize application, reason: ${th.getMessage}!")
 			th.printStackTrace(Console.err)
@@ -149,7 +152,7 @@ object Makka extends App {
 		case Success(modules) => {
 			Runtime.getRuntime.addShutdownHook(new Thread() {
 				override def run() = {
-					MakkaDispose(ctx, modules)
+					makkaDispose(ctx, modules)
 				}
 			})
 		}
