@@ -22,21 +22,31 @@ object MakkaSbtPlugin extends AutoPlugin {
 
 	object autoImport {
 		val runMakka = TaskKey[Unit]("run-makka", "run makka application")
+		val stopMakka = TaskKey[Unit]("stop-makka", "stop makka application")
 	}
 
 	import autoImport._
 
 	override def projectSettings = Seq(
 		fullClasspath in runMakka <<= fullClasspath in Runtime,
-		runMakka <<= (thisProjectRef, fullClasspath in runMakka).map(handleMakka).dependsOn(products in Compile)
+		runMakka <<= (thisProjectRef, fullClasspath in runMakka).map(handleStartMakka).dependsOn(products in Compile),
+		stopMakka <<= (thisProjectRef, fullClasspath in runMakka).map(handleStopMakka)
 	)
 
-	def handleMakka(project: ProjectRef, cp:Classpath) = {
+	def handleStartMakka(project: ProjectRef, cp:Classpath) = {
 		val urls = cp.map(_.data.toURI.toURL).toArray
 		val parent = ClassLoader.getSystemClassLoader.getParent
 		val classLoader = new URLClassLoader(urls,parent)
 		start(stop(makkaState.get()).copy(classLoader = classLoader))
 	}
+
+	def handleStopMakka(project: ProjectRef, cp:Classpath) = {
+		val urls = cp.map(_.data.toURI.toURL).toArray
+		val parent = ClassLoader.getSystemClassLoader.getParent
+		val classLoader = new URLClassLoader(urls,parent)
+		makkaState.set(stop(makkaState.get()))
+	}
+
 
 	private val start = (state: MakkaState) => {
 		val runnable = new Runnable {
@@ -58,6 +68,9 @@ object MakkaSbtPlugin extends AutoPlugin {
 		thread.setContextClassLoader(state.classLoader)
 		thread.setDaemon(true)
 		thread.start
+		while(thread.getState != Thread.State.TERMINATED) {
+			Try(Thread.sleep(100))
+		}
 	}
 
 	private val stop = (state: MakkaState) => {
