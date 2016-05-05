@@ -79,7 +79,7 @@ class MakkaRun extends ((CTX)=>List[Module]) {
 
 	import scala.collection.JavaConversions._
 
-	override def apply(ctx:CTX) = {
+	override def apply(ctx:CTX):List[Module] = {
 
 		def init(modules: List[Module]): List[Module] = {
 			var is = List.empty[Module]

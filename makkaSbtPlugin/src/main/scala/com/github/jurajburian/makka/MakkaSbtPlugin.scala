@@ -4,6 +4,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 import sbt._
 import sbt.Keys._
+import sbt.classpath.NullLoader
+
+import scala.util.Try
 
 /**
 	* Plugin running makka
@@ -30,8 +33,8 @@ object MakkaSbtPlugin extends AutoPlugin {
 
 	def handleMakka(project: ProjectRef, cp:Classpath) = {
 		val urls = cp.map(_.data.toURI.toURL).toArray
-		println(urls.toSeq)
-		val classLoader = new URLClassLoader(urls, getClass.getClassLoader.getParent)
+		val parent = ClassLoader.getSystemClassLoader.getParent
+		val classLoader = new URLClassLoader(urls,parent)
 		start(stop(makkaState.get()).copy(classLoader = classLoader))
 	}
 
@@ -58,17 +61,30 @@ object MakkaSbtPlugin extends AutoPlugin {
 	}
 
 	private val stop = (state: MakkaState) => {
-
-/*
-
-		state.data.map { case (ctx, data) =>
-			val makkaDisposeClass = Class.forName("com.github.jurajburian.makka.MakkaDispose")
-			val di = makkaDisposeClass.newInstance()
-			makkaDisposeClass.getMethods.find(_.getName == "apply").map { m =>
-				m.invoke(di, Array(ctx, data))
+		val thread = state.data.map{case (ctx, data) =>
+			val runnable = new Runnable {
+				override def run(): Unit = {
+					val makkaDispose = Class.forName(
+						"com.github.jurajburian.makka.MakkaDispose", true, Thread.currentThread().getContextClassLoader).newInstance()
+					makkaDispose.getClass.getDeclaredMethods.find{p=>
+						val types = p.getParameterTypes
+						p.getName == "apply" && types.length == 2 && ctx.getClass.isAssignableFrom(types(0))
+					}.map { m =>
+						m.invoke(makkaDispose,ctx.asInstanceOf[Object], data.asInstanceOf[Object])
+					}
+				}
+			}
+			val thread = new Thread(runnable)
+			thread.setContextClassLoader(state.classLoader)
+			thread.setDaemon(true)
+			thread.start
+			thread
+		}
+		thread.map{th=>
+			while(th.getState != Thread.State.TERMINATED) {
+				Try(Thread.sleep(100))
 			}
 		}
-*/
-		state.copy(None)
+		state.copy(data = None, classLoader =  null, project = null)
 	}
 }
