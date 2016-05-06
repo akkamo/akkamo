@@ -75,62 +75,102 @@ class CTX extends Context {
 }
 
 
-class MakkaRun extends ((CTX)=>List[Module]) {
+class MakkaRun extends ((CTX) => List[Module]) {
 
 	import scala.collection.JavaConversions._
 
-	override def apply(ctx:CTX):List[Module] = {
+	type IModule = Module with Initializable
 
-		def init(modules: List[Module]): List[Module] = {
-			var is = List.empty[Module]
-			val ret = modules.filter {
-				case p: Initializable => {
-					val isInitialized = p.initialize(ctx)
-					if (isInitialized) {
-						ctx.addInitialized(p)
-						is = p :: is
+	override def apply(ctx: CTX): List[Module] = {
+
+		type RES = (List[IModule], List[Module], List[(IModule, Throwable)])
+
+		/*
+			* @param input imodules to be initialised
+			* @return pair of not initialized, initialized modules together with the list of pairs error, module
+			*/
+		def initRound(input: List[IModule], out: RES): RES = input match {
+			case x :: xs => Try(x.initialize(ctx)) match {
+				case Success(isInitialized) =>
+					if (!isInitialized) {
+						initRound(xs, out.copy(_1 = x :: out._1))
+					} else {
+						ctx.addInitialized(x)
+						initRound(xs, out.copy(_2 = x :: out._2))
 					}
-					!isInitialized
-				}
-				case _ => false
+				case Failure(th) => initRound(xs, out.copy(_3 = (x, th) :: out._3))
 			}
-			if (ret.size >= modules.size) {
-				throw InitializationError(s"Can't initialize modules: $ret, cycle or unresolved dependency")
-			}
-			if (ret.isEmpty) {
-				ret
+			case _ => out
+		}
+
+		def init(input: List[IModule], out:RES):RES = {
+			val res = initRound(input, out)
+			if(res._1.isEmpty) {
+				res
+			} else if(input.size <= res._1.size) {
+				res
 			} else {
-				is ++ init(ret)
+				init(res._1, res.copy(_1 = List.empty))
 			}
 		}
 
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 		println(s"Installing modules: $modules")
+
+		// at leas one module is initializable and one none
+		val grouped: Map[Boolean, List[Module]] = modules.groupBy{
+			case x:Initializable=> true;
+			case _ => false
+		}
+
 		// init modules
-		val initializedModules = init(modules).reverse
-		// run modules
-		val ret = (modules.diff(initializedModules) ++ initializedModules)
-		ret.map {
-			case p: Runnable => {
-				p.run(ctx)
-				ctx.addRunning(p)
+		val (nis, is, ths) = init(grouped.get(true).get.map(_.asInstanceOf[IModule]),
+				(List.empty[IModule], grouped.get(false).getOrElse(List.empty), List.empty[(IModule, Throwable)]))
+
+		// throw exception if cycle detected or there is some non empty set of exceptions
+		if(!(nis.isEmpty && ths.isEmpty)) {
+			// also fill old causes
+			val e = if(!nis.isEmpty) {
+				InitializationError(s"Can't initialize modules: $nis, cycle or unresolved dependency")
+			} else {
+				InitializationError(s"Somme errors occured during initialization")
 			}
-			case _ =>
+			ths.foldLeft(e){case (e, (m, th)) => e.addSuppressed(InitializationError(s"Also same error on module: $m occured", th)); e}
+			// dispose all
+			Try(new MakkaDispose()(ctx, modules))
+			throw e
+		}
+
+		// run modules
+		val notRunning = is.filter{
+			case p: Runnable => true
+			case _ => false
+		}.map(_.asInstanceOf[Runnable with Module]).map{p=>
+			(p, Try{p.run(ctx);ctx.addRunning(p);p})
+		}.filter(!_._2.isSuccess).map{case (p, thp)=>
+			(p, thp match{case Failure(th)=> th; case _ => new Error()})
+		}
+
+		if(!notRunning.isEmpty) {
+			throw notRunning.foldLeft(InitializationError(s"Somme errors occured during initialization")){case (e, (m, th))=>
+				e.addSuppressed(InitializationError(s"Also same error on module: $m occurred", th))
+				e
+			}
 		}
 		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
-		ret
+		is // return all initialised modules
 	}
 }
 
-class MakkaDispose extends ((CTX, List[Module])=>Unit) {
+class MakkaDispose extends ((CTX, List[Module]) => Unit) {
 
-	override def apply(ctx:CTX, modules:List[Module]):Unit = modules.map{
-			case p:Disposable => {
-				println(s"Executing dispose on: $p")
-				Try(p.dispose(ctx))
-			}
-			case _ =>
+	override def apply(ctx: CTX, modules: List[Module]): Unit = modules.map {
+		case p: Disposable => {
+			println(s"Executing dispose on: $p")
+			Try(p.dispose(ctx))
 		}
+		case _ =>
+	}
 }
 
 
@@ -141,7 +181,7 @@ object Makka extends App {
 	val makkaRun = new MakkaRun
 	val makkaDispose = new MakkaDispose
 
-	val ctx:CTX = new CTX
+	val ctx: CTX = new CTX
 	Try(makkaRun(ctx)) match {
 		case Failure(th) => {
 			Console.err.println(s"Can't initialize application, reason: ${th.getMessage}!")

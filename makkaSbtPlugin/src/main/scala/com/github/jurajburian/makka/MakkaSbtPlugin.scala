@@ -28,6 +28,7 @@ object MakkaSbtPlugin extends AutoPlugin {
 	import autoImport._
 
 	override def projectSettings = Seq(
+		mainClass in Global := Some("com.github.jurajburian.makka.Makka"),
 		fullClasspath in runMakka <<= fullClasspath in Runtime,
 		runMakka <<= (thisProjectRef, fullClasspath in runMakka).map(handleStartMakka).dependsOn(products in Compile),
 		stopMakka <<= (thisProjectRef, fullClasspath in runMakka).map(handleStopMakka)
