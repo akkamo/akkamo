@@ -103,11 +103,11 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			case _ => out
 		}
 
-		def init(input: List[IModule], out:RES):RES = {
+		def init(input: List[IModule], out: RES): RES = {
 			val res = initRound(input, out)
-			if(res._1.isEmpty) {
+			if (res._1.isEmpty) {
 				res
-			} else if(input.size <= res._1.size) {
+			} else if (input.size <= res._1.size) {
 				res
 			} else {
 				init(res._1, res.copy(_1 = List.empty))
@@ -118,42 +118,55 @@ class MakkaRun extends ((CTX) => List[Module]) {
 		println(s"Installing modules: $modules")
 
 		// at leas one module is initializable and one none
-		val grouped: Map[Boolean, List[Module]] = modules.groupBy{
-			case x:Initializable=> true;
+		val grouped: Map[Boolean, List[Module]] = modules.groupBy {
+			case x: Initializable => true;
 			case _ => false
 		}
 
 		// init modules
 		val (nis, is, ths) = init(grouped.get(true).get.map(_.asInstanceOf[IModule]),
-				(List.empty[IModule], grouped.get(false).getOrElse(List.empty), List.empty[(IModule, Throwable)]))
+			(List.empty[IModule], grouped.get(false).getOrElse(List.empty), List.empty[(IModule, Throwable)]))
 
 		// throw exception if cycle detected or there is some non empty set of exceptions
-		if(!(nis.isEmpty && ths.isEmpty)) {
+		if (!(nis.isEmpty && ths.isEmpty)) {
 			// also fill old causes
-			val e = if(!nis.isEmpty) {
-				InitializationError(s"Can't initialize modules: $nis, cycle or unresolved dependency")
+			val e = if (!ths.isEmpty) {
+				InitializationError(s"Somme errors occurred during initialization")
 			} else {
-				InitializationError(s"Somme errors occured during initialization")
+				InitializationError(s"Can't initialize modules: $nis, cycle or unresolved dependency")
 			}
-			ths.foldLeft(e){case (e, (m, th)) => e.addSuppressed(InitializationError(s"Also same error on module: $m occured", th)); e}
+			ths.foldLeft(e) {
+				case (e, (m, th)) => {
+					e.addSuppressed(th);
+					e
+				}
+			}
 			// dispose all
 			Try(new MakkaDispose()(ctx, modules))
 			throw e
 		}
 
 		// run modules
-		val notRunning = is.filter{
+		val notRunning = is.filter {
 			case p: Runnable => true
 			case _ => false
-		}.map(_.asInstanceOf[Runnable with Module]).map{p=>
-			(p, Try{p.run(ctx);ctx.addRunning(p);p})
-		}.filter(!_._2.isSuccess).map{case (p, thp)=>
-			(p, thp match{case Failure(th)=> th; case _ => new Error()})
+		}.map(_.asInstanceOf[Runnable with Module]).map { p =>
+			(p, Try {
+				p.run(ctx);
+				ctx.addRunning(p);
+				p
+			})
+		}.filter(!_._2.isSuccess).map { case (p, thp) =>
+			(p, thp match {
+				case Failure(th) => th;
+				case _ => new Error()
+			})
 		}
 
-		if(!notRunning.isEmpty) {
-			throw notRunning.foldLeft(InitializationError(s"Somme errors occured during initialization")){case (e, (m, th))=>
-				e.addSuppressed(InitializationError(s"Also same error on module: $m occurred", th))
+		if (!notRunning.isEmpty) {
+			Try(new MakkaDispose()(ctx, modules))
+			throw notRunning.foldLeft(RunError(s"Somme errors occurred during attempt to run installed modules")) { case (e, (m, th)) =>
+				e.addSuppressed(th)
 				e
 			}
 		}
@@ -200,3 +213,5 @@ object Makka extends App {
 }
 
 case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
+
+case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)

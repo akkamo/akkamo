@@ -10,6 +10,7 @@ import com.typesafe.config.Config
 
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
+import scala.util.Failure
 
 
 /**
@@ -137,7 +138,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	override def run(ctx: Context): Unit = {
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._
-		val futures = httpConfigs.map(p => p.run())
+		val futures = httpConfigs.map(p => p.run().transform(p=>p, th=>RunnableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
 		bindings = Await.result(future, 10 seconds)
 	}

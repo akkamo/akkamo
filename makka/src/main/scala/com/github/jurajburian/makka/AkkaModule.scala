@@ -6,6 +6,7 @@ import com.typesafe.config.Config
 
 import scala.concurrent.{Await, Future}
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 /**
 	* Register one or more Actor System
@@ -55,7 +56,11 @@ class AkkaModule extends Module with Initializable with Disposable {
 		case Some(cfg) => {
 			import makka.config
 			val systems = config.blockAsMap(AkkaSystemsKey)(cfg).fold {
-				ctx.register(ActorSystem("default")) // empty configuration just create default
+				// empty configuration just create default
+				Try(ctx.register(ActorSystem("default"))) match {
+					case Success(_)=>
+					case Failure(th)=> throw InitializationError("Can't initialize default Akka system", th)
+				}
 			} { bloks =>
 				val bloksWithDefault = if (bloks.size == 1) {
 					bloks.map(p => (p._1, p._2, true))
@@ -71,19 +76,24 @@ class AkkaModule extends Module with Initializable with Disposable {
 					ret
 				}
 				bloksWithDefault.map { case (key, cfg, default) =>
-					val system = ActorSystem(key, cfg)
-					actorSystems += system
-					// register under key as name
-					ctx.register(system, Some(key))
-					// register default
-					if (default) {
-						ctx.register(system)
+					Try {
+						val system = ActorSystem(key, cfg)
+						actorSystems += system
+						// register under key as name
+						ctx.register(system, Some(key))
+						// register default
+						if (default) {
+							ctx.register(system)
+						}
+						config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
+					} match {
+						case Success(_)=>
+						case Failure(th)=> throw InitializationError(s"Can't initialize Akka system defined by: $key", th)
 					}
-					config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
 				}
 			}
 		}
-			true
+		true
 		case _ => false
 	}
 
