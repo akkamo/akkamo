@@ -52,11 +52,13 @@ package object config {
 
 	private def getInternal[T](path: String, cfg: Config, t: Transformer[T]): Option[T] = {
 		if (cfg.hasPath(path)) {
-			Some(t.transform(cfg, path))
+			Some(t(cfg, path))
 		} else {
 			None
 		}
 	}
+
+	type Transformer[T] = (Config, String)=>T
 
 	def get[T](key: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = {
 		getInternal[T](key, cfg, t)
@@ -67,27 +69,16 @@ package object config {
 		getInternal[T](key, cfg, t)
 	}
 
-	implicit val cfg2Int = new Transformer[Int] {
-		override def transform(cfg: Config, key: String): Int = cfg.getInt(key)
-	}
+	implicit val cfg2Int:Transformer[Int] = (cfg: Config, key: String) => cfg.getInt(key)
 
-	implicit val cfg2String = new Transformer[String] {
-		override def transform(cfg: Config, key: String): String = cfg.getString(key)
-	}
+	implicit val cfg2String:Transformer[String] = (cfg: Config, key: String) => cfg.getString(key)
 
-	implicit val cfg2StringList = new Transformer[List[String]] {
-		override def transform(cfg: Config, key: String): List[String] = cfg.getStringList(key).toList
-	}
+	implicit val cfg2StringList:Transformer[List[String]] = (cfg: Config, key: String) => cfg.getStringList(key).toList
 
-	implicit val cfg2Config = new Transformer[Config] {
-		override def transform(cfg: Config, key: String): Config = cfg.getConfig(key)
-	}
+	implicit val cfg2Config:Transformer[Config] = (cfg: Config, key: String) => cfg.getConfig(key)
 
-	implicit val cfg2Boolean = new Transformer[Boolean] {
-		override def transform(cfg: Config, key: String): Boolean = cfg.getBoolean(key)
-	}
+	implicit val cfg2Boolean:Transformer[Boolean] = (cfg: Config, key: String) => cfg.getBoolean(key)
 }
 
-trait Transformer[T] {
-	def transform(cfg: Config, key: String): T
-}
+
+
