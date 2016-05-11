@@ -98,6 +98,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	@throws[InitializationError]
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Boolean = {
+		import config._
+
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
 		if (mp.isEmpty) {
@@ -105,15 +107,15 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		}
 		val autoDefault = mp.size == 1
 		val httpCfgs = mp.get.toList.map { case (key, cfg) =>
-			val system = config.getString(AkkaAlias)(cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
+			val system = config.get[String](AkkaAlias, cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
 			if (system.isEmpty) {
 				throw InitializationError(s"Can't find akka system for http configuration: $cfg")
 			}
-			val protocol = config.getString(Protocol)(cfg).getOrElse("http")
-			val port = config.getInt(Port)(cfg).getOrElse(-1)
-			val interface = config.getString(Interface)(cfg).getOrElse("localhost")
-			val aliases = config.getStringList(Aliases)(cfg).getOrElse(List.empty[String])
-			val default = config.getBoolean(Default)(cfg).getOrElse(autoDefault)
+			val protocol = config.get[String](Protocol, cfg).getOrElse("http")
+			val port = config.get[Int](Port, cfg).getOrElse(-1)
+			val interface = config.get[String](Interface, cfg).getOrElse("localhost")
+			val aliases = config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
+			val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
 			(key :: aliases, port, interface, protocol, system.get, default)
 
 		}

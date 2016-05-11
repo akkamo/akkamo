@@ -1,7 +1,6 @@
 package com.github.jurajburian.makka
 
 import akka.actor.ActorSystem
-import com.github.jurajburian.makka
 import com.typesafe.config.Config
 
 import scala.concurrent.{Await, Future}
@@ -54,7 +53,6 @@ class AkkaModule extends Module with Initializable with Disposable {
 
 	override def initialize(ctx: Context): Boolean = ctx.inject[Config] match {
 		case Some(cfg) => {
-			import makka.config
 			val systems = config.blockAsMap(AkkaSystemsKey)(cfg).fold {
 				// empty configuration just create default
 				Try(ctx.register(ActorSystem("default"))) match {
@@ -75,8 +73,9 @@ class AkkaModule extends Module with Initializable with Disposable {
 					}
 					ret
 				}
-				bloksWithDefault.map { case (key, cfg, default) =>
+				bloksWithDefault.foreach { case (key, cfg, default) =>
 					Try {
+						import config._
 						val system = ActorSystem(key, cfg)
 						actorSystems += system
 						// register under key as name
@@ -85,7 +84,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 						if (default) {
 							ctx.register(system)
 						}
-						config.getStringList(Aliases)(cfg).map(_.map(name => ctx.register(system, Some(name))))
+						config.get[List[String]](Aliases, cfg).map(_.map(name => ctx.register(system, Some(name))))
 					} match {
 						case Success(_)=>
 						case Failure(th)=> throw InitializationError(s"Can't initialize Akka system defined by: $key", th)
