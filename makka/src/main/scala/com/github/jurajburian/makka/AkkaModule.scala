@@ -97,15 +97,13 @@ class AkkaModule extends Module with Initializable with Disposable {
 		case _ => false
 	}
 
-	override def toString: String = this.getClass.getSimpleName
-
 	@throws[DisposableError]("If dispose execution fails")
 	override def dispose(ctx: Context): Unit = {
 		val log = ctx.inject[LoggingAdapterFactory].map(_(getClass)).get
 		log.info(s"Terminating Actor systems: $actorSystems")
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._
-		val futures  = actorSystems.map(_.terminate)
+		val futures  = actorSystems.map(p=>p.terminate.transform(p=>p, th=>DisposableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
 		Await.result(future, 10 seconds)
 	}

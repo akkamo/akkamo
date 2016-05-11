@@ -55,6 +55,4 @@ class LogModule extends Module with Initializable {
 		}
 		case _ => false // no config postpone initialization
 	}
-
-	override def toString: String = this.getClass.getSimpleName
 }
