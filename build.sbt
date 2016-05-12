@@ -85,7 +85,7 @@ lazy val makka = project.in(file("makka")).settings(
 		"com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
-		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
+		"com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources
 	)
 )
 
