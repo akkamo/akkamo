@@ -73,11 +73,12 @@ scalacOptions in Global := Seq(
 	"-language:postfixOps"
 )
 
+version in Global := "1.0.0-SNAPSHOT"
+
 lazy val root = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp, makkaSbtPlugin)
 
 lazy val makka = project.in(file("makka")).settings(
 	name := "makka",
-	version := "1.0.0",
 	libraryDependencies ++= Seq(
 		"org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
 		"com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
@@ -91,7 +92,6 @@ lazy val makka = project.in(file("makka")).settings(
 
 lazy val makkaAkkaHttp = project.in(file("makkaAkkaHttp")).settings(
 	name := "makka-akka-http",
-	version := "1.0.0",
 	libraryDependencies ++= Seq(
 		"com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
@@ -101,7 +101,6 @@ lazy val makkaAkkaHttp = project.in(file("makkaAkkaHttp")).settings(
 
 lazy val makkaSbtPlugin = project.in(file("makkaSbtPlugin")).settings(
 	name := "sbt-makka",
-	version := "1.0.0",
 	scalaVersion := "2.10.6",
 	sbtPlugin := true,
 	scalacOptions := Seq("-deprecation", "-encoding", "utf8")
