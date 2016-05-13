@@ -66,11 +66,11 @@ class CTX extends Context {
 	}
 
 	private[makka] def addInitialized[T <: Module with Initializable](p: T) = {
-		initializedSet += p.getClass
+		initializedSet += p.iKey()
 	}
 
 	private[makka] def addRunning[T <: Module with Runnable](p: T)(implicit ct: ClassTag[T]) = {
-		runningSet += p.getClass
+		runningSet += p.rKey()
 	}
 }
 

@@ -15,6 +15,14 @@ trait Initializable {
 		*/
 	@throws[InitializationError]("If initialization can't be finished")
 	def initialize(ctx:Context):Boolean
+
+	/**
+		* Instance of initalizable is registered in the context under this "class" key. <br/>
+		* Override method if want to have different registration key class, for example an interface instead of concrete class
+		*
+		* @return
+		*/
+	def iKey() = this.getClass
 }
 
 /**
