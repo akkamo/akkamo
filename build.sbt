@@ -1,6 +1,6 @@
 import sbt.Keys._
 
-lazy val cScalaVersion =  "2.11.8"
+lazy val cScalaVersion =  "2.11.7"
 lazy val cAkkaVersion =  "2.4.4"
 
 organization in Global := "com.github.jurajburian"
