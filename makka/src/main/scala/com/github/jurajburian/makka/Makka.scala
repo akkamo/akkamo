@@ -60,10 +60,29 @@ class CTX extends Context {
 		ret
 	}
 
+	override def initializedWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
+		case class W(last:Boolean) extends With {
+			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
+				W(initializedSet.contains(ct.runtimeClass))
+			override def res: Boolean = last
+		}
+		W(initializedSet.contains(ct.runtimeClass))
+	}
+
 	override def running[T <: Module with Runnable](implicit ct: ClassTag[T]): Boolean = {
 		val ret = runningSet.contains(ct.runtimeClass)
 		ret
 	}
+
+	override def runningWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
+		case class W(last:Boolean) extends With {
+			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
+				W(runningSet.contains(ct.runtimeClass))
+			override def v: Boolean = last
+		}
+		W(runningSet.contains(ct.runtimeClass))
+	}
+
 
 	private[makka] def addInitialized[T <: Module with Initializable](p: T) = {
 		initializedSet += p.iKey()

@@ -1,7 +1,6 @@
 package com.github.jurajburian.makka
 
 
-
 /**
 	* Context dispatched during all phases in module lifecycle
 	*
@@ -9,6 +8,11 @@ package com.github.jurajburian.makka
 	*/
 trait Context {
 	import scala.reflect.ClassTag
+
+	trait With {
+		def &&[T<:(Module with Initializable)](implicit ct: ClassTag[T]):With
+		def res:Boolean
+	}
 
 	/**
 		* inject bean
@@ -40,13 +44,32 @@ trait Context {
 
 	/**
 		*
+		* @param ct class tag evidence
 		* @tparam T
+		* @return true if module is initialized
 		*/
 	def initialized[T<:(Module with Initializable)](implicit ct: ClassTag[T]):Boolean
+
+	/**
+		*
+		* @param ct
+		* @tparam T
+		* @return [[With]] instance
+		*/
+	def initializedWith[T<:(Module with Initializable)](implicit ct: ClassTag[T]):With
+
 
 	/**
 		*
 		* @tparam T
 		*/
 	def running[T<:(Module with Runnable)](implicit ct: ClassTag[T]):Boolean
+
+	/**
+		*
+		* @param ct
+		* @tparam T
+		* @return
+		*/
+	def runningWith[T<:(Module with Initializable)](implicit ct: ClassTag[T]):With
 }
