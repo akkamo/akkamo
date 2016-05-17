@@ -75,7 +75,7 @@ scalacOptions in Global := Seq(
 
 version in Global := "1.0.0-SNAPSHOT"
 
-lazy val root = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp, makkaSbtPlugin)
+lazy val rootMakka = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp, makkaSbtPlugin)
 
 lazy val makka = project.in(file("makka")).settings(
 	name := "makka",
