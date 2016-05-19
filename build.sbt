@@ -83,7 +83,6 @@ lazy val makka = project.in(file("makka")).settings(
 		"org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
 		"com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-cluster-tools" % cAkkaVersion withSources,
-		"com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources

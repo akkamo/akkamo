@@ -19,13 +19,16 @@ class CTX extends Context {
 	}
 
 	override def inject[T](key: String, strict:Boolean = false)(implicit ct: ClassTag[T]): Option[T] = {
-		val ret = class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).map(_.asInstanceOf[T])
-		if(ret.isEmpty && !strict) {
-			inject(Default)
-		} else {
-			ret
-		}
+		class2Key2Inst.get(ct.runtimeClass).flatMap { p =>
+			val ret = p.get(key)
+			if(ret.isEmpty && !strict) {
+				p.get(Default)
+			} else {
+				ret
+			}
+		}.map(_.asInstanceOf[T])
 	}
+
 
 	override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
 		val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
