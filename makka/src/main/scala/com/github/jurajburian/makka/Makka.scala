@@ -14,37 +14,19 @@ class CTX extends Context {
 	val runningSet = mutable.Set.empty[Class[_]]
 	val initializedSet = mutable.Set.empty[Class[_]]
 
-
-	/**
-		* inject service
-		*
-		* @param ct
-		* @tparam T require
-		* @return implementation of interface `T`
-		*/
-
 	override def inject[T](implicit ct: ClassTag[T]): Option[T] = {
 		inject(Default)
 	}
 
-	/**
-		* inject service
-		*
-		* @param key additional mapping identifier
-		* @tparam T
-		* @return
-		*/
-	override def inject[T](key: String)(implicit ct: ClassTag[T]): Option[T] = {
-		class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).map(_.asInstanceOf[T])
+	override def inject[T](key: String, strict:Boolean = false)(implicit ct: ClassTag[T]): Option[T] = {
+		val ret = class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).map(_.asInstanceOf[T])
+		if(ret.isEmpty && !strict) {
+			inject(Default)
+		} else {
+			ret
+		}
 	}
 
-	/**
-		*
-		* @param value
-		* @param key
-		* @param ct
-		* @tparam T
-		*/
 	override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
 		val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
 		val realKey = key.getOrElse(Default)

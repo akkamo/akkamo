@@ -11,26 +11,29 @@ trait Context {
 
 	trait With {
 		def &&[T<:(Module with Initializable)](implicit ct: ClassTag[T]):With
+		def apply() = res
 		def res:Boolean
 	}
 
 	/**
-		* inject bean
+		* inject registered service
 		*
 		* @param ct
-		* @tparam T require
+		* @tparam T
 		* @return implementation of interface `T` if initialized
 		*/
 	def inject[T](implicit ct: ClassTag[T]):Option[T]
 
 	/**
-		* inject service
+		* inject registered service
 		*
 		* @param key additional mapping identifier
+		* @param strict - if true, only named instance is returned
+		*               if false then when nothing found under key then default instance is returned if exists and is initialized
 		* @tparam T
 		* @return implementation of interface `T` if initialized
 		*/
-	def inject[T](key:String)(implicit ct: ClassTag[T]):Option[T]
+	def inject[T](key:String, strict:Boolean = false)(implicit ct: ClassTag[T]):Option[T]
 
 	/**
 		* register bean
