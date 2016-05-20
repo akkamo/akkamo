@@ -48,7 +48,7 @@ class CTX extends Context {
 	override def initializedWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
 		case class W(last:Boolean) extends With {
 			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
-				W(initializedSet.contains(ct.runtimeClass))
+				W(initializedSet.contains(ct.runtimeClass) && last)
 			override def res: Boolean = last
 		}
 		W(initializedSet.contains(ct.runtimeClass))
@@ -62,7 +62,7 @@ class CTX extends Context {
 	override def runningWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
 		case class W(last:Boolean) extends With {
 			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
-				W(runningSet.contains(ct.runtimeClass))
+				W(runningSet.contains(ct.runtimeClass) && last)
 			override def res: Boolean = last
 		}
 		W(runningSet.contains(ct.runtimeClass))
