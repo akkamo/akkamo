@@ -105,7 +105,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		if (mp.isEmpty) {
 			throw InitializationError("Missing Akka http configuration.")
 		}
-		val autoDefault = mp.size == 1
+		val autoDefault = mp.get.size == 1
 		val httpCfgs = mp.get.toList.map { case (key, cfg) =>
 			val system = config.get[String](AkkaAlias, cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
 			if (system.isEmpty) {
