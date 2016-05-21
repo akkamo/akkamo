@@ -36,22 +36,26 @@ import scala.util.{Failure, Success, Try}
 class AkkaModule extends Module with Initializable with Disposable {
 
 	/**
-		* pointer to array containing set of akka Actor System names in configuration
-		*/
+	 * pointer to array containing set of akka Actor System names in configuration
+	 */
 	val AkkaSystemsKey = "makka.akka"
+
 	/**
-		* in concrete akka config points to array of aliases
-		*/
+	 * in concrete akka config points to array of aliases
+	 */
 	val Aliases = "aliases"
 
 	/**
-		* the name of actor system
-		*/
+	 * the name of actor system
+	 */
 	val Name = "name"
 
 	val actorSystems = mutable.Set.empty[ActorSystem]
 
-	override def initialize(ctx: Context): Boolean = ctx.inject[Config] match {
+	/**
+	 * Initializes the module into provided mutable context, blocking
+	 */
+	override def initialize(ctx:Context):Boolean = ctx.inject[Config] match {
 		case Some(cfg) => {
 			val systems = config.blockAsMap(AkkaSystemsKey)(cfg).fold {
 				// empty configuration just create default
@@ -96,14 +100,18 @@ class AkkaModule extends Module with Initializable with Disposable {
 		case _ => false
 	}
 
+	//FIXME disposable error already thrown with a same message in overriden method
 	@throws[DisposableError]("If dispose execution fails")
 	override def dispose(ctx: Context): Unit = {
 		val log = ctx.inject[LoggingAdapterFactory].map(_(getClass)).get
 		log.info(s"Terminating Actor systems: $actorSystems")
+
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._
+
 		val futures  = actorSystems.map(p=>p.terminate.transform(p=>p, th=>DisposableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
 		Await.result(future, 10 seconds)
 	}
+
 }

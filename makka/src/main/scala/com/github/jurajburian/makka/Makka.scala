@@ -1,15 +1,15 @@
 package com.github.jurajburian.makka
 
-
 import scala.util.{Failure, Success, Try}
 
-
+//TODO mystery code below
 class CTX extends Context {
 
 	import scala.collection._
 	import scala.reflect.ClassTag
 
 	val Default = "$DEFAULT$"
+	//TODO please comment what you are storing in these sets
 	val class2Key2Inst = mutable.Map.empty[Class[_], mutable.Map[String, AnyRef]]
 	val runningSet = mutable.Set.empty[Class[_]]
 	val initializedSet = mutable.Set.empty[Class[_]]
@@ -18,7 +18,7 @@ class CTX extends Context {
 		inject(Default)
 	}
 
-	override def inject[T](key: String, strict:Boolean = false)(implicit ct: ClassTag[T]): Option[T] = {
+	override def inject[T](key:String, strict:Boolean = false)(implicit ct:ClassTag[T]):Option[T] = {
 		class2Key2Inst.get(ct.runtimeClass).flatMap { p =>
 			val ret = p.get(key)
 			if(ret.isEmpty && !strict) {
@@ -29,8 +29,13 @@ class CTX extends Context {
 		}.map(_.asInstanceOf[T])
 	}
 
-
-	override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
+	/** ?
+	 *
+	 * @param value
+	 * @param key
+	 * @tparam T
+	 */
+	override def register[T <:AnyRef](value:T, key:Option[String])(implicit ct:ClassTag[T]): Unit = {
 		val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
 		val realKey = key.getOrElse(Default)
 		if (key2Inst.contains(realKey)) {
@@ -40,42 +45,60 @@ class CTX extends Context {
 		class2Key2Inst += (ct.runtimeClass -> key2Inst)
 	}
 
-	override def initialized[T <: Module with Initializable](implicit ct: ClassTag[T]): Boolean = {
+	/** ?
+	 *
+	 * @tparam T
+	 */
+	override def initialized[T <:Module with Initializable](implicit ct:ClassTag[T]):Boolean = {
 		val ret = initializedSet.contains(ct.runtimeClass)
 		ret
 	}
 
-	override def initializedWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
+	/** ?
+	 *
+	 * @tparam T
+	 */
+	override def initializedWith[T <:Module with Initializable](implicit ct:ClassTag[T]):With = {
+		//please rename, mystery code ahead
 		case class W(last:Boolean) extends With {
-			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
-				W(initializedSet.contains(ct.runtimeClass) && last)
-			override def res: Boolean = last
+			override def &&[K <:Module with Initializable](implicit ct:ClassTag[K]):With =
+				W(last && initializedSet.contains(ct.runtimeClass))
+			override def res:Boolean = last
 		}
 		W(initializedSet.contains(ct.runtimeClass))
 	}
 
-	override def running[T <: Module with Runnable](implicit ct: ClassTag[T]): Boolean = {
+	/** ?
+	 *
+	 * @tparam T
+	 */
+	override def running[T <:Module with Runnable](implicit ct: ClassTag[T]):Boolean = {
 		val ret = runningSet.contains(ct.runtimeClass)
 		ret
 	}
 
-	override def runningWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
+	/** ?
+	 *
+	 * @tparam T
+	 */
+	override def runningWith[T <:Module with Initializable](implicit ct:ClassTag[T]):With = {
+		//please rename, mystery code ahead
 		case class W(last:Boolean) extends With {
-			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]):With =
-				W(runningSet.contains(ct.runtimeClass) && last)
+			override def &&[K <:Module with Initializable](implicit ct:ClassTag[K]):With =
+				W(last && runningSet.contains(ct.runtimeClass))
 			override def res: Boolean = last
 		}
 		W(runningSet.contains(ct.runtimeClass))
 	}
 
-
-	private[makka] def addInitialized[T <: Module with Initializable](p: T) = {
+	private[makka] def addInitialized[T <:Module with Initializable](p: T) = {
 		initializedSet += p.iKey()
 	}
 
-	private[makka] def addRunning[T <: Module with Runnable](p: T) = {
+	private[makka] def addRunning[T <:Module with Runnable](p: T) = {
 		runningSet += p.rKey()
 	}
+
 }
 
 
@@ -85,15 +108,17 @@ class MakkaRun extends ((CTX) => List[Module]) {
 
 	type IModule = Module with Initializable
 
-	override def apply(ctx: CTX): List[Module] = {
+	override def apply(ctx:CTX):List[Module] = {
 
 		type RES = (List[IModule], List[Module], List[(IModule, Throwable)])
 
-		/*
-			* @param input imodules to be initialised
-			* @return pair of not initialized, initialized modules together with the list of pairs error, module
-			*/
-		def initRound(input: List[IModule], out: RES): RES = input match {
+		/**
+		 * @param input imodules to be initialised
+		 * @param out
+		 * @return pair of not initialized, initialized modules together with the
+		 *         list of pairs error, module
+		 */
+		def initRound(input: List[IModule], out:RES):RES = input match {
 			case x :: xs => Try(x.initialize(ctx)) match {
 				case Success(isInitialized) =>
 					if (!isInitialized) {
@@ -107,7 +132,12 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			case _ => out
 		}
 
-		def init(input: List[IModule], out: RES): RES = {
+
+		/**
+		 * @param input
+		 * @param out
+		 */
+		def init(input:List[IModule], out:RES):RES = {
 			val res = initRound(input, out)
 			if (res._1.isEmpty) {
 				res
@@ -118,12 +148,13 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			}
 		}
 
+		//TODO is there a reason to convert iterator toList instead of using iterator? Perf?
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
 		println(s"Installing modules: $modules")
 
 		// at leas one module is initializable and one none
 		val grouped: Map[Boolean, List[Module]] = modules.groupBy {
-			case x: Initializable => true;
+			case x: Initializable => true
 			case _ => false
 		}
 
@@ -188,17 +219,17 @@ class MakkaDispose extends ((CTX, List[Module]) => Unit) {
 		}
 		case _ =>
 	}
+
 }
 
-
 /**
-	* @author jubu
-	*/
+ * @author jubu
+ */
 object Makka extends App {
 	val makkaRun = new MakkaRun
 	val makkaDispose = new MakkaDispose
 
-	val ctx: CTX = new CTX
+	val ctx:CTX = new CTX
 	Try(makkaRun(ctx)) match {
 		case Failure(th) => {
 			Console.err.println(s"Can't initialize application, reason: ${th.getMessage}!")
@@ -216,6 +247,18 @@ object Makka extends App {
 	}
 }
 
-case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
+//FIXME there is InitializableError, InitializationError name may be confusing
+/**
+ *
+ * @param message
+ * @param cause
+ */
+case class InitializationError(message:String, cause:Throwable = null) extends Error(message, cause)
 
-case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)
+/**
+ *
+ * @param message
+ * @param cause
+ */
+case class RunError(message:String, cause:Throwable = null) extends Error(message, cause)
+
