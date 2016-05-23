@@ -112,12 +112,6 @@ class MakkaRun extends ((CTX) => List[Module]) {
 
 		type RES = (List[IModule], List[Module], List[(IModule, Throwable)])
 
-		/**
-		 * @param input imodules to be initialised
-		 * @param out
-		 * @return pair of not initialized, initialized modules together with the
-		 *         list of pairs error, module
-		 */
 		def initRound(input: List[IModule], out:RES):RES = input match {
 			case x :: xs => Try(x.initialize(ctx)) match {
 				case Success(isInitialized) =>
@@ -132,11 +126,6 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			case _ => out
 		}
 
-
-		/**
-		 * @param input
-		 * @param out
-		 */
 		def init(input:List[IModule], out:RES):RES = {
 			val res = initRound(input, out)
 			if (res._1.isEmpty) {
