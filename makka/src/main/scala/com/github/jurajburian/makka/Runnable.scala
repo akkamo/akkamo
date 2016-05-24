@@ -1,31 +1,39 @@
 package com.github.jurajburian.makka
 
 /**
- * Provides a signature that given type is Runnable, enables modules to run
- * in given context under given identifier
- *
- * @author jubu
- */
+	* Trait indicating that the module extending this requires to perform some actions after the
+	* initialization stage (i.e. in time when all modules are initialized).
+	*
+	* @author jubu
+	*/
 trait Runnable {
 
+	/**
+		* Method the module extending this trait must implement, contains module logic to be performed
+		* after the initialization stage (i.e. when all modules are initialized). As an input parameter,
+		* the ''Makka'' context is given.
+		*
+		* @param ctx ''Makka'' context
+		* @throws RunnableError thrown in case of serious unrecoverable error during the run stage
+		*/
 	@throws[RunnableError]("If run execution fails")
 	def run(ctx:Context):Unit
 
 	/**
-	 * Instance of Runnable is registered in the context under this class. <br/>
-	 * Override method if want to have different registration key class, for
-	 * example an interface instead of concrete class
-	 *
-	 * @return
-	 */
+		* Instance of [[Runnable]] is registered into the ''Makka'' context by default under
+		* this module class. Override this method in order to achieve different registration key
+		* class, for example an interface instead of concrete implementation.
+		*
+		* @return registration key class
+		*/
 	def rKey() = this.getClass
 
 }
 
 /**
- * Error thrown by Runnable types during run phase
- *
- * @param message
- * @param cause
- */
+	* Error to be thrown in case of serious unrecoverable error during the run stage.
+	*
+	* @param message error message
+	* @param cause   optional value of cause
+	*/
 case class RunnableError(message: String, cause: Throwable = null) extends Error(message, cause)
