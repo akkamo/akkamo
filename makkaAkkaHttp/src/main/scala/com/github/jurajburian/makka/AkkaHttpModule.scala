@@ -92,51 +92,51 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		if (ctx.initialized[ConfigModule] && ctx.initialized[LogModule] && ctx.initialized[AkkaModule]) {
 			val cfg = ctx.inject[Config]
 			val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
-			// TODO if cfg or log is None - throw exception
 			initialize(ctx, cfg.get, log.get)
+			true
 		} else {
 			false
 		}
 	}
 
 	@throws[InitializationError]
-	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Boolean = {
+	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
 		import config._
 
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
 		if (mp.isEmpty) {
-			throw InitializationError("Missing Akka http configuration.")
-		}
-		val autoDefault = mp.get.size == 1
-		val httpCfgs = mp.get.toList.map { case (key, cfg) =>
-			val system = config.get[String](AkkaAlias, cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
-			if (system.isEmpty) {
-				throw InitializationError(s"Can't find akka system for http configuration: $cfg")
-			}
-			val protocol = config.get[String](Protocol, cfg).getOrElse("http")
-			val port = config.get[Int](Port, cfg).getOrElse(-1)
-			val interface = config.get[String](Interface, cfg).getOrElse("localhost")
-			val aliases = config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
-			val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
-			(key :: aliases, port, interface, protocol, system.get, default)
+			ctx.register[RouteRegistry](HttpConfig(Nil, 9000, "localhost", "http", true))
+		} else {
+			val autoDefault = mp.get.size == 1
+			val httpCfgs = mp.get.toList.map { case (key, cfg) =>
+				val system = config.get[String](AkkaAlias, cfg).map(ctx.inject[ActorSystem](_)).getOrElse(ctx.inject[ActorSystem])
+				if (system.isEmpty) {
+					throw InitializationError(s"Can't find akka system for http configuration: $cfg")
+				}
+				val protocol = config.get[String](Protocol, cfg).getOrElse("http")
+				val port = config.get[Int](Port, cfg).getOrElse(-1)
+				val interface = config.get[String](Interface, cfg).getOrElse("localhost")
+				val aliases = config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
+				val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
+				(key :: aliases, port, interface, protocol, system.get, default)
 
+			}
+			val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_ + _)
+			if (combinations != httpCfgs.size) {
+				throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
+			}
+			httpConfigs = httpCfgs.map { case rr@(aliases, port, interface, protocol, system, default) =>
+				log.debug(s"route registry: $rr created")
+				HttpConfig(aliases, port, interface, protocol, default)(system)
+			}
+			for (cfg <- httpConfigs if (cfg.default)) {
+				ctx.register[RouteRegistry](cfg)
+			}
+			for (cfg <- httpConfigs; as <- cfg.aliases) {
+				ctx.register[RouteRegistry](cfg, Some(as))
+			}
 		}
-		val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_ + _)
-		if (combinations != httpCfgs.size) {
-			throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
-		}
-		httpConfigs = httpCfgs.map { case rr@(aliases, port, interface, protocol, system, default) =>
-			log.debug(s"route registry: $rr created")
-			HttpConfig(aliases, port, interface, protocol, default)(system)
-		}
-		for (cfg <- httpConfigs if (cfg.default)) {
-			ctx.register[RouteRegistry](cfg)
-		}
-		for (cfg <- httpConfigs; as <- cfg.aliases) {
-			ctx.register[RouteRegistry](cfg, Some(as))
-		}
-		true
 	}
 
 
