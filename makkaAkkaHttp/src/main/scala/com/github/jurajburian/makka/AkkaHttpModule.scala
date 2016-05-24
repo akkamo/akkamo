@@ -17,6 +17,9 @@ import scala.concurrent.{Await, Future}
 	*/
 trait RouteRegistry {
 	def register(route: Route): Unit
+	def port:Int
+	def interface:String
+	def protocol:String
 }
 
 
