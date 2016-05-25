@@ -15,40 +15,91 @@ import com.typesafe.config.Config
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
 
-
 /**
+	* For each configuration block, an instance of [[RouteRegistry]] is registered to the
+	* ''Makka context'' using its name, aliases (if available) or as default (is specified so).
+	* [[RouteRegistry]] serves as main interface for configured ''Akka HTTP'' server, allowing to
+	* register own ''Akka HTTP'' routes.
+	*
 	* @author jubu
 	*/
 trait RouteRegistry {
 
+	/**
+		* Method allowing to register own ''Akka HTTP'' route into configured ''Akka HTTP'' server.
+		*
+		* @param route ''Akka HTTP'' route to register
+		*/
 	def register(route: Route): Unit
 
+	/**
+		* Returns port number, on which the ''Akka HTTP'' server is running.
+		*
+		* @return port number
+		*/
 	def port: Int
 
+	/**
+		* Returns the interface (i.e. host name), on which the ''Akka HTTP'' server is running.
+		*
+		* @return interface (i.e. host name)
+		*/
 	def interface: String
 
+	/**
+		* Returns the protocol (e.g. HTTP, HTTPS).
+		*
+		* @return the protocol
+		*/
 	def protocol: Protocol
 
+	/**
+		* Returns whether the current ''Akka HTTP'' server configuration is the default one.
+		*
+		* @return `true` if the current ''Akka HTTP'' server configuratino is the default one
+		*/
 	def default: Boolean
 }
 
+/**
+	* Companion object for the [[RouteRegistry]] trait.
+	*/
 object RouteRegistry {
 
+	/**
+		* Represents the protocol (e.g. HTTP, HTTPS).
+		*/
 	sealed trait Protocol {
-		def name = toString;
+
+		/**
+			* Returns the protocol name.
+			*
+			* @return protocol name
+			*/
+		def name = toString
 	}
 
+	/**
+		* Implementation of [[Protocol]], representing the HTTP protocol.
+		*/
 	case object HTTP extends Protocol {
 		override def toString: String = "http"
 	}
 
+	/**
+		* Implementation of [[Protocol]], representing the HTTPS protocol.
+		*/
 	case object HTTPS extends Protocol {
 		override def toString: String = "https"
 	}
 
 }
 
+// TODO - documentation details about ssl config + factory: HttpsConnectionContextFactory description
 /**
+	* Module providing HTTP(S) server functionality, based on the ''Akka HTTP'' library.
+	*
+	* = Configuration example =
 	* {{{
 	*   makka.akkaHttp = {
 	*     // complete configuration with several name aliases
@@ -66,10 +117,15 @@ object RouteRegistry {
 	*     }
 	*   }
 	* }}}
-	* if section `makka.akkaHttp` is missing, then default configuration is generated on port 9000 with http protocol
-	* // TODO - documentation details about ssl config + factory: HttpsConnectionContextFactory description
+	*
+	* In example code above, working example of module configuration is shown. For each block inside
+	* the `makka.akkaHttp`, instance of [[RouteRegistry]] is registered to the ''Makka'' context
+	* both using its name (e.g. ''name1'') and aliases (e.g. ''alias1'') if provided. Injected
+	* instance of [[RouteRegistry]] can be then used to register own Akka HTTP routes.
 	*
 	* @author jubu
+	* @see RouteRegistry
+	* @see http://doc.akka.io/docs/akka/current/scala/http/
 	*/
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable {
 
@@ -131,7 +187,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	private[AkkaHttpModule] case class
 	HttpConfig(aliases: List[String], port: Int, interface: String, default: Boolean)
-	          (implicit as: ActorSystem) extends BaseRouteRegistry {
+						(implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
 			implicit val am = ActorMaterializer()
@@ -143,7 +199,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	private[AkkaHttpModule] case class
 	HttpsConfig(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext)
-	           (implicit as: ActorSystem) extends BaseRouteRegistry {
+						 (implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
 			implicit val am = ActorMaterializer()
