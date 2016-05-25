@@ -3,23 +3,22 @@ package com.github.jurajburian.makka
 import com.typesafe.config.ConfigFactory
 
 /**
- * @author jubu
- */
+	* Module providing application-wide configuration, using the ''Typesafe Config'' library.
+	* For further details about configuration syntax and usage, please refer to ''Typesafe Config''
+	* homepage: [[https://github.com/typesafehub/config]].
+	*
+	* @author jubu
+	*/
 class ConfigModule extends Module with Initializable {
 
-  /** Initializes configuration module into provided context
-   *
-   * @param ctx muttable context
-   */
-  override def initialize(ctx:Context):Boolean = {
-		//TODO better configuration
-    //TODO what it this configuration fails, no case and return false?
-		val c = ConfigFactory.defaultApplication()
-		ctx.register(c)
+	/**
+		* Initializes ''Typesafe Config'' configuration and registers into the ''Makka'' context.
+		*
+		* @param ctx ''Makka'' context
+		* @return `true` if the module has been properly initialized
+		*/
+	override def initialize(ctx: Context): Boolean = {
+		ctx.register(ConfigFactory.defaultApplication())
 		true
 	}
-
-  //FIXME maybe unneccessary, already overriden with same code in Module type
-	override def toString:String = this.getClass.getSimpleName
-
 }
