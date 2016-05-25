@@ -34,7 +34,9 @@ trait RouteRegistry {
 
 object RouteRegistry {
 
-	sealed trait Protocol
+	sealed trait Protocol {
+		def name = toString;
+	}
 
 	case object HTTP extends Protocol {
 		override def toString: String = "http"
