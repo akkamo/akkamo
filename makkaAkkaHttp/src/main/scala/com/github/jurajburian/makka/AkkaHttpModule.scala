@@ -1,19 +1,19 @@
 package com.github.jurajburian.makka
 
-import javax.net.ssl.SSLContext
+import java.security.{KeyStore, SecureRandom}
+import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
-import com.github.jurajburian.makka.RouteRegistry.{HTTP, Protocol}
+import com.github.jurajburian.makka.RouteRegistry.{HTTP, HTTPS, Protocol}
 import com.typesafe.config.Config
 
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
-import scala.util.Try
 
 
 /**
@@ -67,10 +67,13 @@ object RouteRegistry {
 	*   }
 	* }}}
 	* if section `makka.akkaHttp` is missing, then default configuration is generated on port 9000 with http protocol
+	* // TODO - documentation details about ssl config + factory: HttpsConnectionContextFactory description
 	*
 	* @author jubu
 	*/
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable {
+
+	import config._
 
 	val AkkaHttpKey = "makka.akkaHttp"
 
@@ -86,13 +89,28 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	val Default = "default"
 
-	type BINDABLE =  ()=>Future[ServerBinding]
+	val KeyStorePassword = "keyStorePassword"
+
+	val KeyStoreName = "keyStorePassword"
+
+	val KeyStoreLocation = "keyStorePassword"
+
+	val KeyManagerAlgorithm = "keyManagerAlgorithm"
+
+	val SSLContextAlgorithm = "sSLContext Algorithms"
+
+	val HttpsConnectionContextFactoryClassName = "httpsConnectionContextFactoryClassName"
+
+	type HttpsConnectionContextFactory = (Config)=>HttpsConnectionContext
+
+	private type ServerBindingGetter = () => Future[ServerBinding]
 
 	private var httpConfigs = List.empty[BaseRouteRegistry]
+
 	private var bindings = List.empty[ServerBinding]
 
 
-	private[AkkaHttpModule]  trait BaseRouteRegistry extends RouteRegistry with BINDABLE {
+	private[AkkaHttpModule] trait BaseRouteRegistry extends RouteRegistry with ServerBindingGetter {
 		val routes = mutable.Set.empty[Route]
 
 		override def register(route: Route): Unit = {
@@ -111,14 +129,30 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	}
 
 
-	private[AkkaHttpModule] case class HttpConfig(aliases: List[String], port: Int, interface: String, default: Boolean)(implicit as: ActorSystem) extends BaseRouteRegistry {
+	private[AkkaHttpModule] case class
+	HttpConfig(aliases: List[String], port: Int, interface: String, default: Boolean)
+	          (implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
 			implicit val am = ActorMaterializer()
 			Http().bindAndHandle(route, interface, port)
 		}
+
 		val protocol = HTTP
 	}
+
+	private[AkkaHttpModule] case class
+	HttpsConfig(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext)
+	           (implicit as: ActorSystem) extends BaseRouteRegistry {
+
+		def bind(route: Route): Future[ServerBinding] = {
+			implicit val am = ActorMaterializer()
+			Http().bindAndHandle(route, interface, port, ctx)
+		}
+
+		val protocol = HTTPS
+	}
+
 
 	/**
 		* register module mappings
@@ -141,7 +175,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	@throws[InitializationError]
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
-		import config._
 
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
@@ -150,7 +183,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 				ctx.inject[ActorSystem].getOrElse(throw InitializationError("Can't find default akka system"))))
 		} else {
 			val autoDefault = mp.get.size == 1
-			val httpCfgs = mp.get.toList.map { case (key, cfg) =>
+			httpConfigs = mp.get.toList.map { case (key, cfg) =>
 				val system = config.get[String](AkkaAlias, cfg).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
 				if (system.isEmpty) {
 					throw InitializationError(s"Can't find akka system for http configuration key: $key")
@@ -161,40 +194,21 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 				val aliases = config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
 				val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
 				protocol.toLowerCase match {
-					case "http" => {
-						val ret = HttpConfig(aliases, port, interface, default)(system.get)
-						ret
-					}
+					case "http" => HttpConfig(aliases, port, interface, default)(system.get)
 					case "https" => try {
-						val sslCtx = SSLContext.getInstance("TLS")
-						//val context = ConnectionContext.https(sslCtx, )
-						throw InitializationError("Https is not supported ")
+						HttpsConfig(aliases, port, interface, default, getHttpsConnectionContext(cfg))(system.get)
 					} catch {
-						case th:Throwable => throw InitializationError("Can't initialize https route registry", th)
+						case ie:InitializationError => throw ie
+						case th: Throwable => throw InitializationError("Can't initialize https route registry", th)
 					}
-					case _ => {
-						throw InitializationError(s"unknown protocol in route registry, see: $config")
-					}
+					case _ => throw InitializationError(s"unknown protocol in route registry, see: $config")
 				}
-				(key :: aliases, port, interface, protocol, system.get, default, config)
 			}
-			val combinations = httpCfgs.groupBy(_._3).map(_._2.groupBy(_._2).size).fold(0)(_ + _)
-			if (combinations != httpCfgs.size) {
+			val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
+			if (combinations != httpConfigs.size) {
 				throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
 			}
-			httpConfigs = httpCfgs.map { case rr@(aliases, port, interface, protocol, system, default, config) =>
 
-				protocol.toLowerCase match {
-					case "http" => {
-						log.info(s"route registry: $rr created")
-						HttpConfig(aliases, port, interface, default)(system)
-					}
-					// TODO HTTPS
-					case _ => {
-						throw InitializationError(s"unknown protocol in route registry: $rr definition")
-					}
-				}
-			}
 			for (cfg <- httpConfigs if (cfg.default)) {
 				ctx.register[RouteRegistry](cfg)
 			}
@@ -223,4 +237,40 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		Await.result(future, 10 seconds)
 	}
 
+	private def getHttpsConnectionContext(cfg:Config): HttpsConnectionContext =
+		get[String](HttpsConnectionContextFactoryClassName, cfg)
+			.map(getHttpsConnectionContextFormFactory(cfg)).getOrElse(getHttpsConnectionContextFormConfig(cfg))
+
+
+
+	private def getHttpsConnectionContextFormFactory(cfg:Config) = (clazzName:String)=> {
+		try {
+			import scala.reflect.runtime.universe
+			val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+			val module = runtimeMirror.staticModule(clazzName)
+			val companionObj = runtimeMirror.reflectModule(module).instance.asInstanceOf[HttpsConnectionContextFactory]
+			companionObj(cfg)
+		} catch {
+			case th:Throwable => throw new IllegalArgumentException(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
+		}
+	}
+
+	private def getHttpsConnectionContextFormConfig(implicit cfg:Config) = {
+		val keyStoreName = config.get[String](KeyStoreName).getOrElse(
+			throw InitializationError("Can't find keyStoreName value"))
+		val keyStorePassword = config.get[String](KeyStorePassword).getOrElse(
+			throw InitializationError("Can't find keyStorePassword value")).toCharArray
+		val sslCtx = SSLContext.getInstance("TLS")
+		val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
+			throw InitializationError(s"Can't initialize key store for keyStoreName: $keyStoreName"))
+		val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
+		keyStore.load(keyStoreStream, keyStorePassword)
+		val keyManagerFactory = KeyManagerFactory.getInstance(get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
+		keyManagerFactory.init(keyStore, keyStorePassword)
+		val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
+		trustManagerFactory.init(keyStore)
+		val sslContext: SSLContext = get[String](SSLContextAlgorithm).map(SSLContext.getInstance(_)).getOrElse(SSLContext.getDefault)
+		sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
+		ConnectionContext.https(sslContext)
+	}
 }
