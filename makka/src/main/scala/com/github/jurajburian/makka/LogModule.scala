@@ -4,54 +4,64 @@ import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
 
 /**
- * factory provided by `LogModule`
- *
- * @author jubu
- */
+	* Simple factory, providing [[LoggingAdapter]] instance for specified category (e.g. module name,
+	* selected class). This factory is registered by the [[LogModule]] into the ''Makka'' context.
+	*
+	* @author jubu
+	*/
 trait LoggingAdapterFactory {
 
-	/** ?
-	 *
-	 * @param category
-	 * @tparam T
-	 * @return concrete `LoggingAdapter` for
-	 */
-	def apply[T](category:Class[T]):LoggingAdapter
+	/**
+		* Returns instance of [[LoggingAdapter]] for specified category (e.g. module name,
+		* selected class).
+		*
+		* @param category category for which the [[LoggingAdapter]] will be returned
+		* @tparam T type of the category class
+		* @return instance of [[LoggingAdapter]]
+		*/
+	def apply[T](category: Class[T]): LoggingAdapter
 
-	/** ?
-	 *
-	 * @param category
-	 * @return concrete `LoggingAdapter` for
-	 */
-	def apply(category:AnyRef):LoggingAdapter
-
+	/**
+		* Returns instance of [[LoggingAdapter]] for specified category (e.g. module name,
+		* selected class).
+		*
+		* @param category category for which the [[LoggingAdapter]] will be returned
+		* @return instance of [[LoggingAdapter]]
+		*/
+	def apply(category: AnyRef): LoggingAdapter
 }
 
 /**
- * Provides logger outside of Actors world
- *
- * @author jubu
- */
+	* This module provides [[LoggingAdapterFactory]] via the ''Makka'' context, allowing to use
+	* the configured logging system outside ''Akka'' actors.
+	*
+	* @author jubu
+	* @see LoggingAdapterFactory
+	*/
 class LogModule extends Module with Initializable {
 
-	/* Module name ? */
+	/**
+		* Name of the ''Akka'' actor system used for the logging. If no such actor system is found,
+		* the default one is used.
+		*/
 	val LoggingActorSystem = "logging"
 
 	/** Initializes log module into provided context */
-	override def initialize(ctx:Context):Boolean = {
+	override def initialize(ctx: Context): Boolean = {
 		if (ctx.initialized[AkkaModule]) {
-			val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem).getOrElse(throw InitializationError("Can't find any Actor System for logger"))
-			//TODO is there really a neccessity of having logging factory when there
-			//will always be one instance of LogModule in MAKKA?
-			/* register logger into context */
+			// inject the logging actor system (if available, otherwise default actor system)
+			val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
+				.getOrElse(throw InitializationError("Can't find any Actor System for logger"))
+
+			// register logging adapter factor into the Makka context
 			ctx.register[LoggingAdapterFactory](new LoggingAdapterFactory {
-				override def apply[T](category:Class[T]):LoggingAdapter = Logging(actorSystem, category)
-				override def apply(category:AnyRef):LoggingAdapter = apply(category.getClass)
+				override def apply[T](category: Class[T]): LoggingAdapter = Logging(actorSystem, category)
+
+				override def apply(category: AnyRef): LoggingAdapter = apply(category.getClass)
 			})
 			true
 		} else {
 			false
 		}
 	}
-
 }
