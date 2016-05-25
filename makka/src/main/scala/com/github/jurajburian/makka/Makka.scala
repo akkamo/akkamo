@@ -23,8 +23,7 @@ class CTX extends Context {
 			val ret = p.get(key)
 			if(ret.isEmpty && !strict) {
 				p.get(Default)
-			} else {
-				ret
+			} else {ret
 			}
 		}.map(_.asInstanceOf[T])
 	}
