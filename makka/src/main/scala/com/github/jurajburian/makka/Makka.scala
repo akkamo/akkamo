@@ -3,7 +3,7 @@ package com.github.jurajburian.makka
 import scala.util.{Failure, Success, Try}
 
 /**
-	* IMplementation of Context
+	* Implementation of the Context
 	*/
 class CTX extends Context {
 
@@ -103,10 +103,8 @@ class CTX extends Context {
 
 
 class MakkaRun extends ((CTX) => List[Module]) {
-
-
-
 	import scala.collection.JavaConversions._
+	import Logger._
 
 	type IModule = Module with Initializable
 
@@ -117,7 +115,7 @@ class MakkaRun extends ((CTX) => List[Module]) {
 		def initRound(input: List[IModule], out:RES):RES = input match {
 			case x :: xs => Try(x.initialize(ctx)) match {
 				case Success(isInitialized) => {
-					println("initialize ")
+					log(s"executed initialize on: $x with result: $isInitialized")
 					if (!isInitialized) {
 						initRound(xs, out.copy(_1 = x :: out._1))
 					} else {
@@ -143,7 +141,7 @@ class MakkaRun extends ((CTX) => List[Module]) {
 
 
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).toList
-		println(s"Installing modules: $modules")
+		log(s"Installing modules: $modules")
 
 		// at leas one module is initializable and one none
 		val grouped: Map[Boolean, List[Module]] = modules.groupBy {
@@ -204,10 +202,11 @@ class MakkaRun extends ((CTX) => List[Module]) {
 }
 
 class MakkaDispose extends ((CTX, List[Module]) => Unit) {
+	import Logger._
 
 	override def apply(ctx: CTX, modules: List[Module]): Unit = modules.map {
 		case p: Disposable => {
-			println(s"Executing dispose on: $p")
+			log(s"Executing dispose on: $p")
 			Try(p.dispose(ctx))
 		}
 		case _ =>
@@ -219,15 +218,16 @@ class MakkaDispose extends ((CTX, List[Module]) => Unit) {
  * @author jubu
  */
 object Makka extends App {
+	import Logger._
 	val makkaRun = new MakkaRun
 	val makkaDispose = new MakkaDispose
 
 	val ctx:CTX = new CTX
 	Try(makkaRun(ctx)) match {
 		case Failure(th) => {
-			Console.err.println(s"Can't initialize application, reason: ${th.getMessage}!")
+			log(s"Can't initialize application, reason: ${th.getMessage}!", true)
 			th.printStackTrace(Console.err)
-			Console.err.println("System exit")
+			log("System exit", true)
 			sys.exit(-1)
 		}
 		case Success(modules) => {
@@ -240,6 +240,17 @@ object Makka extends App {
 	}
 }
 
+private object Logger {
+	def log(message:String, asError:Boolean = false) = {
+		if (System.getProperty("makka.verbose", "false").toBoolean) {
+			if(asError) {
+				Console.err.println(message)
+			} else {
+				println(message)
+			}
+		}
+	}
+}
 
 /**
  *

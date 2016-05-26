@@ -137,7 +137,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	val Port = "port"
 
-	val Interface = "Interface"
+	val Interface = "interface"
 
 	val AkkaAlias = "akkaAlias"
 
@@ -166,7 +166,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	private var bindings = List.empty[ServerBinding]
 
 
-	private[AkkaHttpModule] trait BaseRouteRegistry extends RouteRegistry with ServerBindingGetter {
+	private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter  with RouteRegistry{
 		val routes = mutable.Set.empty[Route]
 
 		override def register(route: Route): Unit = {
@@ -182,23 +182,25 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		def bind(route: Route): Future[ServerBinding]
 
 		def aliases: List[String]
+
+		override def toString() = {
+			s"${this.getClass.getSimpleName}(aliases=$aliases, uri=$interface:$port, isDefault=$default)"
+		}
 	}
 
-
 	private[AkkaHttpModule] case class
-	HttpConfig(aliases: List[String], port: Int, interface: String, default: Boolean)
+	HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean)
 						(implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
 			implicit val am = ActorMaterializer()
 			Http().bindAndHandle(route, interface, port)
 		}
-
 		val protocol = HTTP
 	}
 
 	private[AkkaHttpModule] case class
-	HttpsConfig(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext)
+	HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext)
 						 (implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
@@ -208,7 +210,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 		val protocol = HTTPS
 	}
-
 
 	/**
 		* register module mappings
@@ -234,7 +235,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
 		if (mp.isEmpty) {
-			ctx.register[RouteRegistry](HttpConfig(Nil, 9000, "localhost", true)(
+			ctx.register[RouteRegistry](HttpRouteRegistry(Nil, 9000, "localhost", true)(
 				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system"))))
 		} else {
 			val autoDefault = mp.get.size == 1
@@ -246,12 +247,18 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 				val protocol = config.get[String](Protocol, cfg).getOrElse("http")
 				val port = config.get[Int](Port, cfg).getOrElse(-1)
 				val interface = config.get[String](Interface, cfg).getOrElse("localhost")
-				val aliases = config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
+				val aliases = key::config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
 				val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
 				protocol.toLowerCase match {
-					case "http" => HttpConfig(aliases, port, interface, default)(system.get)
+					case "http" => {
+						val r= HttpRouteRegistry(aliases, port, interface, default)(system.get)
+						log.info(s"created: $r ")
+						r
+					}
 					case "https" => try {
-						HttpsConfig(aliases, port, interface, default, getHttpsConnectionContext(cfg))(system.get)
+						val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(cfg))(system.get)
+						log.info(s"created: $r ")
+						r
 					} catch {
 						case ie:InitializableError => throw ie
 						case th: Throwable => throw InitializableError("Can't initialize https route registry", th)
@@ -263,7 +270,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 			if (combinations != httpConfigs.size) {
 				throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
 			}
-
 			for (cfg <- httpConfigs if (cfg.default)) {
 				ctx.register[RouteRegistry](cfg)
 			}
@@ -277,13 +283,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	override def run(ctx: Context): Unit = {
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._
+		val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 		val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
 		bindings = Await.result(future, 10 seconds)
+		log.info(s"run: $httpConfigs")
 	}
 
 
-	@throws[DisposableError]("If dispose execution fails")
 	override def dispose(ctx: Context): Unit = {
 		import scala.concurrent.ExecutionContext.Implicits.global
 		import scala.concurrent.duration._

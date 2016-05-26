@@ -10,9 +10,18 @@ import scala.util.Try
 
 /**
 	* Plugin running makka
+	*
 	* @author jubu
 	*/
 object MakkaSbtPlugin extends AutoPlugin {
+
+	{
+		// we want have verbose start by default
+		val v = "makka.verbose"
+		if (System.getProperty(v) == null) {
+			System.setProperty(v, true.toString)
+		}
+	}
 
 	override def trigger = allRequirements
 
