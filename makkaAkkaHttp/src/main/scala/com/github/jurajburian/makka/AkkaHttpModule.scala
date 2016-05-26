@@ -229,20 +229,19 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		}
 	}
 
-	@throws[InitializationError]
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
 
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
 		if (mp.isEmpty) {
 			ctx.register[RouteRegistry](HttpConfig(Nil, 9000, "localhost", true)(
-				ctx.inject[ActorSystem].getOrElse(throw InitializationError("Can't find default akka system"))))
+				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system"))))
 		} else {
 			val autoDefault = mp.get.size == 1
 			httpConfigs = mp.get.toList.map { case (key, cfg) =>
 				val system = config.get[String](AkkaAlias, cfg).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
 				if (system.isEmpty) {
-					throw InitializationError(s"Can't find akka system for http configuration key: $key")
+					throw InitializableError(s"Can't find akka system for http configuration key: $key")
 				}
 				val protocol = config.get[String](Protocol, cfg).getOrElse("http")
 				val port = config.get[Int](Port, cfg).getOrElse(-1)
@@ -254,15 +253,15 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 					case "https" => try {
 						HttpsConfig(aliases, port, interface, default, getHttpsConnectionContext(cfg))(system.get)
 					} catch {
-						case ie:InitializationError => throw ie
-						case th: Throwable => throw InitializationError("Can't initialize https route registry", th)
+						case ie:InitializableError => throw ie
+						case th: Throwable => throw InitializableError("Can't initialize https route registry", th)
 					}
-					case _ => throw InitializationError(s"unknown protocol in route registry, see: $config")
+					case _ => throw InitializableError(s"unknown protocol in route registry, see: $config")
 				}
 			}
 			val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
 			if (combinations != httpConfigs.size) {
-				throw InitializationError(s"Akka http configuration contains ambiguous combination of port and protocol.")
+				throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
 			}
 
 			for (cfg <- httpConfigs if (cfg.default)) {
@@ -313,12 +312,12 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	private def getHttpsConnectionContextFormConfig(implicit cfg:Config) = {
 		val keyStoreName = config.get[String](KeyStoreName).getOrElse(
-			throw InitializationError("Can't find keyStoreName value"))
+			throw InitializableError("Can't find keyStoreName value"))
 		val keyStorePassword = config.get[String](KeyStorePassword).getOrElse(
-			throw InitializationError("Can't find keyStorePassword value")).toCharArray
+			throw InitializableError("Can't find keyStorePassword value")).toCharArray
 		val sslCtx = SSLContext.getInstance("TLS")
 		val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
-			throw InitializationError(s"Can't initialize key store for keyStoreName: $keyStoreName"))
+			throw InitializableError(s"Can't initialize key store for keyStoreName: $keyStoreName"))
 		val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
 		keyStore.load(keyStoreStream, keyStorePassword)
 		val keyManagerFactory = KeyManagerFactory.getInstance(get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))

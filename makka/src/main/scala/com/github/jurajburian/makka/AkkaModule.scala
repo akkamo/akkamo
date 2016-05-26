@@ -61,7 +61,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 				// empty configuration just create default
 				Try(ctx.register(ActorSystem("default"))) match {
 					case Success(_)=>
-					case Failure(th)=> throw InitializationError("Can't initialize default Akka system", th)
+					case Failure(th)=> throw InitializableError("Can't initialize default Akka system", th)
 				}
 			} { bloks =>
 				val bloksWithDefault = if (bloks.size == 1) {
@@ -73,7 +73,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 					}
 					val defaultCount = ret.count({ case (_, _, x) => x })
 					if (defaultCount != 1) {
-						throw new InitializationError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
+						throw new InitializableError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
 					}
 					ret
 				}
@@ -91,7 +91,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 						config.get[List[String]](Aliases, cfg).map(_.map(name => ctx.register(system, Some(name))))
 					} match {
 						case Success(_)=>
-						case Failure(th)=> throw InitializationError(s"Can't initialize Akka system defined by: $key", th)
+						case Failure(th)=> throw InitializableError(s"Can't initialize Akka system defined by: $key", th)
 					}
 				}
 			}
@@ -100,7 +100,6 @@ class AkkaModule extends Module with Initializable with Disposable {
 		case _ => false
 	}
 
-	//FIXME disposable error already thrown with a same message in overriden method
 	@throws[DisposableError]("If dispose execution fails")
 	override def dispose(ctx: Context): Unit = {
 		val log = ctx.inject[LoggingAdapterFactory].map(_(getClass)).get

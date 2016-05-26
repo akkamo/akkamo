@@ -22,7 +22,7 @@ trait Initializable {
 		* @throws InitializationError thrown when severe error occurs during the initialization
 		*                             and there is no option to recover such state
 		*/
-	@throws[InitializationError]("If initialization can't be finished")
+	@throws[InitializableError]("If initialization can't be finished")
 	def initialize(ctx:Context):Boolean
 
 	/**

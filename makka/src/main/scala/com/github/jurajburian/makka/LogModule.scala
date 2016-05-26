@@ -51,7 +51,7 @@ class LogModule extends Module with Initializable {
 		if (ctx.initialized[AkkaModule]) {
 			// inject the logging actor system (if available, otherwise default actor system)
 			val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
-				.getOrElse(throw InitializationError("Can't find any Actor System for logger"))
+				.getOrElse(throw InitializableError("Can't find any Actor System for logger"))
 
 			// register logging adapter factor into the Makka context
 			ctx.register[LoggingAdapterFactory](new LoggingAdapterFactory {

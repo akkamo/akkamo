@@ -2,14 +2,15 @@ package com.github.jurajburian.makka
 
 import scala.util.{Failure, Success, Try}
 
-//TODO mystery code below
+/**
+	* IMplementation of Context
+	*/
 class CTX extends Context {
 
 	import scala.collection._
 	import scala.reflect.ClassTag
 
 	val Default = "$DEFAULT$"
-	//TODO please comment what you are storing in these sets
 	val class2Key2Inst = mutable.Map.empty[Class[_], mutable.Map[String, AnyRef]]
 	val runningSet = mutable.Set.empty[Class[_]]
 	val initializedSet = mutable.Set.empty[Class[_]]
@@ -103,6 +104,8 @@ class CTX extends Context {
 
 class MakkaRun extends ((CTX) => List[Module]) {
 
+
+
 	import scala.collection.JavaConversions._
 
 	type IModule = Module with Initializable
@@ -113,13 +116,15 @@ class MakkaRun extends ((CTX) => List[Module]) {
 
 		def initRound(input: List[IModule], out:RES):RES = input match {
 			case x :: xs => Try(x.initialize(ctx)) match {
-				case Success(isInitialized) =>
+				case Success(isInitialized) => {
+					println("initialize ")
 					if (!isInitialized) {
 						initRound(xs, out.copy(_1 = x :: out._1))
 					} else {
 						ctx.addInitialized(x)
 						initRound(xs, out.copy(_2 = x :: out._2))
 					}
+				}
 				case Failure(th) => initRound(xs, out.copy(_3 = (x, th) :: out._3))
 			}
 			case _ => out
@@ -136,8 +141,8 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			}
 		}
 
-		//TODO is there a reason to convert iterator toList instead of using iterator? Perf?
-		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).iterator().toList
+
+		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).toList
 		println(s"Installing modules: $modules")
 
 		// at leas one module is initializable and one none
@@ -235,7 +240,7 @@ object Makka extends App {
 	}
 }
 
-//FIXME there is InitializableError, InitializationError name may be confusing
+
 /**
  *
  * @param message
