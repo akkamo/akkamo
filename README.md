@@ -1,6 +1,7 @@
 # Makka - modules in Akka.
 Runtime assembly of several modules running on top of Akka.
 >Project is experimental don't use it please. Any suggestions are welcome !!!
+
 ## About Makka.
 Makka system allows the construction of a set of modules that can cooperate together, or run independently.
 Application is assembled via [sbt-native-packager sbt plugin](https://github.com/sbt/sbt-native-packager)
@@ -74,8 +75,10 @@ is method `dispose` called with global `Context` as argument.
 
 > Whole initialization process (including calls of run method) is executed in single thread.
  So if a module calls asynchronous processing then the whole processing thread should wait for the end of such calls.
+
 ### Order
 >todo - dependencies are managed by order
+
 ## Build in modules
 1. ConfigModule - configuration provider
 2. AkkaModule - Akka ActorSystem provider
