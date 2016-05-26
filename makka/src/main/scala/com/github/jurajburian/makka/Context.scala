@@ -1,7 +1,5 @@
 package com.github.jurajburian.makka
 
-//FIXME general ct is not a good variable name for classTag, tag would suit better
-
 /**
 	* A mutable context dispatched during all phases in module lifecycle
 	*
@@ -49,8 +47,6 @@ trait Context {
 	 */
 	def register[T<:AnyRef](value:T, key:Option[String] = None)(implicit ct:ClassTag[T])
 
-	//TODO same can be acchieved by calling initializedWith + apply() on result
-	//TODO maybe unneccessary bloating of code, (perf gain ? )
 	/**
 	 *
 	 * @param ct class tag evidence
@@ -67,8 +63,6 @@ trait Context {
 		*/
 	def initializedWith[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
 
-	//TODO same can be acchieved by calling initializedWith + apply() on result
-	//TODO maybe unneccessary bloating of code, (perf gain ? )
 	/**
 	 *
 	 * @param ct class tag evidence
