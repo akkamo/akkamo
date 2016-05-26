@@ -7,7 +7,7 @@ Makka system allows the construction of a set of modules that can cooperate toge
 Application is assembled via [sbt-native-packager sbt plugin](https://github.com/sbt/sbt-native-packager)
 as native application (zip file with starting scripts). Consult [demo application](https://github.com/JurajBurian/makka-demo) for details.<br/>
 For configuration of Makka Application is [Lighbend configuration library](https://github.com/typesafehub/config) used
-## How it`s work
+## How it works
 Each module must implement the marking interface:
 ```Scala
 package com.github.jurajburian.makka
@@ -66,7 +66,7 @@ Simple example is `ConfigModule` that provides instance of `com.typesafe.config.
 ### Lifecycle
 1. All modules created in random order
 2. On each module - implementing `Initalizable` - is method `initialize` called with global `Context` as argument.
-	* if method return `false` then module state is understand as mnot initialized and the execution will be repeated in future.
+	* if method return `false` then module state is understand as not initialized and the execution will be repeated in future.
 	* if method return `true` then module state is understand as initialized
 3. On each module - implementing `Runnable` - is method `run` called with global `Context` as argument.
 4. Application is initialized and running ....
