@@ -63,4 +63,6 @@ Simple example is `ConfigModule` that provides instance of `com.typesafe.config.
 2. [makka-persitent-config](https://github.com/JurajBurian/makka-persistent-config) - provides persistent configuration functionality (default implementation uses [Mongo DB](https://www.mongodb.com) as a persistent storage)
 
 ## 4. How to write Module, conventions & rules
+1. every module that publish a service should provide zero configuration capability if it is possible.
 > todo - conventions, key aliases .....
+

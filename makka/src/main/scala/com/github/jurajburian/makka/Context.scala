@@ -38,6 +38,15 @@ trait Context {
 	def inject[T](key:String, strict:Boolean = false)(implicit ct:ClassTag[T]):Option[T]
 
 	/**
+		* get mapping from services to set of aliases
+		*
+		* @param ct
+		* @tparam T
+		* @return map of all services of type `T` to set of aliases
+		*/
+	def registered[T](implicit ct:ClassTag[T]):Map[T, Set[String]]
+
+	/**
 	 * register bean
 	 *
 	 * @param value

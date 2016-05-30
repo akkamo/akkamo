@@ -10,7 +10,7 @@ class CTX extends Context {
 	import scala.collection._
 	import scala.reflect.ClassTag
 
-	val Default = "$DEFAULT$"
+	val Default = "@$DEFAULT$@"
 	val class2Key2Inst = mutable.Map.empty[Class[_], mutable.Map[String, AnyRef]]
 	val runningSet = mutable.Set.empty[Class[_]]
 	val initializedSet = mutable.Set.empty[Class[_]]
@@ -19,23 +19,26 @@ class CTX extends Context {
 		inject(Default)
 	}
 
-	override def inject[T](key:String, strict:Boolean = false)(implicit ct:ClassTag[T]):Option[T] = {
+	override def inject[T](key: String, strict: Boolean = false)(implicit ct: ClassTag[T]): Option[T] = {
 		class2Key2Inst.get(ct.runtimeClass).flatMap { p =>
 			val ret = p.get(key)
-			if(ret.isEmpty && !strict) {
+			if (ret.isEmpty && !strict) {
 				p.get(Default)
-			} else {ret
+			} else {
+				ret
 			}
 		}.map(_.asInstanceOf[T])
 	}
 
-	/** ?
-	 *
-	 * @param value
-	 * @param key
-	 * @tparam T
-	 */
-	override def register[T <:AnyRef](value:T, key:Option[String])(implicit ct:ClassTag[T]): Unit = {
+	override def registered[T](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
+		class2Key2Inst.get(ct.runtimeClass).map { m =>
+			m.groupBy(_._2).map { case (k, v) =>
+				(k.asInstanceOf[T], v.keySet.filter(_ != Default))
+			}
+		}.getOrElse(Map.empty)
+	}
+
+	override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
 		val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
 		val realKey = key.getOrElse(Default)
 		if (key2Inst.contains(realKey)) {
@@ -45,57 +48,43 @@ class CTX extends Context {
 		class2Key2Inst += (ct.runtimeClass -> key2Inst)
 	}
 
-	/** ?
-	 *
-	 * @tparam T
-	 */
-	override def initialized[T <:Module with Initializable](implicit ct:ClassTag[T]):Boolean = {
+	override def initialized[T <: Module with Initializable](implicit ct: ClassTag[T]): Boolean = {
 		val ret = initializedSet.contains(ct.runtimeClass)
 		ret
 	}
 
-	/** ?
-	 *
-	 * @tparam T
-	 */
-	override def initializedWith[T <:Module with Initializable](implicit ct:ClassTag[T]):With = {
+	override def initializedWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
 		//please rename, mystery code ahead
-		case class W(last:Boolean) extends With {
-			override def &&[K <:Module with Initializable](implicit ct:ClassTag[K]):With =
+		case class W(last: Boolean) extends With {
+			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): With =
 				W(last && initializedSet.contains(ct.runtimeClass))
-			override def res:Boolean = last
+
+			override def res: Boolean = last
 		}
 		W(initializedSet.contains(ct.runtimeClass))
 	}
 
-	/** ?
-	 *
-	 * @tparam T
-	 */
-	override def running[T <:Module with Runnable](implicit ct: ClassTag[T]):Boolean = {
+	override def running[T <: Module with Runnable](implicit ct: ClassTag[T]): Boolean = {
 		val ret = runningSet.contains(ct.runtimeClass)
 		ret
 	}
 
-	/** ?
-	 *
-	 * @tparam T
-	 */
-	override def runningWith[T <:Module with Initializable](implicit ct:ClassTag[T]):With = {
+	override def runningWith[T <: Module with Initializable](implicit ct: ClassTag[T]): With = {
 		//please rename, mystery code ahead
-		case class W(last:Boolean) extends With {
-			override def &&[K <:Module with Initializable](implicit ct:ClassTag[K]):With =
+		case class W(last: Boolean) extends With {
+			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): With =
 				W(last && runningSet.contains(ct.runtimeClass))
+
 			override def res: Boolean = last
 		}
 		W(runningSet.contains(ct.runtimeClass))
 	}
 
-	private[makka] def addInitialized[T <:Module with Initializable](p: T) = {
+	private[makka] def addInitialized[T <: Module with Initializable](p: T) = {
 		initializedSet += p.iKey()
 	}
 
-	private[makka] def addRunning[T <:Module with Runnable](p: T) = {
+	private[makka] def addRunning[T <: Module with Runnable](p: T) = {
 		runningSet += p.rKey()
 	}
 
@@ -103,16 +92,18 @@ class CTX extends Context {
 
 
 class MakkaRun extends ((CTX) => List[Module]) {
-	import scala.collection.JavaConversions._
+
 	import Logger._
+
+	import scala.collection.JavaConversions._
 
 	type IModule = Module with Initializable
 
-	override def apply(ctx:CTX):List[Module] = {
+	override def apply(ctx: CTX): List[Module] = {
 
 		type RES = (List[IModule], List[Module], List[(IModule, Throwable)])
 
-		def initRound(input: List[IModule], out:RES):RES = input match {
+		def initRound(input: List[IModule], out: RES): RES = input match {
 			case x :: xs => Try(x.initialize(ctx)) match {
 				case Success(isInitialized) => {
 					log(s"executed initialize on: $x with result: $isInitialized")
@@ -128,7 +119,7 @@ class MakkaRun extends ((CTX) => List[Module]) {
 			case _ => out
 		}
 
-		def init(input:List[IModule], out:RES):RES = {
+		def init(input: List[IModule], out: RES): RES = {
 			val res = initRound(input, out)
 			if (res._1.isEmpty) {
 				res
@@ -202,6 +193,7 @@ class MakkaRun extends ((CTX) => List[Module]) {
 }
 
 class MakkaDispose extends ((CTX, List[Module]) => Unit) {
+
 	import Logger._
 
 	override def apply(ctx: CTX, modules: List[Module]): Unit = modules.map {
@@ -215,14 +207,16 @@ class MakkaDispose extends ((CTX, List[Module]) => Unit) {
 }
 
 /**
- * @author jubu
- */
+	* @author jubu
+	*/
 object Makka extends App {
+
 	import Logger._
+
 	val makkaRun = new MakkaRun
 	val makkaDispose = new MakkaDispose
 
-	val ctx:CTX = new CTX
+	val ctx: CTX = new CTX
 	Try(makkaRun(ctx)) match {
 		case Failure(th) => {
 			log(s"Can't initialize application, reason: ${th.getMessage}!", true)
@@ -241,9 +235,9 @@ object Makka extends App {
 }
 
 private object Logger {
-	def log(message:String, asError:Boolean = false) = {
+	def log(message: String, asError: Boolean = false) = {
 		if (System.getProperty("makka.verbose", "false").toBoolean) {
-			if(asError) {
+			if (asError) {
 				Console.err.println(message)
 			} else {
 				println(message)
@@ -253,16 +247,16 @@ private object Logger {
 }
 
 /**
- *
- * @param message
- * @param cause
- */
-case class InitializationError(message:String, cause:Throwable = null) extends Error(message, cause)
+	*
+	* @param message
+	* @param cause
+	*/
+case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
 
 /**
- *
- * @param message
- * @param cause
- */
-case class RunError(message:String, cause:Throwable = null) extends Error(message, cause)
+	*
+	* @param message
+	* @param cause
+	*/
+case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)
 
