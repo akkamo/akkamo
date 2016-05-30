@@ -7,15 +7,11 @@ Makka system allows the construction of a set of modules that can cooperate toge
 Application is assembled via [sbt-native-packager sbt plugin](https://github.com/sbt/sbt-native-packager)
 as native application (zip file with starting scripts). Consult [demo application](https://github.com/JurajBurian/makka-demo) for details.<br/>
 For configuration of Makka Application is [Lighbend configuration library](https://github.com/typesafehub/config) used
+
 ## How it works
-Each module must implement the marking interface:
-```Scala
-package com.github.jurajburian.makka
-trait Module
-```
-Module is included to the lifecycle if in META-INF/services exists file `com.github.jurajburian.makka.Module` 
-containing classified name of the published module (one name per line).
-If module want use a dependant module respectively want use API published by the module, then must implements
+Each module is represented by the class implementing the `com.github.jurajburian.makka.Module` trait. For module lookup during _Makka_ startup, Java's [ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html) mechanism is used, therefore for each _Makka_ module a new line with _fully qualified domain name_ of module's class must be added to the `com.github.jurajburian.makka.Module` file located in the `META-INF/services/` directory of module's JAR file.
+
+If module want use a dependant module respectively want use API published by the module, then must implement
 at least one of next interfaces:
 ```Scala
 package com.github.jurajburian.makka
