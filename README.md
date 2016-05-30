@@ -1,37 +1,27 @@
 # Makka - modules in Akka.
 Runtime assembly of several modules running on top of Akka.
->Project is experimental don't use it please. Any suggestions are welcome !!!
+> This project is experimental, please do not use for production purposes as it may change dramatically. Any feedbacks, suggestions or participations are welcomed!
 
-## About Makka.
+## 1. About Makka.
 Makka system allows the construction of a set of modules that can cooperate together, or run independently.
 Application is assembled via [sbt-native-packager sbt plugin](https://github.com/sbt/sbt-native-packager)
 as native application (zip file with starting scripts). Consult [demo application](https://github.com/JurajBurian/makka-demo) for details.<br/>
 For configuration of Makka Application is [Lighbend configuration library](https://github.com/typesafehub/config) used
 
-## How it works
+## 2. How it works
 Each module is represented by the class implementing the `com.github.jurajburian.makka.Module` trait. For module lookup during _Makka_ startup, Java's [ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html) mechanism is used, therefore for each _Makka_ module a new line with _fully qualified domain name_ of module's class must be added to the `com.github.jurajburian.makka.Module` file located in the `META-INF/services/` directory of module's JAR file.
 
-If module want use a dependant module respectively want use API published by the module, then must implement
-at least one of next interfaces:
-```Scala
-package com.github.jurajburian.makka
-trait Initializable {
-  def initialize(ctx:Context):Boolean
-}
+### 2.1 Lifecycle
 
-trait Runnable {
-  def run(ctx:Context):Unit
-}
-```
-If a module allocate resources like TCP/IP ports, can't be deallocated from the memory by GC,
- or need graceful shut down then need to implement next interface:
-```Scala
-package com.github.jurajburian.makka
-trait Disposable {
-  def dispose(ctx:Context):Unit
-}
-```
-### Context
+When `Makka` is started, classpath is searched for all modules, registered using the _ServiceLoader_ mechanism. Then several lifecycle stages are performed:
+
+1. __Init stage__ - Very first stage of _Makka_ module lifecycle, module should validate whether all its possible dependencies are already initialized and/or register own APIs/services into the _Makka_ context. To execute module code in this stage, trait `com.github.jurajburian.makka.Initializable` must be mixed in module's class and method `initialize(ctx: Context): Boolean` implemented. In this method the _Makka_ context is provided, allowing to lookup dependency or register own service. If not all module's dependencies are ready yet, `false` should be returned and module initialization will be repeated again later, `true` is indicating that module is successfully initialized.
+2. __Run stage__ - When all modules are initialized, this stage is performed. To execute module code in this stage, trait `com.github.jurajburian.makka.Runnable` must be mixed in module's class and method `run(ctx: Context): Unit` implemented.
+3. __Dispose stage__ - This stage is performed just before the _Makka_ system is shutted down, usually when the JVM gets signal to terminate. It allows module to gracefully close all allocated resources, opened ports, files, etc. To execute module code in this stage, trait `com.github.jurajburian.makka.Disposable` must be mixed in module's class and method `dispose(ctx: Context): Unit` implemented.
+
+> Please note that the Makka initialization process (including calling of `initialize` and `run` methods) is executed in single thread, thus module required to call asynchronous code should allways wait until such code is finished.
+
+### 2.2 Context
 `Context` is stateful entity managing published "services" and the state of initialization process:
 ```Scala
 def inject[T](implicit ct:ClassTag[T]):Option[T]
@@ -59,31 +49,18 @@ Simple example is `ConfigModule` that provides instance of `com.typesafe.config.
 	if nothing is registered under key and `strict` is equal `true` then default value is returned if exists.
 	> todo why so benevolent system + plugin
 
-### Lifecycle
-1. All modules created in random order
-2. On each module - implementing `Initalizable` - is method `initialize` called with global `Context` as argument.
-	* if method return `false` then module state is understand as not initialized and the execution will be repeated in future.
-	* if method return `true` then module state is understand as initialized
-3. On each module - implementing `Runnable` - is method `run` called with global `Context` as argument.
-4. Application is initialized and running ....
-5. when JVM gets signal causing end of JVM run then on each module - implementing `Disposable` -
-is method `dispose` called with global `Context` as argument.
-
-> Whole initialization process (including calls of run method) is executed in single thread.
- So if a module calls asynchronous processing then the whole processing thread should wait for the end of such calls.
-
-### Order
+### 2.3 Order
 >todo - dependencies are managed by order
 
-## Build in modules
-1. ConfigModule - configuration provider
-2. AkkaModule - Akka ActorSystem provider
-## Known modules
-1. [makka-reactivemondo](https://github.com/JurajBurian/makka-reactivemondo) - reactive mongo provider
-2. [makka-persitent-config](https://github.com/JurajBurian/makka-persistent-config) - persistent config provider, with default on top of mongo implementation
+## 3. Existing modules
 
-## How to write Module, conventions & rules
->todo - conventions, key aliases .....
-   
+### 3.1 Built-in modules
+1. _ConfigModule_ - provides application-wide configuration mechanism, based on [Lightbend Config](https://github.com/typesafehub/config)
+2. _AkkaModule_ - provides [Akka](http://akka.io) actor system
 
+### 3.2 Third-party modules
+1. [makka-reactivemondo](https://github.com/JurajBurian/makka-reactivemondo) - provides [Mongo DB](https://www.mongodb.com) database support, using the [http://reactivemongo.org](http://reactivemongo.org) driver
+2. [makka-persitent-config](https://github.com/JurajBurian/makka-persistent-config) - provides persistent configuration functionality (default implementation uses [Mongo DB](https://www.mongodb.com) as a persistent storage)
 
+## 4. How to write Module, conventions & rules
+> todo - conventions, key aliases .....
