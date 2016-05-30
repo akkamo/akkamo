@@ -1,5 +1,7 @@
 package com.github.jurajburian.makka
 
+import scala.collection.{Set, Map}
+
 /**
 	* A mutable context dispatched during all phases in module lifecycle
 	*
