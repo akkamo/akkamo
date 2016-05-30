@@ -55,11 +55,12 @@ Simple example is `ConfigModule` that provides instance of `com.typesafe.config.
 ## 3. Existing modules
 
 ### 3.1 Built-in modules
-1. _ConfigModule_ - provides application-wide configuration mechanism, based on [Lightbend Config](https://github.com/typesafehub/config)
-2. _AkkaModule_ - provides [Akka](http://akka.io) actor system
+1. _AkkaModule_ - provides [Akka](http://akka.io) actor system
+2. _ConfigModule_ - provides application-wide configuration mechanism, based on [Lightbend Config](https://github.com/typesafehub/config)
+3. _LogModule_ - provides logging functionality based on the [Akka's logging mechanism](http://doc.akka.io/docs/akka/2.4.6/scala/logging.html)
 
 ### 3.2 Third-party modules
-1. [makka-reactivemondo](https://github.com/JurajBurian/makka-reactivemondo) - provides [Mongo DB](https://www.mongodb.com) database support, using the [http://reactivemongo.org](http://reactivemongo.org) driver
+1. [makka-reactivemongo](https://github.com/JurajBurian/makka-reactivemongo) - provides [Mongo DB](https://www.mongodb.com) database support, using the [http://reactivemongo.org](http://reactivemongo.org) driver
 2. [makka-persitent-config](https://github.com/JurajBurian/makka-persistent-config) - provides persistent configuration functionality (default implementation uses [Mongo DB](https://www.mongodb.com) as a persistent storage)
 
 ## 4. How to write Module, conventions & rules
