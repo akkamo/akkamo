@@ -3,9 +3,9 @@ import sbt.Keys._
 lazy val cScalaVersion =  "2.11.8"
 lazy val cAkkaVersion =  "2.4.4"
 
-organization in Global := "com.github.jurajburian"
+organization in Global := "eu.akkamo"
 
-description := "Makka modules in Akka. Runtime assembly of several modules running on top of Akka."
+description := "Akkamo modules in Akka. Runtime assembly of several modules running on top of Akka."
 
 crossScalaVersions in Global := Seq("2.11.8", cScalaVersion)
 
@@ -37,7 +37,7 @@ publishArtifact in Test := false
 pomIncludeRepository := { _ => false }
 
 pomExtra := (
-	<url>https://github.com/JurajBurian/ic</url>
+	<url>http://www.akkamo.eu</url>
 		<licenses>
 			<license>
 				<name>unlicense</name>
@@ -46,8 +46,8 @@ pomExtra := (
 			</license>
 		</licenses>
 		<scm>
-			<url>https://github.com/jurajburian/ic</url>
-			<connection>scm:git:https://github.com/jurajburian/ic</connection>
+			<url>https://github.com/akkamo/akkamo</url>
+			<connection>scm:git:https://github.com/akkamo/akkamo</connection>
 		</scm>
 		<developers>
 			<developer>
@@ -75,10 +75,10 @@ scalacOptions in Global := Seq(
 
 version in Global := "1.0.0-SNAPSHOT"
 
-lazy val rootMakka = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(makka, makkaAkkaHttp, makkaSbtPlugin)
+lazy val akkamoRoot = project.in(file(".")).settings (publish := { }, publishLocal:={}).aggregate(akkamo, akkamoAkkaHttp, akkamoSbtPlugin)
 
-lazy val makka = project.in(file("makka")).settings(
-	name := "makka",
+lazy val akkamo = project.in(file("akkamo")).settings(
+	name := "akkamo",
 	libraryDependencies ++= Seq(
 		"org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
 		"com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
@@ -89,17 +89,17 @@ lazy val makka = project.in(file("makka")).settings(
 	)
 )
 
-lazy val makkaAkkaHttp = project.in(file("makkaAkkaHttp")).settings(
-	name := "makka-akka-http",
+lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
+	name := "akkamo-akka-http",
 	libraryDependencies ++= Seq(
 		"com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
 	)
-).dependsOn(makka)
+).dependsOn(akkamo)
 
 
-lazy val makkaSbtPlugin = project.in(file("makkaSbtPlugin")).settings(
-	name := "sbt-makka",
+lazy val akkamoSbtPlugin = project.in(file("akkamoSbtPlugin")).settings(
+	name := "sbt-akkamo",
 	scalaVersion := "2.10.6",
 	sbtPlugin := true,
 	scalacOptions := Seq("-deprecation", "-encoding", "utf8")
