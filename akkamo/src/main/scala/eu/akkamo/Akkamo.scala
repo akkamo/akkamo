@@ -150,7 +150,7 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			val e = if (!ths.isEmpty) {
 				InitializationError(s"Somme errors occurred during initialization")
 			} else {
-				InitializationError(s"Can't initialize modules: $nis, cycle or unresolved dependency")
+				InitializationError(s"Can't initialize modules: $nis, cycle or unresolved dependency.")
 			}
 			ths.foldLeft(e) {
 				case (e, (m, th)) => {
@@ -182,7 +182,7 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 
 		if (!notRunning.isEmpty) {
 			Try(new AkkamoDispose()(ctx, modules))
-			throw notRunning.foldLeft(RunError(s"Somme errors occurred during attempt to run installed modules")) { case (e, (m, th)) =>
+			throw notRunning.foldLeft(RunError(s"Some errors occurred during attempt to run installed modules")) { case (e, (m, th)) =>
 				e.addSuppressed(th)
 				e
 			}
