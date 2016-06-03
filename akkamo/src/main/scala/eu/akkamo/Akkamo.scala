@@ -91,12 +91,12 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 		def order(in: List[IModule], set:Set[Class[_]] = Set.empty, out: List[IModule] = Nil):(Set[Class[_]], List[IModule]) = {
 			val ret = orderRound(in, set)
 			if(in.isEmpty) {
-				(ret._1, out ++ ret._2)
+				(ret._1, ret._2 ++ out )
 			} else {
 				if(ret._2.isEmpty) {
 					throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
 				}
-				order(in.diff(ret._2), ret._1, out ++ ret._2)
+				order(in.diff(ret._2), ret._1, ret._2 ++ out)
 			}
 		}
 
