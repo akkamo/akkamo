@@ -53,10 +53,9 @@ class CTX extends Context {
 				case class W(last: Boolean) extends Dependency {
 					override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): Dependency =
 						W(last && dependencies.contains(ct.runtimeClass))
-
 					override def res: Boolean = last
 				}
-				W(dependencies.contains(ct.runtimeClass))
+				W(this.res)
 			}
 			override def res: Boolean = true
 		}
@@ -74,37 +73,40 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 
 	override def apply(ctx: CTX): List[Module] = {
 
-		def orderRound(in: List[IModule], out: List[IModule], set:Set[Class[_]]): (List[IModule], List[IModule])  =  {
+		def orderRound(in: List[IModule], set:Set[Class[_]], out: List[IModule] = Nil): (Set[Class[_]], List[IModule])  =  {
 			val des = ctx.createDependee(set)
 			in match {
 				case x::xs => {
 					val r = x.dependencies(des)
 					if(r()) {
-						orderRound(xs, x::out, set + x.iKey())
+						orderRound(xs, set + x.iKey, x::out)
 					} else {
-						orderRound(xs, out, set + x.iKey())
+						orderRound(xs, set, out)
 					}
 				}
-				case _ => (in, out)
+				case _ => (set, out)
 			}
 		}
 
-		def order(in: List[IModule], out: List[IModule] = Nil, set:Set[Class[_]] = Set.empty):(List[IModule], List[IModule]) = {
-			val ret@(nextIn, nextOut) = orderRound(in, out, set)
-			if(!nextIn.isEmpty && nextIn.size <= in.size) {
-				throw InitializationError(s"Can't initialize modules: $nextIn, cycle or unresolved dependency detected.")
-			}
+		def order(in: List[IModule], set:Set[Class[_]] = Set.empty, out: List[IModule] = Nil):(Set[Class[_]], List[IModule]) = {
+			val ret = orderRound(in, set)
 			if(in.isEmpty) {
-				ret
+				(ret._1, out ++ ret._2)
 			} else {
-				order(nextIn, nextOut, set)
+				if(ret._2.isEmpty) {
+					throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
+				}
+				order(in.diff(ret._2), ret._1, out ++ ret._2)
 			}
 		}
 
 		def init(in:List[IModule], out:List[(IModule, Throwable)] = Nil):List[(IModule, Throwable)] = in match {
 			case x :: xs => Try(x.initialize(ctx)) match {
 				case Failure(th) => init(xs, (x, th)::out)
-				case _ => init(xs, out)
+				case _ => {
+					log(s"Module: $x installed")
+					init(xs, out)
+				}
 			}
 			case _ => out
 		}
@@ -118,27 +120,27 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			case _ => false
 		}
 
-		val (in, ordered)= order(grouped.get(true).get.map(_.asInstanceOf[IModule]))
+		val (set, ordered)= order(grouped.get(true).get.map(_.asInstanceOf[IModule]))
 
-		{ // initialization block
-			val errors = init(ordered.reverse)
-			// end of game
-			if (!errors.isEmpty) {
-				val e = InitializationError(s"Somme errors occurred during initialization")
-				errors.foldLeft(e) {
-					case (e, (m, th)) => {
-						e.addSuppressed(th);
-						e
-					}
+		log(s"Initializing modules: ${modules.reverse}")
+
+		val errors = init(ordered.reverse)
+		// end of game
+		if (!errors.isEmpty) {
+			val e = InitializationError(s"Somme errors occurred during initialization")
+			errors.foldLeft(e) {
+				case (e, (m, th)) => {
+					e.addSuppressed(th);
+					e
 				}
-
-				// dispose all
-				Try(new AkkamoDispose()(ctx, modules))
-				throw e
 			}
+
+			// dispose all
+			Try(new AkkamoDispose()(ctx, modules))
+			throw e
 		}
 
-		val all = grouped.get(true).getOrElse(Nil):::ordered
+		val all = grouped.get(false).getOrElse(Nil):::ordered
 
 		// run modules
 		val notRunning = all.filter {
