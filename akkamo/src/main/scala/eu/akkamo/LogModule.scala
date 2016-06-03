@@ -47,21 +47,18 @@ class LogModule extends Module with Initializable {
 	val LoggingActorSystem = "logging"
 
 	/** Initializes log module into provided context */
-	override def initialize(ctx: Context): Boolean = {
-		if (ctx.initialized[AkkaModule]) {
-			// inject the logging actor system (if available, otherwise default actor system)
-			val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
-				.getOrElse(throw InitializableError("Can't find any Actor System for logger"))
+	override def initialize(ctx: Context) = {
+		// inject the logging actor system (if available, otherwise default actor system)
+		val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
+			.getOrElse(throw InitializableError("Can't find any Actor System for logger"))
 
-			// register logging adapter factor into the Akkamo context
-			ctx.register[LoggingAdapterFactory](new LoggingAdapterFactory {
-				override def apply[T](category: Class[T]): LoggingAdapter = Logging(actorSystem, category)
+		// register logging adapter factor into the Akkamo context
+		ctx.register[LoggingAdapterFactory](new LoggingAdapterFactory {
+			override def apply[T](category: Class[T]): LoggingAdapter = Logging(actorSystem, category)
 
-				override def apply(category: AnyRef): LoggingAdapter = apply(category.getClass)
-			})
-			true
-		} else {
-			false
-		}
+			override def apply(category: AnyRef): LoggingAdapter = apply(category.getClass)
+		})
 	}
+
+	override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[AkkaModule]
 }

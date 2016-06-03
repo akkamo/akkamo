@@ -9,8 +9,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
-import eu.akkamo.RouteRegistry.{HTTP, HTTPS, Protocol}
 import com.typesafe.config.Config
+import eu.akkamo.RouteRegistry.{HTTP, HTTPS, Protocol}
 
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
@@ -220,15 +220,10 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		*         In case of incomplete initialization system will call this method again.
 		*         Incomplete initialization mean That component is not able to find all dependencies.
 		*/
-	override def initialize(ctx: Context): Boolean = {
-		if (ctx.initialized[ConfigModule] && ctx.initialized[LogModule] && ctx.initialized[AkkaModule]) {
-			val cfg = ctx.inject[Config]
-			val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
-			initialize(ctx, cfg.get, log.get)
-			true
-		} else {
-			false
-		}
+	override def initialize(ctx: Context) = {
+		val cfg = ctx.inject[Config]
+		val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
+		initialize(ctx, cfg.get, log.get)
 	}
 
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
@@ -280,6 +275,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		}
 	}
 
+
+	override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
 	override def run(ctx: Context): Unit = {
 		import scala.concurrent.ExecutionContext.Implicits.global

@@ -26,4 +26,5 @@ trait Module {
 		* @return simple class name of the ''Akkamo'' module
 		*/
 	override def toString: String = this.getClass.getSimpleName
+
 }

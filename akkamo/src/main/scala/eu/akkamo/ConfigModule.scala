@@ -17,8 +17,8 @@ class ConfigModule extends Module with Initializable {
 		* @param ctx ''Akkamo'' context
 		* @return `true` if the module has been properly initialized
 		*/
-	override def initialize(ctx: Context): Boolean = {
+	override def initialize(ctx: Context) = {
 		ctx.register(ConfigFactory.defaultApplication())
-		true
 	}
+	override def dependencies(dependencies: Dependency): Dependency = {dependencies}
 }

@@ -11,12 +11,6 @@ trait Context {
 
 	import scala.reflect.ClassTag
 
-	trait With {
-		def &&[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
-		def apply() = res
-		def res:Boolean
-	}
-
 	/**
 	 * inject registered service into this context
 	 *
@@ -57,36 +51,4 @@ trait Context {
 	 * @tparam T
 	 */
 	def register[T<:AnyRef](value:T, key:Option[String] = None)(implicit ct:ClassTag[T])
-
-	/**
-	 *
-	 * @param ct class tag evidence
-	 * @tparam T
-	 * @return true if module is initialized
-	 */
-	def initialized[T<:(Module with Initializable)](implicit ct:ClassTag[T]):Boolean
-
-	/**
-		*
-		* @param ct class tag evidence
-		* @tparam T
-		* @return [[With]] instance
-		*/
-	def initializedWith[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
-
-	/**
-	 *
-	 * @param ct class tag evidence
-	 * @tparam T
-	 */
-	def running[T<:(Module with Runnable)](implicit ct:ClassTag[T]):Boolean
-
-	/**
-	 *
-	 * @param ct class tag evidence
-	 * @tparam T
-	 * @return
-	 */
-	def runningWith[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
-
 }

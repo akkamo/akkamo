@@ -27,6 +27,7 @@ When `Akkamo` is started, classpath is searched for all modules, registered usin
 def inject[T](implicit ct:ClassTag[T]):Option[T]
 def inject[T](key:String, strict:Boolean = false)(implicit ct:ClassTag[T]):Option[T]
 def register[T<:AnyRef](value:T, key:Option[String] = None)(implicit ct:ClassTag[T])
+def registered[T](implicit ct:ClassTag[T]):Map[T, Set[String]]
 def initialized[T<:(Module with Initializable)](implicit ct:ClassTag[T]):Boolean
 def initializedWith[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
 def running[T<:(Module with Runnable)](implicit ct:ClassTag[T]):Boolean
@@ -35,6 +36,8 @@ def runningWith[T<:(Module with Initializable)](implicit ct:ClassTag[T]):With
 Methods:
 * register - register service T under optional key. Combination of type T and key must be unique.
 Simple example is `ConfigModule` that provides instance of `com.typesafe.config.Config` registered without any key.
+Second example is `AkkaModule` that provides one or several instances of `akka.actor.ActorSystem` under several keys and
+one instance is always denoted as default and can be injected without any key
 
 	See:
 	```Scala
@@ -43,11 +46,17 @@ Simple example is `ConfigModule` that provides instance of `com.typesafe.config.
 	  true
 	}
 	```
-* inject, there are two methods
+* inject,there are two variant of the method
 	1. without parameter - this method returns "default" instance of the service if exists
 	2. with parameter `key` and `strict` - this method returns instance of service registered under given `key`,
-	if nothing is registered under key and `strict` is equal `true` then default value is returned if exists.
-	> todo why so benevolent system + plugin
+	if nothing is registered under key and `strict` is equal `false` then default value is returned if exists.
+
+	> Why we are so benevolent in inject method, why default value injected if nothing is found under given key?
+	> 1. We want have the system that is able to start with minimal or zero configuration.
+	> 2. We want have almost all injections parametrized by a key it gives to us freedom configure system in very flexible ways.
+	> Please read the chapter: "How to write Module, conventions & rules" for further details.
+* registered -
+
 
 ### 2.3 Order
 >todo - dependencies are managed by order

@@ -18,12 +18,11 @@ trait Initializable {
 		* dependencies are initialized yet)
 		*
 		* @param ctx ''Akkamo'' context
-		* @return `true` if the module has been properly initialized
 		* @throws InitializationError thrown when severe error occurs during the initialization
 		*                             and there is no option to recover such state
 		*/
 	@throws[InitializableError]("If initialization can't be finished")
-	def initialize(ctx:Context):Boolean
+	def initialize(ctx:Context)
 
 	/**
 		* Instance of [[Initializable]] is registered into the ''Akkamo'' context by default under
@@ -33,6 +32,22 @@ trait Initializable {
 		* @return registration key class
 		*/
 	def iKey() = this.getClass
+
+
+	/**
+		* Overloading this method in module implementation allows make proper dependency resolution in dependant modules.<br/>
+		* If Module: A require during initialization or run access to Services produced by let say Modules: X, Y then
+		* is necessary to overload method in next way:
+		* {{{
+		*   def dependencies(dependencies:Dependency): Dependency = {
+		*     dependencies.&&[X].&&[Y]
+		*   }
+		* }}}
+		*
+		* @param dependencies instance of [[eu.akkamo.Dependency]]
+		* @return instance of [[eu.akkamo.Dependency]]
+		*/
+	def dependencies(dependencies:Dependency): Dependency
 
 }
 
