@@ -91,7 +91,7 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 
 		def order(in: List[IModule], out: List[IModule] = Nil, set:Set[Class[_]] = Set.empty):(List[IModule], List[IModule]) = {
 			val ret@(nextIn, nextOut) = orderRound(in, out, set)
-			if(nextIn.size <= in.size) {
+			if(!nextIn.isEmpty && nextIn.size <= in.size) {
 				throw InitializationError(s"Can't initialize modules: $nextIn, cycle or unresolved dependency detected.")
 			}
 			if(in.isEmpty) {
