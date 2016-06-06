@@ -27,4 +27,20 @@ trait Module {
 		*/
 	override def toString: String = this.getClass.getSimpleName
 
+
+	/**
+		* Overloading this method in module implementation allows make proper dependency resolution in dependant modules.<br/>
+		* If Module: A require during initialization or run access to Services produced by let say Modules: X, Y then
+		* is necessary to overload method in next way:
+		* {{{
+		*   def dependencies(dependencies:Dependency): Dependency = {
+		*     dependencies.&&[X].&&[Y]
+		*   }
+		* }}}
+		*
+		* @param dependencies instance of [[eu.akkamo.Dependency]]
+		* @return instance of [[eu.akkamo.Dependency]]
+		*/
+	def dependencies(dependencies:Dependency): Dependency
+
 }

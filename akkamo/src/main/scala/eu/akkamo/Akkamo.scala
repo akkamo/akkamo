@@ -47,18 +47,13 @@ class CTX extends Context {
 	}
 
 
-	def createDependee(dependencies:Set[Class[_]]): Dependency = {
-		new Dependency {
-			override def &&[T <: Module with Initializable](implicit ct: ClassTag[T]): Dependency = {
-				case class W(last: Boolean) extends Dependency {
-					override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): Dependency =
-						W(last && dependencies.contains(ct.runtimeClass))
-					override def res: Boolean = last
-				}
-				W(this.res)
+	def createDependencies(dependencies:Set[Class[_]]): Dependency = {
+		case class W(res: Boolean) extends Dependency {
+			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): Dependency = {
+				W(this.res && dependencies.contains(ct.runtimeClass))
 			}
-			override def res: Boolean = true
 		}
+		W(true)
 	}
 }
 
@@ -69,17 +64,19 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 
 	import scala.collection.JavaConversions._
 
-	type IModule = Module with Initializable
-
 	override def apply(ctx: CTX): List[Module] = {
 
-		def orderRound(in: List[IModule], set:Set[Class[_]], out: List[IModule] = Nil): (Set[Class[_]], List[IModule])  =  {
-			val des = ctx.createDependee(set)
+		def orderRound(in: List[Module], set:Set[Class[_]], out: List[Module] = Nil): (Set[Class[_]], List[Module])  =  {
+			val des = ctx.createDependencies(set)
 			in match {
 				case x::xs => {
 					val r = x.dependencies(des)
 					if(r()) {
-						orderRound(xs, set + x.iKey, x::out)
+						if(x.isInstanceOf[Initializable]) {
+							orderRound(xs, set + x.asInstanceOf[Initializable].iKey, x :: out)
+						} else {
+							orderRound(xs, set + x.getClass, x :: out)
+						}
 					} else {
 						orderRound(xs, set, out)
 					}
@@ -88,7 +85,7 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			}
 		}
 
-		def order(in: List[IModule], set:Set[Class[_]] = Set.empty, out: List[IModule] = Nil):(Set[Class[_]], List[IModule]) = {
+		def order(in: List[Module], set:Set[Class[_]] = Set.empty, out: List[Module] = Nil):(Set[Class[_]], List[Module]) = {
 			val ret = orderRound(in, set)
 			if(in.isEmpty) {
 				(ret._1, ret._2 ++ out )
@@ -100,11 +97,13 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			}
 		}
 
-		def init(in:List[IModule], out:List[(IModule, Throwable)] = Nil):List[(IModule, Throwable)] = in match {
-			case x :: xs => Try(x.initialize(ctx)) match {
+		def init(in:List[Module], out:List[(Module, Throwable)] = Nil):List[(Module, Throwable)] = in match {
+			case x :: xs if(x.isInstanceOf[Initializable]) => Try{
+				log(s"Initialising module: $x")
+				x.asInstanceOf[Initializable].initialize(ctx)
+			} match {
 				case Failure(th) => init(xs, (x, th)::out)
 				case _ => {
-					log(s"Module: $x installed")
 					init(xs, out)
 				}
 			}
@@ -114,17 +113,21 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).toList
 		log(s"Installing modules: $modules")
 
+
 		// at least one module is initializable and one none
 		val grouped: Map[Boolean, List[Module]] = modules.groupBy {
 			case x: Initializable => true
 			case _ => false
 		}
 
-		val (set, ordered)= order(grouped.get(true).get.map(_.asInstanceOf[IModule]))
 
-		log(s"Initializing modules: ${modules.reverse}")
+		val (set, ordered)= order(grouped.get(true).get)
 
-		val errors = init(ordered.reverse)
+		val reversed = ordered.reverse
+
+		log(s"Initializing modules: ${reversed}")
+
+		val errors = init(reversed)
 		// end of game
 		if (!errors.isEmpty) {
 			val e = InitializationError(s"Somme errors occurred during initialization")
@@ -135,12 +138,17 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 				}
 			}
 
-			// dispose all
-			Try(new AkkamoDispose()(ctx, modules))
-			throw e
+			try {
+				throw e
+			} finally  {
+				// dispose all
+				Try(new AkkamoDispose()(ctx, modules))
+			}
 		}
 
-		val all = grouped.get(false).getOrElse(Nil):::ordered
+		val all = grouped.getOrElse(false, Nil):::ordered
+
+		log(s"Run modules: ${all}")
 
 		// run modules
 		val notRunning = all.filter {
@@ -166,7 +174,7 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			}
 		}
 		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
-		all // return all initialised modules
+		ordered // return all initialised modules
 	}
 }
 
