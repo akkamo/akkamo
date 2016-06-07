@@ -13,10 +13,6 @@ scalaVersion in Global := cScalaVersion
 
 publishMavenStyle := true
 
-cancelable in Global := true
-
-fork in (IntegrationTest, run) := true
-
 resolvers ++= Seq(
 	Resolver.sonatypeRepo("releases"),
 	Resolver.sonatypeRepo("snapshots"))

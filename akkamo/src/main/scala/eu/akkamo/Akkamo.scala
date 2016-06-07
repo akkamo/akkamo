@@ -1,6 +1,6 @@
 package eu.akkamo
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 
 /**
 	* Implementation of the Context
@@ -47,7 +47,7 @@ class CTX extends Context {
 	}
 
 
-	def createDependencies(dependencies:Set[Class[_]]): Dependency = {
+	def createDependencies(dependencies: Set[Class[_]]): Dependency = {
 		case class W(res: Boolean) extends Dependency {
 			override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): Dependency = {
 				W(this.res && dependencies.contains(ct.runtimeClass))
@@ -58,21 +58,69 @@ class CTX extends Context {
 }
 
 
-class AkkamoRun extends ((CTX) => List[Module]) {
+class AkkamoRun(modules: List[Module]) {
+
+	def this() {
+		this(AkkamoRun.modules())
+	}
 
 	import Logger._
 
-	import scala.collection.JavaConversions._
+	def apply(implicit ctx: CTX): List[Module] = {
+		log(s"Modules: $modules")
 
-	override def apply(ctx: CTX): List[Module] = {
+		val (_, ordered) = order(modules)
 
-		def orderRound(in: List[Module], set:Set[Class[_]], out: List[Module] = Nil): (Set[Class[_]], List[Module])  =  {
+		val errors1 = init(ordered.reverse)
+		// end of game
+		if (!errors1.isEmpty) {
+			val e = InitializationError(s"Somme errors occurred during initialization")
+			errors1.foldLeft(e) {
+				case (e, (m, th)) => {
+					e.addSuppressed(th);
+					e
+				}
+			}
+			try {
+				throw e
+			} finally {
+				// dispose all
+				Try(new AkkamoDispose(false)(ctx, modules))
+			}
+		}
+
+		log("Run modules: " + ordered.filter(_.isInstanceOf[Runnable]))
+
+		val errors2 = run(ordered)
+		// end of game
+		if (!errors2.isEmpty) {
+			val e = RunError("Some errors occurred during attempt to run installed modules")
+			errors1.foldLeft(e) {
+				case (e, (m, th)) => {
+					e.addSuppressed(th);
+					e
+				}
+			}
+			try {
+				throw e
+			} finally {
+				// dispose all
+				Try(new AkkamoDispose(false)(ctx, modules))
+			}
+		}
+		ordered
+	}
+
+	private def order(in: List[Module], set: Set[Class[_]] = Set.empty, out: List[Module] = Nil)
+	                 (implicit ctx: CTX): (Set[Class[_]], List[Module]) = {
+
+		def orderRound(in: List[Module], set: Set[Class[_]], out: List[Module] = Nil): (Set[Class[_]], List[Module]) = {
 			val des = ctx.createDependencies(set)
 			in match {
-				case x::xs => {
+				case x :: xs => {
 					val r = x.dependencies(des)
-					if(r()) {
-						if(x.isInstanceOf[Initializable]) {
+					if (r()) {
+						if (x.isInstanceOf[Initializable]) {
 							orderRound(xs, set + x.asInstanceOf[Initializable].iKey, x :: out)
 						} else {
 							orderRound(xs, set + x.getClass, x :: out)
@@ -85,109 +133,99 @@ class AkkamoRun extends ((CTX) => List[Module]) {
 			}
 		}
 
-		def order(in: List[Module], set:Set[Class[_]] = Set.empty, out: List[Module] = Nil):(Set[Class[_]], List[Module]) = {
-			val ret = orderRound(in, set)
-			if(in.isEmpty) {
-				(ret._1, ret._2 ++ out )
+		val ret = orderRound(in, set)
+		if (in.isEmpty) {
+			(ret._1, ret._2 ++ out)
+		} else {
+			if (ret._2.isEmpty) {
+				throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
+			}
+			order(in.diff(ret._2), ret._1, ret._2 ++ out)
+		}
+	}
+
+	private def init(in: List[Module], out: List[(Module, Throwable)] = Nil)
+	                (implicit ctx: CTX): List[(Module, Throwable)] = in match {
+		case x :: xs =>
+			if (x.isInstanceOf[Initializable]) {
+				Try {
+					log(s"Initialising module: $x")
+					x.asInstanceOf[Initializable].initialize(ctx)
+				} match {
+					case Failure(th) => init(xs, (x, th) :: out)
+					case _ => init(xs, out)
+				}
 			} else {
-				if(ret._2.isEmpty) {
-					throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
-				}
-				order(in.diff(ret._2), ret._1, ret._2 ++ out)
+				init(xs, out)
 			}
-		}
+		case _ => out
+	}
 
-		def init(in:List[Module], out:List[(Module, Throwable)] = Nil):List[(Module, Throwable)] = in match {
-			case x :: xs if(x.isInstanceOf[Initializable]) => Try{
-				log(s"Initialising module: $x")
-				x.asInstanceOf[Initializable].initialize(ctx)
-			} match {
-				case Failure(th) => init(xs, (x, th)::out)
-				case _ => {
-					init(xs, out)
+
+	private def run(in: List[Module], out: List[(Module, Throwable)] = Nil)
+	               (implicit ctx: CTX): List[(Module, Throwable)] = in match {
+		case x :: xs =>
+			if (x.isInstanceOf[Runnable]) {
+				Try {
+					log(s"Running module: $x")
+					x.asInstanceOf[Runnable].run(ctx)
+				} match {
+					case Failure(th) => run(xs, (x, th) :: out)
+					case _ => run(xs, out)
 				}
+			} else {
+				run(xs, out)
 			}
-			case _ => out
-		}
+		case _ => out
+	}
+}
 
-		val modules = java.util.ServiceLoader.load[Module](classOf[Module]).toList
-		log(s"Installing modules: $modules")
+object AkkamoRun {
 
+	import scala.collection.JavaConversions._
 
-		// at least one module is initializable and one none
-		val grouped: Map[Boolean, List[Module]] = modules.groupBy {
-			case x: Initializable => true
-			case _ => false
-		}
+	def modules() = java.util.ServiceLoader.load[Module](classOf[Module]).toList
+}
 
 
-		val (set, ordered)= order(grouped.get(true).get)
+class AkkamoDispose(verbose: Boolean) extends ((CTX, List[Module]) => Unit) {
 
-		val reversed = ordered.reverse
+	def this() = {
+		this(true)
+	}
 
-		log(s"Initializing modules: ${reversed}")
+	import Logger._
 
-		val errors = init(reversed)
+	override def apply(ctx: CTX, modules: List[Module]): Unit = {
+		log("Dispose modules: " + modules.filter(_.isInstanceOf[Disposable]))
+		val errors = dispose(modules)(ctx)
 		// end of game
 		if (!errors.isEmpty) {
-			val e = InitializationError(s"Somme errors occurred during initialization")
+			val e = InitializationError(s"Somme errors occurred during disposal of modules")
 			errors.foldLeft(e) {
 				case (e, (m, th)) => {
 					e.addSuppressed(th);
 					e
 				}
 			}
-
-			try {
-				throw e
-			} finally  {
-				// dispose all
-				Try(new AkkamoDispose()(ctx, modules))
-			}
+			throw e
 		}
-
-		val all = grouped.getOrElse(false, Nil):::ordered
-
-		log(s"Run modules: ${all}")
-
-		// run modules
-		val notRunning = all.filter {
-			case p: Runnable => true
-			case _ => false
-		}.map(_.asInstanceOf[Runnable with Module]).map { p =>
-			(p, Try {
-				p.run(ctx);
-				p
-			})
-		}.filter(!_._2.isSuccess).map { case (p, thp) =>
-			(p, thp match {
-				case Failure(th) => th;
-				case _ => new Error()
-			})
-		}
-
-		if (!notRunning.isEmpty) {
-			Try(new AkkamoDispose()(ctx, modules))
-			throw notRunning.foldLeft(RunError(s"Some errors occurred during attempt to run installed modules")) { case (e, (m, th)) =>
-				e.addSuppressed(th)
-				e
-			}
-		}
-		ctx.inject[LoggingAdapterFactory].map(_.apply(this).info("All modules has been installed"))
-		ordered // return all initialised modules
 	}
-}
 
-class AkkamoDispose extends ((CTX, List[Module]) => Unit) {
-
-	import Logger._
-
-	override def apply(ctx: CTX, modules: List[Module]): Unit = modules.map {
-		case p: Disposable => {
-			log(s"Executing dispose on: $p")
-			Try(p.dispose(ctx))
-		}
-		case _ =>
+	private def dispose(in: List[Module], out: List[(Module, Throwable)] = Nil)(implicit ctx: CTX): List[(Module, Throwable)] = in match {
+		case x :: xs =>
+			if (x.isInstanceOf[Disposable]) {
+				Try {
+					log(s"Dispose module: $x")
+					x.asInstanceOf[Disposable].dispose(ctx)
+				} match {
+					case Failure(th) => dispose(xs, (x, th) :: out)
+					case _ => dispose(xs, out)
+				}
+			} else {
+				dispose(xs, out)
+			}
+		case _ => out
 	}
 
 }
@@ -197,27 +235,25 @@ class AkkamoDispose extends ((CTX, List[Module]) => Unit) {
 	*/
 object Akkamo extends App {
 
-	import Logger._
-
 	val akkamoRun = new AkkamoRun
 	val akkamoDispose = new AkkamoDispose
 
-	val ctx: CTX = new CTX
-	Try(akkamoRun(ctx)) match {
-		case Failure(th) => {
-			log(s"Can't initialize application, reason: ${th.getMessage}!", true)
-			th.printStackTrace(Console.err)
-			log("System exit", true)
-			sys.exit(-1)
-		}
-		case Success(modules) => {
-			Runtime.getRuntime.addShutdownHook(new Thread() {
-				override def run() = {
-					akkamoDispose(ctx, modules)
-				}
-			})
+	val errorHook = new Thread() {
+		override def run() = {
+			Console.err.println("An error occured during initialisation")
 		}
 	}
+	Runtime.getRuntime.addShutdownHook(errorHook)
+	val ctx: CTX = new CTX
+	val modules = akkamoRun(ctx)
+	Runtime.getRuntime.removeShutdownHook(errorHook)
+	Runtime.getRuntime.addShutdownHook(new Thread() {
+		override def run() = try {
+			akkamoDispose(ctx, modules)
+		} catch {
+			case th:Throwable => th.printStackTrace(Console.err)
+		}
+	})
 }
 
 private object Logger {
@@ -245,4 +281,3 @@ case class InitializationError(message: String, cause: Throwable = null) extends
 	* @param cause
 	*/
 case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)
-

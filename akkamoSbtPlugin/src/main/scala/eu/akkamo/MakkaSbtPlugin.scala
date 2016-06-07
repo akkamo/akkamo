@@ -7,6 +7,7 @@ import sbt._
 import sbt.Keys._
 import sbt.classpath.NullLoader
 
+import scala.pickling.runtime
 import scala.util.Try
 
 /**
@@ -16,17 +17,10 @@ import scala.util.Try
 	*/
 object AkkamoSbtPlugin extends AutoPlugin {
 
-	{
-		// we want have verbose start by default
-		val v = "akkamo.verbose"
-		if (System.getProperty(v) == null) {
-			System.setProperty(v, true.toString)
-		}
-	}
+	val Verbose = "akkamo.verbose"
 
-	override def trigger = allRequirements
-
-	case class AkkamoState(data: Option[(Any, Any)] = None, classLoader: URLClassLoader, project:ProjectRef)
+	case class AkkamoState(data: Option[(Any, Any)] = None,
+	                       classLoader: URLClassLoader, project:ProjectRef, initialVerbose:Boolean = initVerbose)
 
 	private[this] val akkamoState = new AtomicReference(AkkamoState(classLoader = null, project = null))
 
@@ -37,29 +31,33 @@ object AkkamoSbtPlugin extends AutoPlugin {
 
 	import autoImport._
 
+
+
+	override def globalSettings = Seq(
+		mainClass in Compile := Some("eu.akkamo.Akkamo")
+	) ++  super.globalSettings
+
 	override def projectSettings = Seq(
-		mainClass in Global := Some("eu.akkamo.Akkamo"),
-		fullClasspath in runAkkamo <<= fullClasspath in Runtime,
-		runAkkamo <<= (thisProjectRef, fullClasspath in runAkkamo).map(handleStartAkkamo).dependsOn(products in Compile),
-		stopAkkamo <<= (thisProjectRef, fullClasspath in runAkkamo).map(handleStopAkkamo)
+		runAkkamo  <<= (thisProjectRef, fullClasspath in runAkkamo in Runtime).map(handleStartAkkamo).dependsOn(products in Runtime),
+		stopAkkamo <<= (thisProjectRef, fullClasspath in stopAkkamo in Runtime).map(handleStopAkkamo).dependsOn(products in Runtime)
 	)
 
 	def handleStartAkkamo(project: ProjectRef, cp:Classpath) = {
 		val urls = cp.map(_.data.toURI.toURL).toArray
 		val parent = ClassLoader.getSystemClassLoader.getParent
 		val classLoader = new URLClassLoader(urls,parent)
-		start(stop(akkamoState.get()).copy(classLoader = classLoader))
+		start(stop(setVerbose(akkamoState.get())).copy(classLoader = classLoader), cleanVerbose)
 	}
 
 	def handleStopAkkamo(project: ProjectRef, cp:Classpath) = {
 		val urls = cp.map(_.data.toURI.toURL).toArray
 		val parent = ClassLoader.getSystemClassLoader.getParent
 		val classLoader = new URLClassLoader(urls,parent)
-		akkamoState.set(stop(akkamoState.get()))
+		akkamoState.set(cleanVerbose(stop(setVerbose(akkamoState.get()))))
 	}
 
 
-	private val start = (state: AkkamoState) => {
+	private val start = (state: AkkamoState, fn:(AkkamoState)=>AkkamoState) => {
 		val runnable = new Runnable {
 			override def run(): Unit = {
 				val ctxClass = Class.forName("eu.akkamo.CTX", true, Thread.currentThread().getContextClassLoader)
@@ -72,7 +70,7 @@ object AkkamoSbtPlugin extends AutoPlugin {
 				}.map { m =>
 					m.invoke(akkamoRun,ctx)
 				}.get
-				akkamoState.set(state.copy(Some((ctx, data))))
+				akkamoState.set(fn(state.copy(Some((ctx, data)))))
 			}
 		}
 		val thread = new Thread(runnable)
@@ -110,5 +108,24 @@ object AkkamoSbtPlugin extends AutoPlugin {
 			}
 		}
 		state.copy(data = None, classLoader =  null, project = null)
+	}
+
+	private def initVerbose = System.getProperty(Verbose) != null
+
+	private def setVerbose(state: AkkamoState) = {
+		if(!state.initialVerbose) {
+			// we want have verbose start by default
+			if (System.getProperty(Verbose) == null) {
+				System.setProperty(Verbose, true.toString)
+			}
+		}
+		state
+	}
+
+	private def cleanVerbose(state: AkkamoState) = {
+		if(!state.initialVerbose) 	{
+			System.clearProperty(Verbose)
+		}
+		state
 	}
 }
