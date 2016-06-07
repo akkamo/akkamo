@@ -107,7 +107,8 @@ class AkkaModule extends Module with Initializable with Disposable {
 
 		val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
-		Await.result(future, 10 seconds)
+		Await.ready(future, 10 seconds)
+		()
 	}
 
 	override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule]

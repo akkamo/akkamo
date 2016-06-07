@@ -44,6 +44,7 @@ class CTX extends Context {
 		}
 		key2Inst += (key.getOrElse(Default) -> value)
 		class2Key2Inst += (ct.runtimeClass -> key2Inst)
+		()
 	}
 
 
@@ -81,12 +82,8 @@ class AkkamoRun(modules: List[Module]) {
 					e
 				}
 			}
-			try {
-				throw e
-			} finally {
-				// dispose all
-				Try(new AkkamoDispose(false)(ctx, modules))
-			}
+			new AkkamoDispose(false)(ctx, modules)
+			throw e
 		}
 
 		log("Run modules: " + ordered.filter(_.isInstanceOf[Runnable]))
@@ -101,12 +98,8 @@ class AkkamoRun(modules: List[Module]) {
 					e
 				}
 			}
-			try {
-				throw e
-			} finally {
-				// dispose all
-				Try(new AkkamoDispose(false)(ctx, modules))
-			}
+			new AkkamoDispose(false)(ctx, modules)
+			throw e
 		}
 		ordered
 	}

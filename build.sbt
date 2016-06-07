@@ -63,10 +63,20 @@ scalacOptions in Global := Seq(
 	"-unchecked",
 	"-deprecation",
 	"-feature",
+	"-language:postfixOps",
+	"-language:existentials",
+	"-language:higherKinds",
+	"-language:implicitConversions",
 	"-Xfatal-warnings",
 	"-Xlint",
+	"-Xfuture",
 	"-Yrangepos",
-	"-language:postfixOps"
+	"-Yrangepos",
+	"-Yno-adapted-args",
+	"-Ywarn-dead-code",
+	"-Ywarn-numeric-widen",
+	"-Ywarn-value-discard",
+	"-Ywarn-unused-import"	
 )
 
 version in Global := "1.0.0-SNAPSHOT"

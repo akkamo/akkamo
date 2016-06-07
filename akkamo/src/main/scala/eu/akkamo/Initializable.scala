@@ -22,7 +22,7 @@ trait Initializable {
 		*                             and there is no option to recover such state
 		*/
 	@throws[InitializableError]("If initialization can't be finished")
-	def initialize(ctx:Context)
+	def initialize(ctx:Context):Unit
 
 	/**
 		* Instance of [[Initializable]] is registered into the ''Akkamo'' context by default under
@@ -31,7 +31,7 @@ trait Initializable {
 		*
 		* @return registration key class
 		*/
-	def iKey() = this.getClass
+	def iKey(): Class[_ <: Initializable] = this.getClass
 
 }
 

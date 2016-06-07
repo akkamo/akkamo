@@ -29,8 +29,9 @@ trait RouteRegistry {
 		* Method allowing to register own ''Akka HTTP'' route into configured ''Akka HTTP'' server.
 		*
 		* @param route ''Akka HTTP'' route to register
+		* @return self
 		*/
-	def register(route: Route): Unit
+	def register(route: Route): RouteRegistry
 
 	/**
 		* Returns port number, on which the ''Akka HTTP'' server is running.
@@ -131,31 +132,31 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
 	import config._
 
-	val AkkaHttpKey = "akkamo.akkaHttp"
+	private val AkkaHttpKey = "akkamo.akkaHttp"
 
-	val Protocol = "protocol"
+	private val Protocol = "protocol"
 
-	val Port = "port"
+	private val Port = "port"
 
-	val Interface = "interface"
+	private val Interface = "interface"
 
-	val AkkaAlias = "akkaAlias"
+	private val AkkaAlias = "akkaAlias"
 
-	val Aliases = "aliases"
+	private val Aliases = "aliases"
 
-	val Default = "default"
+	private val Default = "default"
 
-	val KeyStorePassword = "keyStorePassword"
+	private val KeyStorePassword = "keyStorePassword"
 
-	val KeyStoreName = "keyStorePassword"
+	private val KeyStoreName = "keyStorePassword"
 
-	val KeyStoreLocation = "keyStorePassword"
+	private val KeyStoreLocation = "keyStorePassword"
 
-	val KeyManagerAlgorithm = "keyManagerAlgorithm"
+	private val KeyManagerAlgorithm = "keyManagerAlgorithm"
 
-	val SSLContextAlgorithm = "sSLContext Algorithms"
+	private val SSLContextAlgorithm = "sSLContext Algorithms"
 
-	val HttpsConnectionContextFactoryClassName = "httpsConnectionContextFactoryClassName"
+	private val HttpsConnectionContextFactoryClassName = "httpsConnectionContextFactoryClassName"
 
 	type HttpsConnectionContextFactory = (Config) => HttpsConnectionContext
 
@@ -169,8 +170,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter with RouteRegistry {
 		val routes = mutable.Set.empty[Route]
 
-		override def register(route: Route): Unit = {
+		override def register(route: Route): RouteRegistry = {
 			routes += route
+			this
 		}
 
 		def apply(): Future[ServerBinding] = {
@@ -294,7 +296,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		import scala.concurrent.duration._
 		val futures = bindings.map(p => p.unbind().transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
 		val future = Future.sequence(futures)
-		Await.result(future, 10 seconds)
+		Await.ready(future, 10 seconds)
+		()
 	}
 
 	private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
