@@ -44,7 +44,7 @@ class LogModule extends Module with Initializable {
 		* Name of the ''Akka'' actor system used for the logging. If no such actor system is found,
 		* the default one is used.
 		*/
-	val LoggingActorSystem = "logging"
+	val LoggingActorSystem = this.getClass.getName
 
 	/** Initializes log module into provided context */
 	override def initialize(ctx: Context) = {

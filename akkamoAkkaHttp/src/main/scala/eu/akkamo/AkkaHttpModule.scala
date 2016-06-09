@@ -233,8 +233,11 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		// create list of configuration tuples
 		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
 		if (mp.isEmpty) {
-			ctx.register[RouteRegistry](HttpRouteRegistry(Nil, 9000, "localhost", true)(
-				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system"))))
+			val r = HttpRouteRegistry(Nil, 9000, "localhost", true)(
+				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
+			httpConfigs = r::httpConfigs
+			ctx.register[RouteRegistry](r)
+
 		} else {
 			val autoDefault = mp.get.size == 1
 			httpConfigs = mp.get.toList.map { case (key, cfg) =>
