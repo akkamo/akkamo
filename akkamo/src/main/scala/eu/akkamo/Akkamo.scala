@@ -92,7 +92,7 @@ class AkkamoRun(modules: List[Module]) {
 		// end of game
 		if (!errors2.isEmpty) {
 			val e = RunError("Some errors occurred during attempt to run installed modules")
-			errors1.foldLeft(e) {
+			errors2.foldLeft(e) {
 				case (e, (m, th)) => {
 					e.addSuppressed(th);
 					e
