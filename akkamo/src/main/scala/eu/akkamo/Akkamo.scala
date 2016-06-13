@@ -75,7 +75,7 @@ class AkkamoRun(modules: List[Module]) {
 		val errors1 = init(ordered.reverse)
 		// end of game
 		if (!errors1.isEmpty) {
-			val e = InitializationError(s"Somme errors occurred during initialization")
+			val e = InitializationError(s"Some errors occurred during initialization")
 			errors1.foldLeft(e) {
 				case (e, (m, th)) => {
 					e.addSuppressed(th);
@@ -194,7 +194,7 @@ class AkkamoDispose(verbose: Boolean) extends ((CTX, List[Module]) => Unit) {
 		val errors = dispose(modules)(ctx)
 		// end of game
 		if (!errors.isEmpty) {
-			val e = InitializationError(s"Somme errors occurred during disposal of modules")
+			val e = InitializationError(s"Some errors occurred during disposal of modules")
 			errors.foldLeft(e) {
 				case (e, (m, th)) => {
 					e.addSuppressed(th);
