@@ -14,3 +14,12 @@ After the initialization stage, when all modules are successfully initialized, t
 
 ## Dispose stage
 The first two stages, *Init* and *Run*, are performed during the application startup. This stage is performed when the JVM gets the OS signal to stop, allowing modules to gracefully release allocated resources, close opened files, ports, etc. In order that a module can perform some logic in this stage, the `Disposable` interface and its method `dispose(ctx: Context): Unit` must be implemented.
+
+> Remarks:<br/>
+> The modules form a dependency tree. Next simple rules works during module lifecycle management.<br/>
+> 1. Instances of modules are created in let say `random` order.
+> 2. if module __A__ depends on module __B__ then `initialize` method of __B__ is called before call of `initialize` on __A__.
+> 3. if module __A__ depends on module __B__ then `run` method of __A__ is called before call of `run` method on __B__.
+> 4. if module __A__ depends on module __B__ then `dispose` method of __A__ is called before call of `dispose` method on __B__.
+>
+> Instance of `Context` is 

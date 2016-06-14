@@ -229,9 +229,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	}
 
 	def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
-
+		import config._
 		// create list of configuration tuples
-		val mp = config.blockAsMap(AkkaHttpKey)(cfg)
+		val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 		if (mp.isEmpty) {
 			val r = HttpRouteRegistry(Nil, 9000, "localhost", true)(
 				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))

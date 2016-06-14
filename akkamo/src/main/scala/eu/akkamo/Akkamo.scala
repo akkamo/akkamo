@@ -68,6 +68,7 @@ class AkkamoRun(modules: List[Module]) {
 	import Logger._
 
 	def apply(implicit ctx: CTX): List[Module] = {
+
 		log(s"Modules: $modules")
 
 		val (_, ordered) = order(modules)
@@ -75,14 +76,16 @@ class AkkamoRun(modules: List[Module]) {
 		val errors1 = init(ordered.reverse)
 		// end of game
 		if (!errors1.isEmpty) {
-			val e = InitializationError(s"Some errors occurred during initialization")
+			val e = RunError(s"Some errors occurred during initialization")
 			errors1.foldLeft(e) {
 				case (e, (m, th)) => {
 					e.addSuppressed(th);
 					e
 				}
 			}
-			new AkkamoDispose(false)(ctx, modules)
+			Try(new AkkamoDispose(false)(ctx, modules)).failed.map{th=>
+				e.addSuppressed(th)
+			}
 			throw e
 		}
 
@@ -98,7 +101,9 @@ class AkkamoRun(modules: List[Module]) {
 					e
 				}
 			}
-			new AkkamoDispose(false)(ctx, modules)
+			Try(new AkkamoDispose(false)(ctx, modules)).failed.map{th=>
+				e.addSuppressed(th)
+			}
 			throw e
 		}
 		ordered

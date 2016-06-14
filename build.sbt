@@ -91,7 +91,8 @@ lazy val akkamo = project.in(file("akkamo")).settings(
 		"com.typesafe.akka" %% "akka-cluster-tools" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
-		"com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources
+		"com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
+		"org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
 	)
 )
 
@@ -99,7 +100,8 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
 	name := "akkamo-akka-http",
 	libraryDependencies ++= Seq(
 		"com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
-		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources
+		"com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources,
+			"org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
 	)
 ).dependsOn(akkamo)
 

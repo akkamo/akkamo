@@ -1,32 +1,37 @@
 package eu.akkamo
 
+import com.typesafe.config.ConfigException
+
 /**
 	* @author jubu
 	*/
 object config {
 
-	import scala.collection.JavaConversions._
 	import com.typesafe.config.Config
+
+	import scala.collection.JavaConversions._
 	import scala.util.Try
 
-	//TODO, FIXME, no caching?
-	/** ?
-	 *
-	 * @param key - ?
-	 */
-	def blockAsMap(key:String)(implicit cfg:Config):Option[Map[String, Config]] = Try {
+	/**
+		*
+		* @param key
+		* @param cfg
+		* @return
+		* @deprecated use `get` method
+		*/
+	def blockAsMap(key: String)(implicit cfg: Config): Option[Map[String, Config]] = Try {
 		val keys = cfg.getObject(key).keySet()
 		keys.map { p => (p, cfg.getConfig(s"$key.$p")) }.toMap.map(p => (p._1, p._2.resolve()))
 	}.toOption
 
 	/** ?
-	 *
-	 * @param path - ?
-	 * @param cfg - ?
-	 * @param t - ?
-	 * @tparam T
-	 */
-	private def getInternal[T](path:String, cfg:Config, t:Transformer[T]):Option[T] = {
+		*
+		* @param path
+		* @param cfg
+		* @param t
+		* @tparam T
+		*/
+	private def getInternal[T](path: String, cfg: Config, t: Transformer[T]): Option[T] = {
 		if (cfg.hasPath(path)) {
 			Some(t(cfg, path))
 		} else {
@@ -35,21 +40,21 @@ object config {
 	}
 
 	/** ?
-	 *
-	 * @param key - ?
-	 * @param cfg - ?
-	 * @tparam T
-	 */
-	def get[T](key:String, cfg:Config)(implicit t:Transformer[T]):Option[T] = {
+		*
+		* @param key
+		* @param cfg
+		* @tparam T
+		*/
+	def get[T](key: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = {
 		getInternal[T](key, cfg, t)
 	}
 
 	/** ?
-	 *
-	 * @param key - ?
-	 * @tparam T
-	 */
-	def get[T](key:String)(implicit t:Transformer[T], cfg:Config):Option[T] = {
+		*
+		* @param key
+		* @tparam T
+		*/
+	def get[T](key: String)(implicit t: Transformer[T], cfg: Config): Option[T] = {
 		getInternal[T](key, cfg, t)
 	}
 
@@ -88,7 +93,11 @@ object config {
 	implicit val cfg2ConfigList: Transformer[List[Config]] = (cfg: Config, key: String) =>
 		cfg.getConfigList(key).toList
 
+	implicit val cfg2ConfigMap: Transformer[Map[String, Config]] = (cfg: Config, key: String) => try {
+		val keys = cfg.getObject(key).keySet()
+		keys.map { p => (p, cfg.getConfig(s"$key.$p")) }.toMap.map(p => (p._1, p._2.resolve()))
+	} catch {
+		case th: Throwable => throw new ConfigException.Missing(s"Can`t convert config value to map for key:$key ", th)
+	}
+
 }
-
-
-
