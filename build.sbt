@@ -92,6 +92,7 @@ lazy val akkamo = project.in(file("akkamo")).settings(
 		"com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
 		"com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
+		"com.typesafe.akka" % "akka-slf4j_2.11" % cAkkaVersion withSources,
 		"org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
 	)
 )
