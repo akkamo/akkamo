@@ -131,14 +131,15 @@ class AkkamoRun(modules: List[Module]) {
 			}
 		}
 
-		val ret = orderRound(in, set)
+		val (rset, rout) = orderRound(in, set)
 		if (in.isEmpty) {
-			(ret._1, ret._2 ++ out)
+			(rset, rout ++ out)
 		} else {
-			if (ret._2.isEmpty) {
+			if (rout.isEmpty) {
 				throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
 			}
-			order(in.diff(ret._2), ret._1, ret._2 ++ out)
+			val df = in.diff(rout)
+			order(df, rset, rout ++ out)
 		}
 	}
 
