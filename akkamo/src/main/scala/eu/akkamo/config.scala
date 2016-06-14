@@ -70,6 +70,9 @@ object config {
 	implicit val cfg2Double: Transformer[Double] = (cfg: Config, key: String) =>
 		cfg.getDouble(key)
 
+	implicit val cfg2Config: Transformer[Config] = (cfg: Config, key: String) =>
+		cfg.getConfig(key)
+
 	implicit val cfg2IntList: Transformer[List[Int]] = (cfg: Config, key: String) =>
 		cfg.getIntList(key).toList.asInstanceOf[List[Int]]
 
@@ -82,8 +85,8 @@ object config {
 	implicit val cfg2DoubleList: Transformer[List[Double]] = (cfg: Config, key: String) =>
 		cfg.getDoubleList(key).toList.asInstanceOf[List[Double]]
 
-	implicit val cfg2Config: Transformer[Config] = (cfg: Config, key: String) =>
-		cfg.getConfig(key)
+	implicit val cfg2ConfigList: Transformer[List[Config]] = (cfg: Config, key: String) =>
+		cfg.getConfigList(key).toList
 
 }
 
