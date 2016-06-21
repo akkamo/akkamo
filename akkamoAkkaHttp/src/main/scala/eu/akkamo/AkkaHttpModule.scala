@@ -116,6 +116,7 @@ object RouteRegistry {
 	*       host = "localhost" // host, default localhost
 	*       akkaAlias = "alias" // not required, default is used if exists
 	*       requestLogLevel = "info"  // defines level for request level logging. Default "off" means no logging
+	*       RequestLogContentLength = 1024 // defines max content length in request log, default 0  to disable content logging
 	*     },
 	*     // configuration registered as default (only one instance is allowed)
 	*     name2 = {
@@ -147,6 +148,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	private val Interface = "interface"
 
 	private val RequestLogLevel = "requestLogLevel"
+
+	private val RequestLogContentLength = "requestLogContentLength"
 
 	private val AkkaAlias = "akkaAlias"
 
@@ -199,7 +202,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	}
 
 	private[AkkaHttpModule] case class
-	HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, requestLogLevel: String)
+	HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, requestLogLevel: String,
+										requestLogContentLength: Int)
 	                 (implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
@@ -208,7 +212,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 			if (requestLogLevel=="off") {
 				Http().bindAndHandle(route, interface, port)
 			} else {
-				val myLoggedRoute = logRequestResult(requestLogLevel, route)
+				val myLoggedRoute = logRequestResult(requestLogLevel, requestLogContentLength, route)
 				Http().bindAndHandle(myLoggedRoute, interface, port)
 			}
 		}
@@ -216,7 +220,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 	}
 
 	private[AkkaHttpModule] case class
-	HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext, requestLogLevel: String)
+	HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext, requestLogLevel: String, requestLogContentLength: Int)
 	                  (implicit as: ActorSystem) extends BaseRouteRegistry {
 
 		def bind(route: Route): Future[ServerBinding] = {
@@ -225,7 +229,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 			if (requestLogLevel=="off") {
 				Http().bindAndHandle(route, interface, port, ctx)
 			} else {
-				val myLoggedRoute = logRequestResult(requestLogLevel, route)
+				val myLoggedRoute = logRequestResult(requestLogLevel, requestLogContentLength, route)
 				Http().bindAndHandle(myLoggedRoute, interface, port, ctx)
 			}
 		}
@@ -252,7 +256,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		// create list of configuration tuples
 		val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 		if (mp.isEmpty) {
-			val r = HttpRouteRegistry(Nil, 9000, "localhost", true, "off")(
+			val r = HttpRouteRegistry(Nil, 9000, "localhost", true, "off", 0)(
 				ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
 			httpConfigs = r :: httpConfigs
 			ctx.register[RouteRegistry](r)
@@ -271,14 +275,16 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 				val aliases = key :: config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
 				val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
 				val requestLogLevel: String = config.get[String](RequestLogLevel, cfg).getOrElse("off")
+				val requestLogContentLength = config.get[Int](RequestLogContentLength, cfg).getOrElse(0)
+				if (requestLogContentLength<0) throw new IllegalArgumentException("requestLogContentLength parameters has invalid value. Only possitive value are allowed")
 				protocol.toLowerCase match {
 					case "http" => {
-						val r = HttpRouteRegistry(aliases, port, interface, default, requestLogLevel)(system.get)
+						val r = HttpRouteRegistry(aliases, port, interface, default, requestLogLevel, requestLogContentLength)(system.get)
 						log.info(s"created: $r ")
 						r
 					}
 					case "https" => try {
-						val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(cfg), requestLogLevel)(system.get)
+						val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(cfg), requestLogLevel, requestLogContentLength)(system.get)
 						log.info(s"created: $r ")
 						r
 					} catch {
@@ -301,27 +307,25 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 		}
 	}
 
-	val MAX_LENGTH = 1024
+	def shortData(data: String)(maxLength: Int) = if (data.length > maxLength ) data.substring(0, maxLength).filter(_ >= ' ') + s"... (${data.length} total)" else data.filter(_ >= ' ')
 
-	def shortData(data: String) = if (data.length > MAX_LENGTH) data.substring(0, MAX_LENGTH).filter(_ >= ' ') + s"... (${data.length} total)" else data.filter(_ >= ' ')
-
-	def shortData(data: HttpEntity) = {
+	def shortData(data: HttpEntity)(maxLength: Int) = {
 		val strData = data.toString
-		if (strData.length > MAX_LENGTH) strData.substring(0, MAX_LENGTH).filter(_ >= ' ') + s"... (${strData.length} total)" else strData.filter(_ >= ' ')
+		if (strData.length > maxLength) strData.substring(0, maxLength).filter(_ >= ' ') + s"... (${strData.length} total)" else strData.filter(_ >= ' ')
 	}
 
-	def logRequestResult(levelStr: String, route: Route)
+	def logRequestResult(levelStr: String, contentLength:Int, route: Route)
 	                    (implicit m: Materializer, ex: ExecutionContext) = {
 		def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: Any): Unit = {
 
 			val level = Logging.levelFor(levelStr).getOrElse(Logging.DebugLevel)
 			val entry = res match {
 				case Complete(resp) =>
-					entityAsString(resp.entity).map(data ⇒ LogEntry(s"${req.method} ${req.uri}: HTTP/${resp.status} <: ${shortData(req.entity)} >: ${shortData(data)}", level))
+					entityAsString(resp.entity).map(data ⇒ LogEntry(s"${req.method} ${req.uri}: HTTP/${resp.status} <: ${shortData(req.entity)(contentLength)} >: ${shortData(data)(contentLength)}", level))
 				case Rejected(resp) if (resp.isEmpty) =>
-					Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/404 NotFound <: ${shortData(req.entity)}", level))
+					Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/404 NotFound <: ${shortData(req.entity)(contentLength)}", level))
 				case Rejected(resp) =>
-					Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/400 BadRequest ${shortData(resp.mkString)} <: ${shortData(req.entity)}", level))
+					Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/400 BadRequest ${shortData(resp.mkString)(contentLength)} <: ${shortData(req.entity)(contentLength)}", level))
 				case other => Future.successful(LogEntry(s"Other: $other", level))
 			}
 			entry.foreach(_.logTo(logger))
