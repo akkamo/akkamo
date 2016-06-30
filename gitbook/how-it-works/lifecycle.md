@@ -16,13 +16,14 @@ After the initialization stage, when all modules are successfully initialized, t
 The first two stages, *Init* and *Run*, are performed during the application startup. This stage is performed when the JVM gets the OS signal to stop, allowing modules to gracefully release allocated resources, close opened files, ports, etc. In order that a module can perform some logic in this stage, the `Disposable` interface and its method `dispose(ctx: Context): Unit` must be implemented.
 
 > **Hint** Remarks: The modules form a dependency tree.
-***
->Next simple rules works during module lifecycle management:<br/>
+><br/>Next simple rules works during module lifecycle management:
+>&nbsp;
 >* Instances of modules are created in let say `random` order.
 >* if module __A__ depends on module __B__ then `initialize` method of __B__ is called before call of `initialize` on __A__.
 >* if module __A__ depends on module __B__ then `run` method of __A__ is called before call of `run` method on __B__.
 >* if module __A__ depends on module __B__ then `dispose` method of __A__ is called before call of `dispose` method on __B__.
-***
->THe rules get the possibility to have only two stages when system is initialized.<br/>
+>
+>
+>The rules get the possibility to have only two stages when system is initialized.<br/>
 >For example, if an module depends on __AkkaHttp__ module then also routes appending
 >works in `run` method, because "run" of Http module follows later.
