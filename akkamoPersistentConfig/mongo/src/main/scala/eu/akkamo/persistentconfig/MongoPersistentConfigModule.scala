@@ -10,6 +10,7 @@ import reactivemongo.bson.Macros.Options.AllImplementations
 import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONHandler}
 
 import scala.concurrent.Future
+import scala.util.Try
 
 sealed trait Property[V] {
   val _id: String
@@ -42,13 +43,12 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
   val cfgKey = "persistentConfig"
 
-  override def initialize(ctx: Context) = {
+  override def initialize(ctx: Context) = Try {
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val api = ctx.inject[ReactiveMongoApi](cfgKey).getOrElse(throw InitializableError("Missing ReactiveMongoApi instance!"))
     val cfg = ctx.inject[Config].get
     val register = initialize(log, api, cfg)
     ctx.register[PersistentConfig](register)
-
   }
 
   override def dependencies(dependencies: Dependency): Dependency =

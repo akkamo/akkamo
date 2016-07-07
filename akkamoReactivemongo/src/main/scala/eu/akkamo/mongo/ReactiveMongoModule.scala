@@ -1,14 +1,13 @@
 package eu.akkamo.mongo
-
 import akka.event.LoggingAdapter
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import eu.akkamo.config._
 import reactivemongo.api.{DB, DBMetaCommands, MongoConnection, MongoDriver}
 
-import scala.collection.immutable.Iterable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.Try
 
 /**
   * For each configured ''ReactiveMongo'' connection, the instance of this trait is registered into
@@ -84,40 +83,40 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   val ConnectionStartTimeout: FiniteDuration = 30.seconds
   val ConnectionStopTimeout: FiniteDuration = 10.seconds
 
-  private var connections: List[(Conf, ReactiveMongo)] = List.empty[(Conf, ReactiveMongo)]
-
   private var driver: MongoDriver = _
 
   case class ReactiveMongo(driver: MongoDriver, connection: MongoConnection, db: DB with DBMetaCommands)
     extends ReactiveMongoApi
 
-  override def initialize(ctx: Context): Unit = {
+  override def initialize(ctx: Context) = Try {
     val cfg = ctx.inject[Config]
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
     initialize(ctx, cfg.get, log.get)
   }
 
-  override def dispose(ctx: Context): Unit = {
+  override def dispose(ctx: Context) = {
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
-    Some(driver).map { driver =>
+    val res = Some(driver).map { driver =>
       implicit val ec = driver.system.dispatcher
-      val res = connections.map { case (conf, conn) =>
+      val res = ctx.registered[ReactiveMongoApi].map { case (conn, names) =>
         wrapDispErr(conn.connection.askClose()(ConnectionStopTimeout),
-          th => s"Cannot stop connection for '${conf.name}' configuration").map { p =>
-          log.info(s"Mongo connection '${conf.name}' stopped")
+          th => s"Cannot stop connection for '${names}' configuration").map { p =>
+          log.info(s"Mongo connection '${names}' stopped")
         }
       }
-      Await.ready(Future.sequence(res), ConnectionStopTimeout)
-      Await.ready(wrapDispErr(
+      val f = wrapDispErr(
         driver.system.terminate().map { p =>
           log.info(s"Mongo system: '${driver.system}' terminated")
         },
-        th => s"Cannot stop underlying Actor system"), ConnectionStopTimeout);
-    }
-    ()
-  }
+        th => s"Cannot stop underlying Actor system")
 
-  private def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
+      Future.sequence(res ++ List(f)).map{p=>()}
+    }
+    val result = res.getOrElse(Future.successful(()))
+    result
+   }
+
+  private def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Context = {
     import eu.akkamo
 
     log.info("Initializing 'ReactiveMongo' module...")
@@ -125,7 +124,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
     driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg))
 
     val configMap = akkamo.config.blockAsMap(ReactiveMongoModuleKey)(cfg).getOrElse(makeDefault)
-    this.connections = parseConfig(configMap).map { conf =>
+    parseConfig(configMap).foldLeft(ctx) { case (ctx, conf) =>
       log.info(s"Creating Mongo connection for '${conf.name}' configuration")
 
       val connFt = wrapInitErr(createConnection(conf),
@@ -133,16 +132,16 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
       val conn = Await.result(connFt, ConnectionStartTimeout)
 
       // register configuration for the name
-      ctx.register[ReactiveMongoApi](conn, Some(conf.name))
-
-      // register configuration for defined aliases
-      conf.aliases foreach (alias => ctx.register[ReactiveMongoApi](conn, Some(alias)))
+      val ctx1 = ctx.register[ReactiveMongoApi](conn, Some(conf.name))
 
       // register configuration as default if necessary
-      if (conf.default) {
-        ctx.register[ReactiveMongoApi](conn)
+      val ctx2 = if (conf.default) {
+        ctx1.register[ReactiveMongoApi](conn)
+      } else {
+        ctx1
       }
-      (conf, conn)
+      // register configuration for defined aliases
+      conf.aliases.foldLeft(ctx)((ctx, alias) => ctx.register[ReactiveMongoApi](conn, Some(alias)))
     }
   }
 

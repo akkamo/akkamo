@@ -51,6 +51,6 @@ trait Context {
     * @param ct class tag evidence
     * @tparam T
     */
-  def register[T <: AnyRef](value: T, key: Option[String] = None)(implicit ct: ClassTag[T]): Unit
+  def register[T <: AnyRef](value: T, key: Option[String] = None)(implicit ct: ClassTag[T]): Context
 
 }

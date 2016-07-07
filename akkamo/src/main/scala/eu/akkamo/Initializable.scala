@@ -9,7 +9,6 @@ package eu.akkamo
   * @author jubu
   */
 trait Initializable {
-
   /**
     * Method the module extending this trait must implement, all module initialization logic should
     * be performed here. ''Akkamo'' context is given as a parameter, allowing access to all required
@@ -18,14 +17,12 @@ trait Initializable {
     * dependencies are initialized yet)
     *
     * @param ctx ''Akkamo'' context
-    * @throws InitializationError thrown when severe error occurs during the initialization
-    *                             and there is no option to recover such state
+    * @return instance of Res that contains (new if modified) instance of [[eu.akkamo.Context]] or exception packed in ``Try``
     */
-  @throws[InitializableError]("If initialization can't be finished")
-  def initialize(ctx: Context): Unit
+  def initialize(ctx: Context): Res[Context]
 
   /**
-    * Instance of [[Initializable]] is registered into the ''Akkamo'' context by default under
+    * Instance of [[eu.akkamo.Initializable]] is registered into the ''Akkamo'' context by default under
     * this module class. Override this method in order to achieve different registration key
     * class, for example an interface instead of concrete implementation.
     *
@@ -36,7 +33,7 @@ trait Initializable {
 }
 
 /**
-  * Error to be thrown during the initialization of module in case of serious unrecoverable problem.
+  * Recommended Error to be thrown inside [[eu.akkamo.Initializable#initialize]] method if serious unrecoverable problem occurs.
   *
   * @param message error message
   * @param cause   optional value of cause

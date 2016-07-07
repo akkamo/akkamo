@@ -8,7 +8,8 @@ import eu.akkamo.{InitializableError, _}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 
-import scala.util.Try
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 /**
   * = Configuration example =
@@ -53,7 +54,7 @@ class KafkaModule extends Module with Initializable with Disposable {
 
 
   @scala.throws[InitializableError]("If initialization can't be finished")
-  override def initialize(ctx: Context) = {
+  override def initialize(ctx: Context) = Try {
     implicit val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
     val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key) }).getOrElse {
@@ -65,31 +66,37 @@ class KafkaModule extends Module with Initializable with Disposable {
     if (dc > 1) {
       throw InitializableError(s"Ambiguous default instances in Kafka configurations")
     }
-    defs.foreach { p =>
-      if (p.consumer) {
+
+    def process[K <: AnyRef](k: K, p: Def, ctx: Context)(implicit ct: ClassTag[K]) = {
+      val ctx1 = if (p.isDefault) {
+        ctx.register[K](k)
+      } else {
+        ctx
+      }
+      p.aliases.foldLeft(ctx1) { (ctx, alias) =>
+        ctx.register[K](k, Some(alias))
+      }
+    }
+
+    defs.foldLeft(ctx) { (ctx, p) =>
+      val ctx1 = if (p.consumer) {
         val k = new KC(p.properties)
-        p.aliases.foreach { alias =>
-          ctx.register[KC](k, Some(alias))
-        }
-        if (p.isDefault) {
-          ctx.register[KC](k)
-        }
+        process(k, p, ctx)
+      } else {
+        ctx
       }
       if (p.producer) {
         val k = new KP(p.properties)
-        p.aliases.foreach { alias =>
-          ctx.register[KP](k, Some(alias))
-        }
-        if (p.isDefault) {
-          ctx.register[KP](k)
-        }
+        process(k, p, ctx1)
+      } else {
+        ctx1
       }
     }
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[LogModule].&&[ConfigModule]
 
-  private def loadProperties(name: String)(implicit log:LoggingAdapter) = {
+  private def loadProperties(name: String)(implicit log: LoggingAdapter) = {
     val res = Thread.currentThread.getContextClassLoader.getResourceAsStream(name)
     if (res == null) {
       throw InitializableError(s"Missing properties file: $name")
@@ -103,13 +110,13 @@ class KafkaModule extends Module with Initializable with Disposable {
       if (res != null) try {
         res.close()
       } catch {
-        case th:Throwable => log.error(th, s"Can't close resource stream: $name")
+        case th: Throwable => log.error(th, s"Can't close resource stream: $name")
       }
     }
     properties
   }
 
-  private def buildDef(key: String)(implicit cfg: Config, log:LoggingAdapter) = {
+  private def buildDef(key: String)(implicit cfg: Config, log: LoggingAdapter) = {
     val propertiesFileName = get[String](Properties).getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
     Def(
       get[Boolean](Producer).getOrElse(false),
@@ -121,10 +128,21 @@ class KafkaModule extends Module with Initializable with Disposable {
   }
 
 
-  @scala.throws[DisposableError]("If serious unrecoverable problem during dispose stage occurs")
-  override def dispose(ctx: Context): Unit = {
-    ctx.registered[KC].foreach { p =>
-      Try(p._1.unsubscribe())
+  override def dispose(ctx: Context) = {
+    val err = new DisposableError("Can't dispose some kafka instances")
+    val res = ctx.registered[KC].map { p =>
+      Try {
+        p._1.unsubscribe();
+        p._1
+      }
     }
+    res.foldLeft(err) { (ex, v) =>
+      v match {
+        case Failure(th) => err.addSuppressed(th); err
+        case _ => err
+      }
+    }
+
+    if (err.getSuppressed.length == 0) Success(()) else Failure.apply[Unit](err)
   }
 }

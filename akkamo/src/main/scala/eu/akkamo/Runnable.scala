@@ -14,10 +14,9 @@ trait Runnable {
     * the ''Akkamo'' context is given.
     *
     * @param ctx ''Akkamo'' context
-    * @throws RunnableError thrown in case of serious unrecoverable error during the run stage
+    * @return instance of Res that contains (new if modified) instance of [[eu.akkamo.Context]] or exception packed in ``Try``
     */
-  @throws[RunnableError]("If run execution fails")
-  def run(ctx: Context): Unit
+  def run(ctx: Context): Res[Context]
 
   /**
     * Instance of [[Runnable]] is registered into the ''Akkamo'' context by default under
@@ -31,7 +30,7 @@ trait Runnable {
 }
 
 /**
-  * Error to be thrown in case of serious unrecoverable error during the run stage.
+  * Recommended Error to be thrown inside [[eu.akkamo.Runnable#run]] method if serious unrecoverable problem occurs.
   *
   * @param message error message
   * @param cause   optional value of cause

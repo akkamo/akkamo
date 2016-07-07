@@ -3,6 +3,7 @@ package eu.akkamo
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.mutable
+import scala.util.Try
 
 
 /**
@@ -14,14 +15,14 @@ class AkkamoSpec extends FlatSpec with Matchers {
   type DO = mutable.MutableList[Runnable]
 
   abstract class P(implicit initOut: IO, runOut: DO) extends Module with Initializable with Runnable {
-    override def initialize(ctx: Context): Unit = {
+    override def initialize(ctx: Context) = Try {
       this +=: initOut
-      ()
+      ctx
     }
 
-    override def run(ctx: Context): Unit = {
+    override def run(ctx: Context) = Try {
       this +=: runOut
-      ()
+      ctx
     }
   }
 

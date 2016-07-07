@@ -18,7 +18,8 @@ import com.typesafe.config.Config
 import eu.akkamo.RouteRegistry.{HTTP, HTTPS, Protocol}
 
 import scala.collection.mutable
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /**
   * For each configuration block, an instance of [[RouteRegistry]] is registered to the
@@ -252,7 +253,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     initialize(ctx, cfg.get, log.get)
   }
 
-  def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = {
+  def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config._
     // create list of configuration tuples
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
@@ -261,7 +262,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       httpConfigs = r :: httpConfigs
       ctx.register[RouteRegistry](r)
-
     } else {
       val autoDefault = mp.get.size == 1
 
@@ -277,33 +277,34 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
         val requestLogLevel: String = config.get[String](RequestLogLevel, cfg).getOrElse("off")
         val requestLogContentLength = config.get[Int](RequestLogContentLength, cfg).getOrElse(0)
-        if (requestLogContentLength < 0) throw new IllegalArgumentException("requestLogContentLength parameters has invalid value. Only possitive value are allowed")
+        if (requestLogContentLength < 0) throw new InitializableError("requestLogContentLength parameters has invalid value. Only positive value are allowed")
         protocol.toLowerCase match {
           case "http" => {
             val r = HttpRouteRegistry(aliases, port, interface, default, requestLogLevel, requestLogContentLength)(system.get)
             log.info(s"created: $r ")
             r
           }
-          case "https" => try {
+          case "https" => {
             val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(cfg), requestLogLevel, requestLogContentLength)(system.get)
             log.info(s"created: $r ")
             r
-          } catch {
-            case ie: InitializableError => throw ie
-            case th: Throwable => throw InitializableError("Can't initialize https route registry", th)
           }
-          case _ => throw InitializableError(s"unknown protocol in route registry, see: $config")
+          case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
         }
       }
       val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
       if (combinations != httpConfigs.size) {
         throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
       }
-      for (cfg <- httpConfigs if (cfg.default)) {
-        ctx.register[RouteRegistry](cfg)
-      }
-      for (cfg <- httpConfigs; as <- cfg.aliases) {
-        ctx.register[RouteRegistry](cfg, Some(as))
+      httpConfigs.foldLeft(ctx) { (ctx, cfg) =>
+        val ctx1 = if (cfg.default) {
+          ctx.register[RouteRegistry](cfg)
+        } else {
+          ctx
+        }
+        cfg.aliases.foldLeft(ctx1) { (ctx, alias) =>
+          ctx.register[RouteRegistry](cfg, Some(alias))
+        }
       }
     }
   }
@@ -343,24 +344,20 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
-  override def run(ctx: Context): Unit = {
+  override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    import scala.concurrent.duration._
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can`t initialize route $p", th)))
-    val future = Future.sequence(futures)
-    bindings = Await.result(future, 10 seconds)
-    log.info(s"run: $httpConfigs")
+    Future.sequence(futures).map { p =>
+      log.info(s"run: $httpConfigs")
+      ctx
+    }
   }
 
-
-  override def dispose(ctx: Context): Unit = {
+  override def dispose(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    import scala.concurrent.duration._
     val futures = bindings.map(p => p.unbind().transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
-    val future = Future.sequence(futures)
-    Await.ready(future, 10 seconds)
-    ()
+    Future.sequence(futures).map { p => () }
   }
 
   private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
@@ -376,7 +373,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       val companionObj = runtimeMirror.reflectModule(module).instance.asInstanceOf[HttpsConnectionContextFactory]
       companionObj(cfg)
     } catch {
-      case th: Throwable => throw new IllegalArgumentException(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
+      case th: Throwable => throw new InitializableError(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
     }
   }
 

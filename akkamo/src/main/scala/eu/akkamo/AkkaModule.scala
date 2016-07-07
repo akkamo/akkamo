@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import com.typesafe.config.Config
 
 import scala.collection.mutable
-import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.Future
+import scala.util.Try
 
 /**
   * Register one or more Actor System
@@ -55,14 +55,15 @@ class AkkaModule extends Module with Initializable with Disposable {
   /**
     * Initializes the module into provided mutable context, blocking
     */
-  override def initialize(ctx: Context) = {
+  override def initialize(ctx: Context) = Try {
     import config._
     val cfg = ctx.inject[Config].get
-    val systems = get[Map[String, Config]](AkkaSystemsKey, cfg).fold {
+    get[Map[String, Config]](AkkaSystemsKey, cfg).fold {
       // empty configuration just create default
-      Try(ctx.register(ActorSystem("default"))) match {
-        case Success(_) =>
-        case Failure(th) => throw InitializableError("Can't initialize default Akka system", th)
+      try {
+        ctx.register(ActorSystem("default"))
+      } catch {
+        case th: Throwable => throw InitializableError("Can't initialize default Akka system", th)
       }
     } { bloks =>
       val bloksWithDefault = if (bloks.size == 1) {
@@ -78,38 +79,39 @@ class AkkaModule extends Module with Initializable with Disposable {
         }
         ret
       }
-      bloksWithDefault.foreach { case (key, cfg, default) =>
-        Try {
+      bloksWithDefault.foldLeft(ctx) { case (ctx, (key, cfg, default)) =>
+        try {
           import config._
           val system = ActorSystem(key, cfg)
           actorSystems += system
-          // register under key as name
-          ctx.register(system, Some(key))
           // register default
-          if (default) {
+          val ctx2 = if (default) {
             ctx.register(system)
+          } else {
+            ctx
           }
-          config.get[List[String]](Aliases, cfg).map(_.map(name => ctx.register(system, Some(name))))
-        } match {
-          case Success(_) =>
-          case Failure(th) => throw InitializableError(s"Can't initialize Akka system defined by: $key", th)
+          // register under key as name
+          val ctx3 = ctx2.register(system, Some(key))
+          // register rest
+          config.get[List[String]](Aliases, cfg).map(_.foldLeft(ctx3) {
+            case (ctx, name) => ctx.register(system, Some(name))
+          }).getOrElse(ctx3)
+        } catch {
+          case th: Throwable => throw InitializableError(s"Can't initialize Akka system defined by: $key", th)
         }
       }
     }
   }
 
   @throws[DisposableError]("If dispose execution fails")
-  override def dispose(ctx: Context): Unit = {
+  override def dispose(ctx: Context) = {
     val log = ctx.inject[LoggingAdapterFactory].map(_ (getClass)).get
     log.info(s"Terminating Actor systems: $actorSystems")
 
     import scala.concurrent.ExecutionContext.Implicits.global
-    import scala.concurrent.duration._
 
     val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
-    val future = Future.sequence(futures)
-    Await.ready(future, 10 seconds)
-    ()
+    Future.sequence(futures).map { p => () }
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule]

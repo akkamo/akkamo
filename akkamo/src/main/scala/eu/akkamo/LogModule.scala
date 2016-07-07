@@ -3,6 +3,8 @@ package eu.akkamo
 import akka.actor.ActorSystem
 import akka.event.{Logging, LoggingAdapter}
 
+import scala.util.Try
+
 /**
   * Simple factory, providing `LoggingAdapter` instance for specified category (e.g. module name,
   * selected class). This factory is registered by the [[LogModule]] into the ''Akkamo'' context.
@@ -47,7 +49,7 @@ class LogModule extends Module with Initializable {
   val LoggingActorSystem = this.getClass.getName
 
   /** Initializes log module into provided context */
-  override def initialize(ctx: Context) = {
+  override def initialize(ctx: Context) = Try {
     // inject the logging actor system (if available, otherwise default actor system)
     val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
       .getOrElse(throw InitializableError("Can't find any Actor System for logger"))

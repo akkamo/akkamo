@@ -36,7 +36,7 @@ class CTX extends Context {
     }.getOrElse(Map.empty)
   }
 
-  override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Unit = {
+  override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Context = {
     val key2Inst = class2Key2Inst.getOrElse(ct.runtimeClass, mutable.Map.empty)
     val realKey = key.getOrElse(Default)
     if (key2Inst.contains(realKey)) {
@@ -44,7 +44,7 @@ class CTX extends Context {
     }
     key2Inst += (key.getOrElse(Default) -> value)
     class2Key2Inst += (ct.runtimeClass -> key2Inst)
-    ()
+    this
   }
 
 
@@ -144,7 +144,7 @@ class AkkamoRun(modules: List[Module]) {
   }
 
   private def init(in: List[Module], out: List[(Module, Throwable)] = Nil)
-                  (implicit ctx: CTX): List[(Module, Throwable)] = in match {
+                  (implicit ctx: Context): List[(Module, Throwable)] = in match {
     case x :: xs =>
       if (x.isInstanceOf[Initializable]) {
         Try {
@@ -162,7 +162,7 @@ class AkkamoRun(modules: List[Module]) {
 
 
   private def run(in: List[Module], out: List[(Module, Throwable)] = Nil)
-                 (implicit ctx: CTX): List[(Module, Throwable)] = in match {
+                 (implicit ctx: Context): List[(Module, Throwable)] = in match {
     case x :: xs =>
       if (x.isInstanceOf[Runnable]) {
         Try {

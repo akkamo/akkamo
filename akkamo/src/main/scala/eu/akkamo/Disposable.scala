@@ -15,11 +15,9 @@ trait Disposable {
     * provided.
     *
     * @param ctx ''Akkamo'' context
-    * @throws DisposableError thrown in case of serious unrecoverable error, occured during the
-    *                         dispose stage
+    * @return instance of Res
     */
-  @throws[DisposableError]("If serious unrecoverable problem during dispose stage occurs")
-  def dispose(ctx: Context): Unit
+  def dispose(ctx: Context): Res[Unit]
 
 }
 
