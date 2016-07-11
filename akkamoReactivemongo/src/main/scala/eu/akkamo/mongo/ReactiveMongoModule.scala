@@ -95,7 +95,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   override def dependencies(dependencies: Dependency): Dependency =
     dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
-  override def initialize(ctx: Context): Res[Context] = {
+  override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
     val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
@@ -123,7 +123,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
     }
   }
 
-  override def dispose(ctx: Context): Res[Unit] = {
+  override def dispose(ctx: Context) = {
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val registered: Map[ReactiveMongoApi, Set[String]] = ctx.registered[ReactiveMongoApi]
     val stopConnectionsResFt: Iterable[Future[Unit]] = registered.map { case (api, names) =>
