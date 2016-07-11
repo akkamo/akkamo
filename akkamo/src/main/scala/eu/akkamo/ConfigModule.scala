@@ -2,8 +2,6 @@ package eu.akkamo
 
 import com.typesafe.config.ConfigFactory
 
-import scala.util.Try
-
 /**
   * Module providing application-wide configuration, using the ''Typesafe Config'' library.
   * For further details about configuration syntax and usage, please refer to ''Typesafe Config''
@@ -23,5 +21,5 @@ class ConfigModule extends Module with Initializable {
     ctx.register(ConfigFactory.defaultApplication())
   }
 
-  override def dependencies(dependencies: Dependency): Dependency =  dependencies
+  override def dependencies(dependencies: Dependency): Dependency = dependencies
 }

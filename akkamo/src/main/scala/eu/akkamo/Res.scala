@@ -45,12 +45,10 @@ private[akkamo] object Res {
     }
   }
 
-  implicit def tryUnit2res(p:Unit) = new Res[Unit] {
+  implicit def unit2res(p:Unit) = new Res[Unit] {
     override def asTry(): Try[Unit] = Try(p)
   }
 
-
-  implicit def tryUnit2res(p:Try[Unit]) = new Res[Unit] {
   implicit def tryUnit2res(p: Try[Unit]): Res[Unit] = new Res[Unit] {
     override def asTry(): Try[Unit] = p
   }
