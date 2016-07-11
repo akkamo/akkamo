@@ -59,25 +59,25 @@ class AkkamoSpec extends FlatSpec with Matchers {
   "AkkamoRun" should "thrown exception when dependency is missing" in {
     implicit val (l, r) = (new IO, new DO)
     val (a, _, c, d, _) = build
-    val run = new AkkamoRun(List(c, a, d))
+    val akkamo = new Akkamo
     val ctx = new CTX
-    an[InitializationError] should be thrownBy run(ctx)
+    an[InitializationError] should be thrownBy akkamo.run(ctx, List(c, a, d))
   }
 
   "AkkamoRun" should "thrown exception when cycle is detected" in {
     implicit val (l, r) = (new IO, new DO)
     val (_, b, c, d, ae) = build
-    val run = new AkkamoRun(List(c, ae, b, d))
+    val akkamo = new Akkamo
     val ctx = new CTX
-    an[InitializationError] should be thrownBy run(ctx)
+    an[InitializationError] should be thrownBy akkamo.run(ctx, List(c, ae, b, d))
   }
 
   "AkkamoRun" should "have a right order during init" in {
     implicit val (l, r) = (new IO, new DO)
     val (a, b, c, d, _) = build
-    val run = new AkkamoRun(List(c, a, b, d))
+    val akkamo = new Akkamo
     val ctx = new CTX
-    run(ctx)
+    akkamo.run(ctx, List(c, a, b, d))
     assert(l == List(a, b, c, d))
     assert(r == List(d, c, b, a))
   }

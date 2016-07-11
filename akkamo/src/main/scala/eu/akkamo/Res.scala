@@ -16,6 +16,10 @@ trait Res[T] {
   */
 private[akkamo] object Res {
 
+  implicit def context2res(p:Context) = new Res[Context] {
+    override def asTry(): Try[Context] = Try(p)
+  }
+
   implicit def tryContext2res(p:Try[Context]) = new Res[Context] {
     override def asTry(): Try[Context] = p
   }
@@ -29,6 +33,11 @@ private[akkamo] object Res {
       case th:Throwable => Failure(th)
     }
   }
+
+  implicit def tryUnit2res(p:Unit) = new Res[Unit] {
+    override def asTry(): Try[Unit] = Try(p)
+  }
+
 
   implicit def tryUnit2res(p:Try[Unit]) = new Res[Unit] {
     override def asTry(): Try[Unit] = p
