@@ -1,13 +1,14 @@
 package eu.akkamo.mongo
+
 import akka.event.LoggingAdapter
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import eu.akkamo.config._
 import reactivemongo.api.{DB, DBMetaCommands, MongoConnection, MongoDriver}
 
+import scala.collection.{Map, Set}
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
-import scala.util.Try
 
 /**
   * For each configured ''ReactiveMongo'' connection, the instance of this trait is registered into
@@ -64,15 +65,20 @@ trait ReactiveMongoApi {
   * Above is the working example of simple module configuration. In this configuration example,
   * one ''ReactiveMongo'' connection is created and will be registered into the ''Akkamo'' context.
   * Each configured connection is registered into the ''Akkamo'' context as the
-  * [[eu.akkamo.mongo.ReactiveMongoApi]] interface and is avaiable for injection via its name (e.g. ''name1''),
-  * aliases (if defined, e.g. ''alias1'' or ''alias2''), or if defined as ''default'' without
-  * any name identifier.<br/>
-  * ==If configuration is missing, then default entry with `uri: mongodb://localhost/mdg` is created.==
+  * [[eu.akkamo.mongo.ReactiveMongoApi]] interface and is avaiable for injection via its name
+  * (e.g. ''name1''), aliases (if defined, e.g. ''alias1'' or ''alias2''), or if defined as
+  * ''default'' without any name identifier.
+  *
+  * ==If configuration is missing, then default entry with `uri: mongodb://localhost/default` is created.==
   *
   * @author vaclav.svejcar
   * @author jubu
   */
 class ReactiveMongoModule extends Module with Initializable with Disposable {
+
+  import eu.akkamo
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   val ReactiveMongoModuleKey = "akkamo.reactiveMongo"
 
@@ -83,91 +89,63 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   val ConnectionStartTimeout: FiniteDuration = 30.seconds
   val ConnectionStopTimeout: FiniteDuration = 10.seconds
 
-  private var driver: MongoDriver = _
+  case class ReactiveMongo(driver: MongoDriver, connection: MongoConnection,
+                           db: DB with DBMetaCommands) extends ReactiveMongoApi
 
-  case class ReactiveMongo(driver: MongoDriver, connection: MongoConnection, db: DB with DBMetaCommands)
-    extends ReactiveMongoApi
+  override def dependencies(dependencies: Dependency): Dependency =
+    dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
-  override def initialize(ctx: Context) = Try {
-    val cfg = ctx.inject[Config]
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
-    initialize(ctx, cfg.get, log.get)
-  }
-
-  override def dispose(ctx: Context) = {
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
-    val res = Some(driver).map { driver =>
-      implicit val ec = driver.system.dispatcher
-      val res = ctx.registered[ReactiveMongoApi].map { case (conn, names) =>
-        wrapDispErr(conn.connection.askClose()(ConnectionStopTimeout),
-          th => s"Cannot stop connection for '${names}' configuration").map { p =>
-          log.info(s"Mongo connection '${names}' stopped")
-        }
-      }
-      val f = wrapDispErr(
-        driver.system.terminate().map { p =>
-          log.info(s"Mongo system: '${driver.system}' terminated")
-        },
-        th => s"Cannot stop underlying Actor system")
-
-      Future.sequence(res ++ List(f)).map{p=>()}
-    }
-    val result = res.getOrElse(Future.successful(()))
-    result
-   }
-
-  private def initialize(ctx: Context, cfg: Config, log: LoggingAdapter): Context = {
-    import eu.akkamo
+  override def initialize(ctx: Context): Res[Context] = {
+    val cfg: Config = ctx.inject[Config].get
+    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
     log.info("Initializing 'ReactiveMongo' module...")
-
-    driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg))
+    val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg))
 
     val configMap = akkamo.config.blockAsMap(ReactiveMongoModuleKey)(cfg).getOrElse(makeDefault)
-    parseConfig(configMap).foldLeft(ctx) { case (ctx, conf) =>
-      log.info(s"Creating Mongo connection for '${conf.name}' configuration")
-
-      val connFt = wrapInitErr(createConnection(conf),
+    parseConfig(configMap).foldLeft(Future.successful(ctx)) { case (ctxFt, conf) =>
+      val connFt: Future[ReactiveMongo] = wrapInitErr(createConnection(driver, conf),
         th => s"Cannot create Mongo connection for '${conf.name}' configuration")
-      val conn = Await.result(connFt, ConnectionStartTimeout)
 
-      // register configuration for the name
-      val ctx1 = ctx.register[ReactiveMongoApi](conn, Some(conf.name))
+      for {
+        conn <- connFt
+        ctx1 <- ctxFt
+      } yield {
+        // register configuration for the name
+        val ctx2 = ctx.register[ReactiveMongoApi](conn, Some(conf.name))
 
-      // register configuration as default if necessary
-      val ctx2 = if (conf.default) {
-        ctx1.register[ReactiveMongoApi](conn)
-      } else {
-        ctx1
+        // register configuration as default if necessary
+        val ctx3 = if (conf.default) ctx2.register[ReactiveMongoApi](conn) else ctx2
+
+        // register configuration for defined aliases
+        conf.aliases.foldLeft(ctx3)((ct, alias) => ct.register[ReactiveMongoApi](conn, Some(alias)))
       }
-      // register configuration for defined aliases
-      conf.aliases.foldLeft(ctx)((ctx, alias) => ctx.register[ReactiveMongoApi](conn, Some(alias)))
     }
   }
 
-  private def makeDefault: Map[String, Config] = {
-    val cfgString = """uri = "mongodb://localhost/default"	""".stripMargin
-    Map("default" -> ConfigFactory.parseString(cfgString))
-  }
+  override def dispose(ctx: Context): Res[Unit] = {
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val registered: Map[ReactiveMongoApi, Set[String]] = ctx.registered[ReactiveMongoApi]
+    val stopConnectionsResFt: Iterable[Future[Unit]] = registered.map { case (api, names) =>
+      wrapDispErr(api.connection.askClose()(ConnectionStopTimeout),
+        th => s"Cannot stop connection for $names configuration")
+        .map(_ => log.info(s"Mongo connection $names stopped"))
+    }
 
-  private def createConnection(config: Conf): Future[ReactiveMongo] = {
-    implicit val ec = driver.system.dispatcher
-    for {
-      uri <- Future.fromTry(MongoConnection.parseURI(config.config.getString(UriKey)))
-      conn = driver.connection(uri)
-      dbName <- Future(uri.db.get)
-      db <- conn.database(dbName)
-    } yield ReactiveMongo(driver, conn, db)
+    val stopDriverResFt: Future[Unit] = registered.headOption.map { case (api, names) =>
+      wrapDispErr(api.driver.system.terminate()
+        .map(_ => log.info(s"Mongo system '${api.driver}' terminated")),
+        th => s"Cannot stop underlying Akka actor system")
+    }.getOrElse(Future.successful((): Unit))
+
+    Future.sequence(stopConnectionsResFt ++ List(stopDriverResFt)).map(_ => ())
   }
 
   private def parseConfig(cfg: Map[String, Config]): List[Conf] = {
     import scala.collection.JavaConversions._
 
-    def aliases(conf: Config): Seq[String] = if (conf.hasPath(AliasesKey)) {
-      conf.getStringList(AliasesKey)
-    } else {
-      Seq.empty[String]
-    }
+    def aliases(conf: Config): Seq[String] =
+      if (conf.hasPath(AliasesKey)) conf.getStringList(AliasesKey) else Seq.empty[String]
 
     if (cfg.size == 1) {
       val (name, config) = cfg.head
@@ -187,9 +165,21 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
     }
   }
 
+  private def createConnection(driver: MongoDriver, config: Conf): Future[ReactiveMongo] = {
+    for {
+      uri <- Future.fromTry(MongoConnection.parseURI(config.config.getString(UriKey)))
+      conn = driver.connection(uri)
+      dbName <- Future(uri.db.get)
+      db <- conn.database(dbName)
+    } yield ReactiveMongo(driver, conn, db)
+  }
+
+  private def makeDefault: Map[String, Config] = Map(
+    "default" -> ConfigFactory.parseString("""uri = "mongodb://localhost/default"	""".stripMargin))
+
+
   private def wrapErr[T](err: (String, Throwable) => Throwable)
                         (ft: Future[T], msg: Throwable => String): Future[T] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     ft.transform(x => x, th => err(msg(th), th))
   }
 
@@ -199,6 +189,4 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
 
   private case class Conf(name: String, config: Config, default: Boolean, aliases: Seq[String])
 
-  override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 }
