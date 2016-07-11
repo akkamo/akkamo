@@ -17,7 +17,6 @@ import akka.util.ByteString
 import com.typesafe.config.Config
 import eu.akkamo.RouteRegistry.{HTTP, HTTPS, Protocol}
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -29,15 +28,7 @@ import scala.util.Try
   *
   * @author jubu
   */
-trait RouteRegistry {
-
-  /**
-    * Method allowing to register own ''Akka HTTP'' route into configured ''Akka HTTP'' server.
-    *
-    * @param route ''Akka HTTP'' route to register
-    * @return self
-    */
-  def register(route: Route): RouteRegistry
+trait RouteRegistry extends Registry[Route] {
 
   /**
     * Returns port number, on which the ''Akka HTTP'' server is running.
@@ -174,18 +165,12 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private type ServerBindingGetter = () => Future[ServerBinding]
 
-  private var httpConfigs = List.empty[BaseRouteRegistry]
-
   private var bindings = List.empty[ServerBinding]
 
 
   private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter with RouteRegistry {
-    val routes = mutable.Set.empty[Route]
 
-    override def register(route: Route): RouteRegistry = {
-      routes += route
-      this
-    }
+    val routes:Set[Route]
 
     def apply(): Future[ServerBinding] = {
       import akka.http.scaladsl.server.RouteConcatenation
@@ -204,7 +189,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private[AkkaHttpModule] case class
   HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, requestLogLevel: String,
-                    requestLogContentLength: Int)
+                    requestLogContentLength: Int, routes:Set[Route] = Set.empty)
                    (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -218,11 +203,16 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       }
     }
 
+    def copyWith(p:Route)  = {
+      this.copy(routes = (routes + p)).asInstanceOf[this.type]
+    }
+
     val protocol = HTTP
   }
 
   private[AkkaHttpModule] case class
-  HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext, requestLogLevel: String, requestLogContentLength: Int)
+  HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext,
+                     requestLogLevel: String, requestLogContentLength: Int, routes:Set[Route] = Set.empty)
                     (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -234,6 +224,10 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val myLoggedRoute = logRequestResult(requestLogLevel, requestLogContentLength, route)
         Http().bindAndHandle(myLoggedRoute, interface, port, ctx)
       }
+    }
+
+    def copyWith(p:Route) = {
+      this.copy(routes = (routes + p)).asInstanceOf[this.type]
     }
 
     val protocol = HTTPS
@@ -255,17 +249,17 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config._
+
     // create list of configuration tuples
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
-    if (mp.isEmpty) {
+
+    val httpConfigs = if (mp.isEmpty) {
       val r = HttpRouteRegistry(Nil, 9000, "localhost", true, "off", 0)(
         ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
-      httpConfigs = r :: httpConfigs
-      ctx.register[RouteRegistry](r)
+      List(r)
     } else {
       val autoDefault = mp.get.size == 1
-
-      httpConfigs = mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, cfg) =>
+      mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, cfg) =>
         val system = config.get[String](AkkaAlias, cfg).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
         if (system.isEmpty) {
           throw InitializableError(s"Can't find akka system for http configuration key: $key")
@@ -292,19 +286,19 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
         }
       }
-      val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
-      if (combinations != httpConfigs.size) {
-        throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
+    }
+    val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
+    if (combinations != httpConfigs.size) {
+      throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
+    }
+    httpConfigs.foldLeft(ctx) { (ctx, cfg) =>
+      val ctx1 = if (cfg.default) {
+        ctx.register[RouteRegistry](cfg)
+      } else {
+        ctx
       }
-      httpConfigs.foldLeft(ctx) { (ctx, cfg) =>
-        val ctx1 = if (cfg.default) {
-          ctx.register[RouteRegistry](cfg)
-        } else {
-          ctx
-        }
-        cfg.aliases.foldLeft(ctx1) { (ctx, alias) =>
-          ctx.register[RouteRegistry](cfg, Some(alias))
-        }
+      cfg.aliases.foldLeft(ctx1) { (ctx, alias) =>
+        ctx.register[RouteRegistry](cfg, Some(alias))
       }
     }
   }
@@ -347,6 +341,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val httpConfigs = ctx.registered[RouteRegistry].keySet.map(_.asInstanceOf[BaseRouteRegistry])
     val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can`t initialize route $p", th)))
     Future.sequence(futures).map { p =>
       log.info(s"run: $httpConfigs")
