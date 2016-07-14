@@ -3,7 +3,17 @@ package eu.akkamo
 import com.typesafe.config.ConfigException
 
 /**
-  * @author jubu
+  * Object providing helper functions, data structures and implicit conversions to make the work
+  * with Java-based ''Typesafe Config'' in Scala world little more convenient.
+  *
+  * == Example of use: ==
+  *
+  * {{{
+  *   import eu.akkamo.config._
+  *   implicit val config: Config = someConfigInstanceHere
+  *
+  *   val barValue: String = get[String]("barKey").getOrElse("unknown value")
+  * }}}
   */
 object config {
 
@@ -13,24 +23,47 @@ object config {
   import scala.util.Try
 
   /**
+    * Parses the configuration block, identified by its ''key'', to the Scala map.
     *
-    * @param key
-    * @param cfg
-    * @return
-    * @deprecated use `get` method
+    * @param key configuration block key
+    * @param cfg configuration to parse
+    * @return parsed map
     */
   def blockAsMap(key: String)(implicit cfg: Config): Option[Map[String, Config]] = Try {
     val keys = cfg.getObject(key).keySet()
     keys.map { p => (p, cfg.getConfig(s"$key.$p")) }.toMap.map(p => (p._1, p._2.resolve()))
   }.toOption
 
-  /** ?
+  /**
+    * This method serves as convenient shorthand of native ''Typesafe Config'' `Config.getXX`
+    * methods, as it provides extensible ''typeclass''-based parsing of desired value type and
+    * returns result as optional value.
     *
-    * @param path
-    * @param cfg
-    * @param t
-    * @tparam T
+    * @param key config key
+    * @param cfg configuration instance
+    * @param t   configuration value transformer ''typeclass''
+    * @tparam T type of requested value
+    * @return value (if found)
     */
+  def get[T](key: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = {
+    getInternal[T](key, cfg, t)
+  }
+
+  /**
+    * This method serves as convenient shorthand of native ''Typesafe Config'' `Config.getXX`
+    * methods, as it provides extensible ''typeclass''-based parsing of desired value type and
+    * returns result as optional value.
+    *
+    * @param key config key
+    * @param t   configuration value transformer ''typeclass''
+    * @param cfg configuration instance (implicitly provided)
+    * @tparam T type of requested value
+    * @return value (if found)
+    */
+  def get[T](key: String)(implicit t: Transformer[T], cfg: Config): Option[T] = {
+    getInternal[T](key, cfg, t)
+  }
+
   private def getInternal[T](path: String, cfg: Config, t: Transformer[T]): Option[T] = {
     if (cfg.hasPath(path)) {
       Some(t(cfg, path))
@@ -39,25 +72,12 @@ object config {
     }
   }
 
-  /** ?
+  /**
+    * ''Typeclass'' config ''transformer'', allowing to extract value of type `T` for the given
+    * config key and configuration instance.
     *
-    * @param key
-    * @param cfg
-    * @tparam T
+    * @tparam T type of the extracted value
     */
-  def get[T](key: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = {
-    getInternal[T](key, cfg, t)
-  }
-
-  /** ?
-    *
-    * @param key
-    * @tparam T
-    */
-  def get[T](key: String)(implicit t: Transformer[T], cfg: Config): Option[T] = {
-    getInternal[T](key, cfg, t)
-  }
-
   type Transformer[T] = (Config, String) => T
 
   implicit val cfg2String: Transformer[String] = (cfg: Config, key: String) =>
