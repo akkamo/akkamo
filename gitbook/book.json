@@ -3,7 +3,7 @@
 	"plugins": [
 		"emphasize",
 		"richquotes",
-		"mathjax",
+		"mathjax-beta",
 		"puml"
 	]
 }
