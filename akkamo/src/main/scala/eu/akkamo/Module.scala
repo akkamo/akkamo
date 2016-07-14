@@ -27,19 +27,19 @@ trait Module {
     */
   override def toString: String = this.getClass.getSimpleName
 
-
   /**
-    * Overloading this method in module implementation allows make proper dependency resolution in dependant modules.<br/>
-    * If Module: A require during initialization or run access to Services produced by let say Modules: X, Y then
-    * is necessary to overload method in next way:
+    * Each ''Akkamo'' module must override this method in order to '''exactly''' define its module
+    * dependencies, otherwise there will be risk that it will not be initialized and run in proper
+    * order. Fox example if this module depends on modules `ModuleA` and `ModuleB`, then the
+    * overridden method should look like:
+    *
     * {{{
-    *   def dependencies(dependencies:Dependency): Dependency = {
-    *     dependencies.&&[X].&&[Y]
-    *   }
+    *   override def dependencies(dependencies: Dependency): Dependency =
+    *     dependencies.&&[ModuleA].&&[ModuleB]ś
     * }}}
     *
     * @param dependencies instance of [[eu.akkamo.Dependency]]
-    * @return instance of [[eu.akkamo.Dependency]]
+    * @return chained module dependencies
     */
   def dependencies(dependencies: Dependency): Dependency
 
