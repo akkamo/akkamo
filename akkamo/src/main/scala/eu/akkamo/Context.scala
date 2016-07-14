@@ -9,10 +9,10 @@ import scala.collection.{Map, Set}
   * replacement will yield new instance of [[Registry]]. The value is not intended to be changed
   * directly, but using the `registerIn` method.
   *
-  * For further clarification, let's introduce simple example. Let the `RouteRegistry` be fictional (see. akkamoAkkaHttp project for real example)
-  * implementation of `Registry`, representing the collection of all registered REST HTTP
-  * endpoints, allowing any other module to register own `Route`, representing particilar
-  * HTTP route (e.g. `GET /foo/bar`).
+  * For further clarification, let's introduce simple example. Let the `RouteRegistry` be fictional
+  * (see. akkamo AkkaHttp project for real example) implementation of `Registry`, representing the
+  * collection of all registered REST HTTP endpoints, allowing any other module to register own
+  * `Route`, representing particular HTTP route (e.g. `GET /foo/bar`).
   *
   * {{{
   *   // register the custom RouteRegistry into the provided HttpRegistry
@@ -37,7 +37,11 @@ trait Registry[T] {
 
 
 /**
-  * A mutable context dispatched during all phases in module lifecycle
+  * ''Akkamo'' context represents the cornerstone of the ''Akkamo'' platform, as it is the place
+  * where different modules can register its own services provided for other modules (using
+  * one of `registerIn` methods) or can inject services already registered by other modules
+  * (using one of the `inject` method). Please note that the [[Context]] is immutable and any
+  * update performed (e.g. registering service) will yield new, updated instance.
   *
   * @author jubu
   */
@@ -80,7 +84,7 @@ trait Context {
     */
   @throws[ContextError]
   def get[T](implicit ct: ClassTag[T]): T = inject[T]
-    .getOrElse(throw new ContextError(s"Can't find registered bean of type: ${ct.runtimeClass.getName}"))
+    .getOrElse(throw ContextError(s"Can't find registered bean of type: ${ct.runtimeClass.getName}"))
 
   /**
     * Get service already registered in ''Akkamo'' context, using the ''key'' using which the
@@ -98,75 +102,92 @@ trait Context {
     */
   @throws[ContextError]
   def get[T](key: String, strict: Boolean = false)(implicit ct: ClassTag[T]): T = inject[T](key, strict)
-    .getOrElse(throw new ContextError(s"Can't find registered bean under key: $key of type: ${ct.runtimeClass.getName}"))
-
+    .getOrElse(throw ContextError(s"Can't find registered bean under key: $key of type: ${ct.runtimeClass.getName}"))
 
 
   /**
-    * register bean `x` to previously `registered` bean of type `T`
+    * Registers value into service, specified by its type and optional ''key'', previously
+    * registered to the ''Akkamo'' context. In fact, this serves as a shorthand for manually
+    * injecting the desired service from the context, and then registering the selected value into
+    * it.
     *
-    * @param x   registered instance
-    * @param key mapping identifier of previously registered instance of type `T`
+    * @param x   value to register
+    * @param key optional key, under which the service was previously registered into the context
     * @param ct  class tag evidence
-    * @tparam T type of `registered` registered object
-    * @tparam X type of instance going to be registered
-    * @return updated instance of `Context`
+    * @tparam T type of previously registered service
+    * @tparam X type of value to be registered into the service
+    * @throws ContextError if operation cannot be completed for various reasons
+    * @return updated instance of immutable [[Context]]
     */
   @throws[ContextError]
   def registerIn[T <: Registry[X], X](x: X, key: Option[String] = None)(implicit ct: ClassTag[T]): Context
 
 
   /**
-    * register bean `x` to previously `registered` bean of type `T`
+    * Registers value into service, specified by its type and ''key'', previously registered to the
+    * ''Akkamo'' context. In fact, this serves as a shorthand for manually injecting the desired
+    * service from the context, and then registering the selected value into it.
     *
-    * @param x   registered instance
-    * @param key mapping identifier of previously registered instance of type `T`
+    * @param x   value to register
+    * @param key optional key, under which the service was previously registered into the context
     * @param ct  class tag evidence
-    * @tparam T type of `registered` registered object
-    * @tparam X type of instance going to be registered
-    * @return updated instance of `Context`
+    * @tparam T type of previously registered service
+    * @tparam X type of value to be registered into the service
+    * @throws ContextError if operation cannot be completed for various reasons
+    * @return updated instance of immutable [[Context]]
     */
   @throws[ContextError]
   def registerIn[T <: Registry[X], X](x: X, key: String)(implicit ct: ClassTag[T]): Context = registerIn[T, X](x, Some(key))
 
+
   /**
-    * register bean
+    * Registers service to the ''Akkamo'' context, such service is then available to any other
+    * module via one of the `inject` methods. This method allows to register service with optional
+    * ''key'', which is primarily used to disambiguate between multiple registered services of same
+    * type and must be then specified when injecting the service. Please note that because the
+    * [[Context]] is immutable, new updated instance will be returned after calling this method.
     *
-    * @param value
-    * @param key
-    * @param ct class tag evidence
-    * @tparam T
-    * @return updated instance of `Context`
+    * @param value service to register
+    * @param key   optional key
+    * @param ct    class tag evidence
+    * @tparam T type of the service
+    * @return new updated instance of [[Context]]
     */
   def register[T <: AnyRef](value: T, key: Option[String] = None)(implicit ct: ClassTag[T]): Context
 
 
   /**
-    * register bean
+    * Registers service to the ''Akkamo'' context, such service is then available to any other
+    * module via one of the `inject` methods. This method allows to register service with ''key'',
+    * which is primarily used to disambiguate between multiple registered services of same
+    * type and must be then specified when injecting the service. Please note that because the
+    * [[Context]] is immutable, new updated instance will be returned after calling this method.
     *
-    * @param value
-    * @param key
-    * @param ct class tag evidence
-    * @tparam T
-    * @return updated instance of `Context`
+    * @param value service to register
+    * @param key   optional key
+    * @param ct    class tag evidence
+    * @tparam T type of the service
+    * @return new updated instance of [[Context]]
     */
   def register[T <: AnyRef](value: T, key: String)(implicit ct: ClassTag[T]): Context = register[T](value, Some(key))
 
-
   /**
-    * get mapping from services to set of aliases
+    * Returns all registered instance of service of type `T`, as a map where key is instance of
+    * registered service and value is the set containing all keys, under the particular service
+    * instance was registered.
     *
-    * @param ct
-    * @tparam T
-    * @return map of all services of type `T` to set of aliases
+    * @param ct class tag evidence
+    * @tparam T type of the service
+    * @return map of all registered instances of service of type `T`
     */
   def registered[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]]
 }
 
-
 /**
+  * Error thrown during failing operation on the [[Context]] (e.g. attemp to register value into
+  * service, that has not been registered before).
   *
-  * @param message
-  * @param cause
+  * @param message detail message
+  * @param cause   optional error cause
   */
 case class ContextError(message: String, cause: Throwable = null) extends Error(message, cause)
