@@ -17,7 +17,8 @@ trait Initializable {
     * dependencies are initialized yet)
     *
     * @param ctx ''Akkamo'' context
-    * @return instance of Res that contains (new if modified) instance of [[eu.akkamo.Context]] or exception packed in ``Try``
+    * @return instance of Res that contains (new if modified) instance of [[eu.akkamo.Context]] or
+    *         exception packed in ``Try``
     */
   def initialize(ctx: Context): Res[Context]
 
@@ -29,11 +30,11 @@ trait Initializable {
     * @return registration key class
     */
   def iKey(): Class[_ <: Initializable] = this.getClass
-
 }
 
 /**
-  * Recommended Error to be thrown inside [[eu.akkamo.Initializable#initialize]] method if serious unrecoverable problem occurs.
+  * Recommended Error to be thrown inside [[eu.akkamo.Initializable#initialize]] method if serious
+  * unrecoverable problem occurs.
   *
   * @param message error message
   * @param cause   optional value of cause

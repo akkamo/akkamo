@@ -7,7 +7,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Implementation of the Context
   */
-case class CTX(class2Key2Inst:Map[Class[_],Map[String, AnyRef]]= Map.empty) extends Context {
+case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]] = Map.empty) extends Context {
 
   import scala.collection._
   import scala.reflect.ClassTag
@@ -29,17 +29,17 @@ case class CTX(class2Key2Inst:Map[Class[_],Map[String, AnyRef]]= Map.empty) exte
     }.map(_.asInstanceOf[T])
   }
 
-  override def registerIn[T <: Registry[X], X](x: X, key: Option[String])(implicit ct: ClassTag[T]): Context ={
+  override def registerIn[T <: Registry[X], X](x: X, key: Option[String])(implicit ct: ClassTag[T]): Context = {
     val k = key.getOrElse(Default)
     val injected = inject[T](k).getOrElse(throw new ContextError(s"Can't find instance of: ${ct.runtimeClass.getName} for key: $key"))
     val keys = registered[T].get(injected).get // at least one element must be defined
     val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
-    keys.foldLeft(unregisterInternal(ct.runtimeClass, keys+Default)){(ctx, name)=>
+    keys.foldLeft(unregisterInternal(ct.runtimeClass, keys + Default)) { (ctx, name) =>
       ctx.registerInternal(updated, ct.runtimeClass, Some(name), false)
     }
   }
 
-  override def registered[T<:AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
+  override def registered[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
     class2Key2Inst.get(ct.runtimeClass).map { m =>
       m.groupBy(_._2).map { case (k, v) =>
         (k.asInstanceOf[T], v.keySet.filter(_ != Default))
@@ -51,20 +51,20 @@ case class CTX(class2Key2Inst:Map[Class[_],Map[String, AnyRef]]= Map.empty) exte
     registerInternal(value, ct.runtimeClass, key)
   }
 
-  private def registerInternal(value: AnyRef, clazz:Class[_], key: Option[String], public:Boolean = true)(): CTX = {
+  private def registerInternal(value: AnyRef, clazz: Class[_], key: Option[String], public: Boolean = true)(): CTX = {
     val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
     val realKey = key.getOrElse(Default)
     if (key2Inst.contains(realKey) && public) {
       throw ContextError(s"module: $value under key: $key already registered")
     }
-    val resKey2Inst  =   key2Inst + (key.getOrElse(Default) -> value)
+    val resKey2Inst = key2Inst + (key.getOrElse(Default) -> value)
     val res = class2Key2Inst + (clazz -> resKey2Inst)
     this.copy(res)
   }
 
-  private def unregisterInternal(clazz:Class[_], keys:Set[String]):CTX = {
+  private def unregisterInternal(clazz: Class[_], keys: Set[String]): CTX = {
     val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
-    val resKey2Inst  =   key2Inst -- keys
+    val resKey2Inst = key2Inst -- keys
     val res = class2Key2Inst + (clazz -> resKey2Inst)
     this.copy(res)
   }
@@ -291,23 +291,28 @@ private object Logger {
 }
 
 /**
+  * Error thrown when Akkamo initialization fails (e.g. one of the initialized modules throws
+  * [[eu.akkamo.InitializableError]]).
   *
-  * @param message
-  * @param cause
+  * @param message detail message
+  * @param cause   optional error cause
   */
 case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
 
 /**
+  * Error thrown when Akkamo run phase fails (e.g. one of the ran modules throws
+  * [[eu.akkamo.RunnableError]]).
   *
-  * @param message
-  * @param cause
+  * @param message detail message
+  * @param cause   optional error cause
   */
 case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)
 
-
 /**
+  * Error thrown when Akkamo dispose phase fails (e.g. one of the disposed modules throws
+  * [[eu.akkamo.DisposableError]]).
   *
-  * @param message
-  * @param cause
+  * @param message detail message
+  * @param cause   optional error cause
   */
 case class DisposeError(message: String, cause: Throwable = null) extends Error(message, cause)
