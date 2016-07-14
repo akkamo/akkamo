@@ -7,16 +7,16 @@ import scala.collection.{Map, Set}
   * The ''Registry'' provides functionality to register a holder object to the ''Akkamo'' context,
   * which value can be changed later. Note that this structure is immutable, hence the value
   * replacement will yield new instance of [[Registry]]. The value is not intended to be changed
-  * directly, but using the [[Context#registerIn]] method.
+  * directly, but using the `registerIn` method.
   *
-  * For further clarification, let's introduce simple example. Let the `HttpRegistry` be fictional
-  * implementation of [[Registry]], representing the collection of all registered REST HTTP
-  * endpoints, allowing any other module to register own `HttpRoute`, representing particilar
+  * For further clarification, let's introduce simple example. Let the `RouteRegistry` be fictional (see. akkamoAkkaHttp project for real example)
+  * implementation of `Registry`, representing the collection of all registered REST HTTP
+  * endpoints, allowing any other module to register own `Route`, representing particilar
   * HTTP route (e.g. `GET /foo/bar`).
   *
   * {{{
-  *   // register the custom HttpRoute into the provided HttpRegistry
-  *   ctx.registerIn[HttpRegistry, HttpRoute](instanceOfRoute)
+  *   // register the custom RouteRegistry into the provided HttpRegistry
+  *   ctx.registerIn[RouteRegistry, Route](instanceOfRoute)
   * }}}
   *
   * For more details about creating and registering custom registry, please refer the official
@@ -50,7 +50,7 @@ trait Context {
     *
     * @param ct ''Akkamo'' context
     * @tparam T type of the service
-    * @return implementation of interface `T` encapsulated in [[scala.Some]] if exists else [[scala.None]]
+    * @return implementation of interface `T` encapsulated in `Some` if exists else `None`
     */
   def inject[T](implicit ct: ClassTag[T]): Option[T]
 
@@ -65,7 +65,7 @@ trait Context {
     *               under key then default instance is returned if it exists and is initialized
     * @param ct     class tag evidence
     * @tparam T type of the service
-    * @return implementation of interface `T` encapsulated in [[scala.Some]] if exists else [[scala.None]]
+    * @return implementation of interface `T` encapsulated in `Some` if exists else `None`
     */
   def inject[T](key: String, strict: Boolean = false)(implicit ct: ClassTag[T]): Option[T]
 
