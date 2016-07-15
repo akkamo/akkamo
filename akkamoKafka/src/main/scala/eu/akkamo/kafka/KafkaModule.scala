@@ -18,7 +18,7 @@ import scala.util.{Failure, Success, Try}
   *     // complete configuration with several name aliases
   *     name1 = {
   *       aliases = ["alias1", "alias2"]
-  *       properties= "name1.properties" // path to property file
+  *       properties = "name1.properties" // path to property file
   *       producer = true
   *       consumer = true
   *     },
@@ -39,7 +39,8 @@ class KafkaModule extends Module with Initializable with Disposable {
 
   import config._
 
-  private case class Def(producer: Boolean, consumer: Boolean, properties: Properties, isDefault: Boolean, aliases: List[String])
+  private case class Def(producer: Boolean, consumer: Boolean, properties: Properties,
+                         isDefault: Boolean, aliases: List[String])
 
   type KC = KafkaConsumer[AnyRef, AnyRef]
   type KP = KafkaProducer[AnyRef, AnyRef]
@@ -59,7 +60,7 @@ class KafkaModule extends Module with Initializable with Disposable {
     implicit val c = ctx.inject[Config].get
     val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key) }).getOrElse {
       val properties = loadProperties("kafka-default.properties")
-      Def(true, true, properties, true, List.empty) :: Nil
+      Def(producer = true, consumer = true, properties, isDefault = true, List.empty) :: Nil
     }
     // has only one default ?
     val dc = defs.foldLeft(0)((l, r) => if (r.isDefault) 1 else 0)
@@ -94,7 +95,8 @@ class KafkaModule extends Module with Initializable with Disposable {
     }
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[LogModule].&&[ConfigModule]
+  override def dependencies(dependencies: Dependency): Dependency =
+    dependencies.&&[LogModule].&&[ConfigModule]
 
   private def loadProperties(name: String)(implicit log: LoggingAdapter) = {
     val res = Thread.currentThread.getContextClassLoader.getResourceAsStream(name)
@@ -117,7 +119,9 @@ class KafkaModule extends Module with Initializable with Disposable {
   }
 
   private def buildDef(key: String)(implicit cfg: Config, log: LoggingAdapter) = {
-    val propertiesFileName = get[String](Properties).getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
+    val propertiesFileName = get[String](Properties)
+      .getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
+
     Def(
       get[Boolean](Producer).getOrElse(false),
       get[Boolean](Consumer).getOrElse(false),
@@ -129,10 +133,10 @@ class KafkaModule extends Module with Initializable with Disposable {
 
 
   override def dispose(ctx: Context) = {
-    val err = new DisposableError("Can't dispose some kafka instances")
+    val err = DisposableError("Can't dispose some kafka instances")
     val res = ctx.registered[KC].map { p =>
       Try {
-        p._1.unsubscribe();
+        p._1.unsubscribe()
         p._1
       }
     }
