@@ -56,6 +56,7 @@ Actual implementation of *Akkamo* supports several implicit conversion to ```Res
     }
 
   ```
+
 #### Ordering
 
 The modules form a dependency tree.<br/>
