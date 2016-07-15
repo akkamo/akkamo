@@ -20,9 +20,10 @@ This method provides same functionality as previous, but the *key* parameter is 
 one.
 
 > **Info** Please note that registering services into the context should be allways
-done during the *Init* stage of the *Akkamo* lifecycle.
+>done during the *Init* stage of the *Akkamo* lifecycle.
 
-> **Info** The `register` method always return a new instance Of `Context`.
+-----
+> **Warning** The `register` method always return a new instance Of `Context`.
 
 ## Registering bean into registered service
 Instead of use mutable services we recommends to use immutable service bean that implements trait
@@ -44,9 +45,10 @@ Typical usage of register method looks like:
 ```scala
 ctx.registerIn[RouteRegistry, Route](route, Some("key"))
 ```
-> **Hint** Also method `register` with the parameter `key` as plain `String` is defined.
+> **Info** Also method `register` with the parameter `key` as plain `String` is defined.
 
-> **Info** The `register` method always return a new instance Of `Context`.
+-----
+> **Warning** The `register` method always return a new instance of `Context`.
 
 ## Injection services from context
 Injection of services, previously registered into the *Akkamo context*, can be done using one of the
