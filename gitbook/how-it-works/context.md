@@ -19,8 +19,34 @@ returned.
 This method provides same functionality as previous, but the *key* parameter is not optional in this
 one.
 
-> Please note that registering services into the context should be allways
+> **Info** Please note that registering services into the context should be allways
 done during the *Init* stage of the *Akkamo* lifecycle.
+
+> **Info** The `register` method always return a new instance Of `Context`.
+
+## Registering bean into registered service
+Instead of use mutable services we recommends to use immutable service bean that implements trait
+```eu.akkamo.Registry[Route]```.Typical example can be found in the  HttpModule. HttpModule registers
+several (at least one) `RouteRegistry` instances. Each RouteRegistry instance implements ```Registry[Route]``` trait.
+Thus the `RouteRegistry` is able to create a self copy (via method ```copyWith(p: Route): this.type```) containing
+the new instance of Route.<br/> There is definition of ```Route``` trait:
+
+```scala
+trait Registry[T] {
+ def copyWith(p: T): this.type
+}
+```
+On the context exist method:
+* ```def registerIn[T <: Registry[X], X](x: X, key: Option[String] = None)(implicit ct: ClassTag[T]): Context```
+that realise update of instance `T` with instance of X for given `key`.
+
+Typical usage of register method looks like:
+```scala
+ctx.registerIn[RouteRegistry, Route](route, Some("key"))
+```
+> **Hint** Also method `register` with the parameter `key` as plain `String` is defined.
+
+> **Info** The `register` method always return a new instance Of `Context`.
 
 ## Injection services from context
 Injection of services, previously registered into the *Akkamo context*, can be done using one of the
