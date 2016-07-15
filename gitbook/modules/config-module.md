@@ -1,9 +1,9 @@
-# Configmodule
+# Config module
 This module provides configuration support, using the standard
 [Typesafe Config](https://github.com/typesafehub/config) library.
 
-#Module configuration
-Module don't have a configuration.
+# Module configuration
+Module does not have a configuration.
 
 ## How to use in your module
 This module registers `cpm.typesafe.Config` instance into the *Akkamo context*.
@@ -11,11 +11,11 @@ This module registers `cpm.typesafe.Config` instance into the *Akkamo context*.
 ```scala
 class MyModule extends Module with Initializable {
   override def initializable(ctx: Context) = Try {
-    // injects the LoggingAdapterFactory
-    val config= ctx.get[Config]
+    // injects the configuration
+    val config: Config = ctx.get[Config]
   }
   
-  // don't forget to add Log module dependency to your module
+  // don't forget to add Config module dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
     dependencies.&&[ConfigModule]
 }
@@ -25,6 +25,4 @@ class MyModule extends Module with Initializable {
 For more information visit Config definition in [Typesafe Config](https://github.com/typesafehub/config) library.
 
 ## Module dependencies
-Module don't have dependencies.
-
-* [Akka module](akka-module.md)
+Module does not have any dependencies.
