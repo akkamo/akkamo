@@ -27,7 +27,8 @@ We have not direct support for application packaging, one can use `sbt-native-pa
   
 ## Examples
 One example is project can be found on [github.com/akkamo/akkamo-demo](https://github.com/akkamo/akkamo-demo).
-Project demonstrate instantiation of two Actor systems with several `Actors` 
+Project demonstrate instantiation of two Actor systems with several `Actors`, and usage of 
+`akkamo-akka-http` module.
  
   
 ### Open problems
