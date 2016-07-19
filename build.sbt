@@ -33,7 +33,7 @@ publishArtifact in Test := false
 
 pomIncludeRepository := { _ => false }
 
-pomExtra := (
+pomExtra in Global := (
   <url>http://www.akkamo.eu</url>
     <licenses>
       <license>
@@ -80,7 +80,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.0"
+version in Global := "1.0.1-SNAPSHOT"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {})
