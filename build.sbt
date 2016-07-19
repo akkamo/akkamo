@@ -80,7 +80,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.0-SNAPSHOT"
+version in Global := "1.0.0"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {})
