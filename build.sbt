@@ -1,4 +1,5 @@
 import sbt.Keys._
+import UnidocKeys._
 
 lazy val cScalaVersion = "2.11.8"
 lazy val cAkkaVersion = "2.4.7"
@@ -81,7 +82,10 @@ scalacOptions in Global := Seq(
 
 version in Global := "1.0.0-SNAPSHOT"
 
-lazy val akkamoRoot = project.in(file(".")).settings(publish := {}, publishLocal := {})
+lazy val akkamoRoot = project.in(file("."))
+  .settings(publish := {}, publishLocal := {})
+  .settings(unidocSettings: _*)
+  .settings(unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoKafka,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoSbtPlugin
@@ -136,8 +140,6 @@ lazy val akkamoPersistentConfig = project.in(file("akkamoPersistentConfig/api"))
 lazy val akkamoMongoPersistentConfig = project.in(file("akkamoPersistentConfig/mongo")).settings(
   name := "akkamo-mongo-persistent-config"
 ).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
-
-
 
 lazy val akkamoSbtPlugin = project.in(file("akkamoSbtPlugin")).settings(
   name := "sbt-akkamo",
