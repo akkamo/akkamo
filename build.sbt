@@ -88,7 +88,7 @@ lazy val akkamoRoot = project.in(file("."))
   .settings(unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoKafka,
-    akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoSbtPlugin
+    akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
   )
 
 lazy val akkamo = project.in(file("akkamo")).settings(
@@ -132,6 +132,11 @@ lazy val akkamoKafka = project.in(file("akkamoKafka")).settings(
       ExclusionRule(organization = "org.slf4j")) withSources
   )
 ).dependsOn(akkamo)
+
+lazy val akkamoWebContent = project.in(file("akkamoWebContent")).settings(
+  name := "akkamo-web-content"
+).dependsOn(akkamoAkkaHttp)
+
 
 lazy val akkamoPersistentConfig = project.in(file("akkamoPersistentConfig/api")).settings(
   name := "akkamo-persistent-config"
