@@ -100,12 +100,7 @@ class WebContentModule extends Module with Initializable with Runnable {
                             default: Boolean,
                             override val mapping: Map[String, RouteGenerator] = Map.empty) extends WebContentRegistry {
 
-    /**
-      * Creates new instance of particular [[Registry]] implementation, with the new given value.
-      *
-      * @param p new value, map prefix -> RouteGenerator
-      * @return new instance of particular [[Registry]] implementation
-      */
+
     override def copyWith(p: (String, RouteGenerator)): DefaultWebContentRegistry.this.type = {
       if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under kee:${p._1} already registered ")
       else this.copy(mapping = mapping + p).asInstanceOf[this.type]
@@ -118,8 +113,6 @@ class WebContentModule extends Module with Initializable with Runnable {
     val cfg: Config = ctx.inject[Config].get
     val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
-    log.info("Initializing 'WebContent' module...")
-
     val mpOption = get[Map[String, Config]](WebContentModuleKey, cfg)
 
     // check  exsistence of default
@@ -127,7 +120,26 @@ class WebContentModule extends Module with Initializable with Runnable {
       log.warning("Can't find default 'WebContent' resource, or directory.")
       ctx
     } else {
-      initialize(ctx, mpOption.getOrElse(makeDefault))
+      val mp = mpOption.getOrElse(makeDefault)
+      val autoDefault = mp.size == 1
+      val rrs = mp.map { case (key, cfg) =>
+        val routeRegistryAlias = get[String](RouteRegistryAlias, cfg)
+        val aliases = key :: get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
+        val default = get[Boolean](Default, cfg).getOrElse(autoDefault)
+        val generators = getRouteGenerators(get[List[Config]](RouteGenerators, cfg).getOrElse(List.empty)).toMap
+        DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
+      }
+      // more checks - like one default, distinguish mappings in generators ...
+      rrs.foldLeft(ctx) { (ctx, registry) =>
+        val ctx1 = if (registry.default) {
+          ctx.register[WebContentRegistry](registry)
+        } else {
+          ctx
+        }
+        registry.aliases.foldLeft(ctx1) { (ctx, alias) =>
+          ctx.register[WebContentRegistry](registry, Some(alias))
+        }
+      }
     }
   }
 
@@ -148,28 +160,6 @@ class WebContentModule extends Module with Initializable with Runnable {
   override def dependencies(dependencies: Dependency): Dependency =
     dependencies.&&[LogModule].&&[ConfigModule].&&[AkkaHttpModule]
 
-  private def initialize(ctx: Context, mp: Map[String, Config]) = {
-    val autoDefault = mp.size == 1
-    val rrs = mp.map { case (key, cfg) =>
-      val routeRegistryAlias = get[String](RouteRegistryAlias, cfg)
-      val aliases = key :: get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
-      val default = get[Boolean](Default, cfg).getOrElse(autoDefault)
-      val generators = getRouteGenerators(get[List[Config]](RouteGenerators, cfg).getOrElse(List.empty)).toMap
-      DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
-    }
-    // more checks - like one default, distinguish mappings in generators ...
-    rrs.foldLeft(ctx) { (ctx, registry) =>
-      val ctx1 = if (registry.default) {
-        ctx.register[WebContentRegistry](registry)
-      } else {
-        ctx
-      }
-      registry.aliases.foldLeft(ctx1) { (ctx, alias) =>
-        ctx.register[WebContentRegistry](registry, Some(alias))
-      }
-    }
-  }
-
   private def getRouteGenerators(p: List[Config]) = p.map { cfg =>
     val className = get[String]("class", cfg).getOrElse(classOf[FileFromDirGenerator].getName)
     val parameters = get[List[String]]("parameters", cfg).getOrElse(List.empty).toArray
@@ -186,7 +176,7 @@ class WebContentModule extends Module with Initializable with Runnable {
   private def makeDefault = Map(
     "default" -> ConfigFactory.parseString(
       s"""
-         |default = {
+         |{
          |  akkaHttpAlias="akkamo.webContent"
          |  default = true
          |  routeGenerators = [{
@@ -194,7 +184,6 @@ class WebContentModule extends Module with Initializable with Runnable {
          |   class = eu.akkamo.web.FileFromDirGenerator
          |   }]
          |}
-         |uri = "mongodb://localhost/default"
          | """.stripMargin))
 
 

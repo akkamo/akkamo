@@ -24,22 +24,22 @@ object FileFromDirGenerator {
 
   val Prefix = "web"
 
-  def defaultUri = toUri(File.pathSeparator + Prefix)
+  def defaultUri = toUri(Prefix)
 
   @throws[IllegalArgumentException]
   def toUri(path: String) = {
     // build in
-    val res = this.getClass.getClassLoader.getResource(File.pathSeparator + path)
+    val res = this.getClass.getClassLoader.getResource(path)
     if (res != null) res.toURI
     else {
       // user dir
-      val d = System.getProperty("user.dir") + File.pathSeparator + path
+      val d = System.getProperty("user.dir") + File.separator + path
       val df = new File(d)
       if (df.exists() && df.isDirectory) {
         df.toURI
       } else {
         // user home
-        val d = System.getProperty("user.home") + File.pathSeparator + path
+        val d = System.getProperty("user.home") + File.separator + path
         val df = new File(d)
         if (df.exists() && df.isDirectory) {
           df.toURI

@@ -32,7 +32,7 @@ case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]] = Map.empty) e
   override def registerIn[T <: Registry[X], X](x: X, key: Option[String])(implicit ct: ClassTag[T]): Context = {
     val k = key.getOrElse(Default)
     val injected = inject[T](k).getOrElse(throw new ContextError(s"Can't find instance of: ${ct.runtimeClass.getName} for key: $key"))
-    val keys = registered[T].get(injected).get // at least one element must be defined
+    val keys = registered[T].get(injected).get + Default // at least one element must be defined
     val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
     keys.foldLeft(unregisterInternal(ct.runtimeClass, keys + Default)) { (ctx, name) =>
       ctx.registerInternal(updated, ct.runtimeClass, Some(name), false)
