@@ -58,7 +58,7 @@ class KafkaModule extends Module with Initializable with Disposable {
   override def initialize(ctx: Context) = Try {
     implicit val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
-    val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key) }).getOrElse {
+    val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
       val properties = loadProperties("kafka-default.properties")
       Def(producer = true, consumer = true, properties, isDefault = true, List.empty) :: Nil
     }
@@ -118,7 +118,7 @@ class KafkaModule extends Module with Initializable with Disposable {
     properties
   }
 
-  private def buildDef(key: String)(implicit cfg: Config, log: LoggingAdapter) = {
+  private def buildDef(key: String, cfg: Config)(implicit log: LoggingAdapter) = {
     val propertiesFileName = get[String](Properties)
       .getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
 
