@@ -24,26 +24,32 @@ object FileFromDirGenerator {
 
   val Prefix = "web"
 
-  def defaultUri = toUri(Prefix)
+  def defaultUri = nameToDirUri(Prefix)
 
   @throws[IllegalArgumentException]
-  def toUri(path: String) = {
-    // build in
-    val res = this.getClass.getClassLoader.getResource(path)
-    if (res != null) res.toURI
-    else {
-      // user dir
-      val d = System.getProperty("user.dir") + File.separator + path
-      val df = new File(d)
-      if (df.exists() && df.isDirectory) {
-        df.toURI
-      } else {
-        // user home
-        val d = System.getProperty("user.home") + File.separator + path
+  def nameToDirUri(path: String) = {
+
+    def fileIsOk(f:File) = f.exists() && f.isDirectory
+
+    val df = new File(path)
+    if(fileIsOk(df)) df.toURI else {
+      // build in zip
+      val res = this.getClass.getClassLoader.getResource(path)
+      if (res != null) res.toURI
+      else {
+        // user dir
+        val d = System.getProperty("user.dir") + File.separator + path
         val df = new File(d)
-        if (df.exists() && df.isDirectory) {
+        if (fileIsOk(df)) {
           df.toURI
-        } else throw new IllegalArgumentException(s"Path: $path doesn't exists")
+        } else {
+          // user home
+          val d = System.getProperty("user.home") + File.separator + path
+          val df = new File(d)
+          if (fileIsOk(df)) {
+            df.toURI
+          } else throw new IllegalArgumentException(s"Path: $path doesn't exists")
+        }
       }
     }
   }
