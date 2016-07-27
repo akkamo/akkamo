@@ -43,7 +43,7 @@ pomExtra in Global := (
       </license>
     </licenses>
     <scm>
-      <url>git@github.com:akkamo/akkamo.git</url>
+      <url>https://github.com/akkamo/akkamo.git</url>
     </scm>
     <developers>
       <developer>
