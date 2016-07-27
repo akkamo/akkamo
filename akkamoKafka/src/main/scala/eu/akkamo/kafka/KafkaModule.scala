@@ -1,5 +1,6 @@
 package eu.akkamo.kafka
 
+import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
 
 import akka.event.LoggingAdapter
@@ -58,7 +59,7 @@ class KafkaModule extends Module with Initializable with Disposable {
   override def initialize(ctx: Context) = Try {
     implicit val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
-    val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key) }).getOrElse {
+    val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
       val properties = loadProperties("kafka-default.properties")
       Def(producer = true, consumer = true, properties, isDefault = true, List.empty) :: Nil
     }
@@ -95,39 +96,51 @@ class KafkaModule extends Module with Initializable with Disposable {
     }
   }
 
+  private def loadProperties(path: String): Properties = {
+    def loadFromClassPath: Option[InputStream] =
+      Option.apply(this.getClass.getResourceAsStream(s"/$path"))
+    def loadFromDir(dir: String): Option[InputStream] =
+      Try(new FileInputStream(new File(dir, path))).toOption
+    def loadFromAbsolutePath: Option[InputStream] = loadFromDir(null)
+
+    val streamOpt: Option[InputStream] = loadFromAbsolutePath
+      .orElse(loadFromClassPath)
+      .orElse(loadFromDir(System.getProperty("user.dir")))
+      .orElse(loadFromDir(System.getProperty("user.home")))
+
+    streamOpt match {
+      case None => throw InitializableError(s"Missing properties file: $path")
+      case Some(stream) =>
+        val properties: Properties = new Properties()
+        try {
+          properties.load(stream)
+        } catch {
+          case th: Throwable => throw InitializableError(s"Can't read properties from file: $path", th)
+        } finally {
+          if (stream != null) try {
+            stream.close()
+          } catch {
+            case th: Throwable => th.printStackTrace()
+          }
+        }
+
+        properties
+    }
+  }
+
   override def dependencies(dependencies: Dependency): Dependency =
     dependencies.&&[LogModule].&&[ConfigModule]
 
-  private def loadProperties(name: String)(implicit log: LoggingAdapter) = {
-    val res = Thread.currentThread.getContextClassLoader.getResourceAsStream(name)
-    if (res == null) {
-      throw InitializableError(s"Missing properties file: $name")
-    }
-    val properties = new Properties()
-    try {
-      properties.load(res)
-    } catch {
-      case th: Throwable => throw InitializableError(s"Can't read properties from file: $name", th)
-    } finally {
-      if (res != null) try {
-        res.close()
-      } catch {
-        case th: Throwable => log.error(th, s"Can't close resource stream: $name")
-      }
-    }
-    properties
-  }
-
-  private def buildDef(key: String)(implicit cfg: Config, log: LoggingAdapter) = {
-    val propertiesFileName = get[String](Properties)
+  private def buildDef(key: String, cfg: Config)(implicit log: LoggingAdapter) = {
+    val propertiesFileName = get[String](Properties, cfg)
       .getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
 
     Def(
-      get[Boolean](Producer).getOrElse(false),
-      get[Boolean](Consumer).getOrElse(false),
+      get[Boolean](Producer, cfg).getOrElse(false),
+      get[Boolean](Consumer, cfg).getOrElse(false),
       loadProperties(propertiesFileName),
-      get[Boolean](Default).getOrElse(false),
-      key :: get[List[String]](Aliases).getOrElse(List.empty)
+      get[Boolean](Default, cfg).getOrElse(false),
+      key :: get[List[String]](Aliases, cfg).getOrElse(List.empty)
     )
   }
 
