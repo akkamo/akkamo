@@ -114,9 +114,11 @@ can be injected:
 
 ### Summary
 - Use consistent style for registered services configuration among your modules.
-- Wisely register your services using name, aliases and/or as *default* service instance. Keep in
-  mind that combination of service type (e.g. `HttpConnection`) and *key* (e.g. `httpConnection`)
-  must be unique.
+- Each service should be registered into the *Akkamo context* under its name, and aliases.
+- You should register also *default* service instance, for the configuration marked as *default*
+  using the `default` config key, or implicitly if only one service configuration exists.
+- Keep in mind that combination of service type (e.g. `HttpConnection`) and *key*
+  (e.g. `httpConnection`) must be unique.
 
 ### Further reading
 - [Akkamo Module](../how-it-works/module.md)
