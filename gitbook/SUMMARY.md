@@ -14,4 +14,4 @@
   - [Persistent config module](modules/persistent-config-module.md)
   - [ReactiveMongo module](modules/reactivemongo-module.md)
 - [Best practices](best-practices/index.md)
-  - [Modules](best-practices/modules.md)
+  - [Module configuration](best-practices/module-config.md)
