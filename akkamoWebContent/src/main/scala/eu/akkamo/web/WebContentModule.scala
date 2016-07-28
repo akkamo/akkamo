@@ -93,6 +93,10 @@ class WebContentModule extends Module with Initializable with Runnable {
 
   private val RouteGenerators = "routeGenerators"
 
+  private val Clazz = "class"
+
+  private val Prefix = "prefix"
+
 
   case class
   DefaultWebContentRegistry(aliases: List[String],
@@ -147,7 +151,7 @@ class WebContentModule extends Module with Initializable with Runnable {
       val (wcr, _) = r
       // build routes
       val routes = wcr.mapping.map { case (prefix, rg) =>
-        log.debug(s"generating route for prefix:$prefix")
+        log.debug(s"generating route for $Prefix:$Prefix")
         pathPrefix(prefix)(get(rg()))
       }
       // register routes
@@ -162,9 +166,9 @@ class WebContentModule extends Module with Initializable with Runnable {
     dependencies.&&[LogModule].&&[ConfigModule].&&[AkkaHttpModule]
 
   private def getRouteGenerators(p: List[Config]) = p.map { cfg =>
-    val className = get[String]("class", cfg).getOrElse(classOf[FileFromDirGenerator].getName)
+    val className = get[String](Clazz, cfg).getOrElse(classOf[FileFromDirGenerator].getName)
     val parameters = get[List[String]]("parameters", cfg).getOrElse(List.empty).toArray
-    val prefix = get[String]("prefix", cfg).getOrElse(FileFromDirGenerator.Prefix)
+    val prefix = get[String](Prefix, cfg).getOrElse(FileFromDirGenerator.Prefix)
     (prefix, newInstance(Class.forName(className), parameters))
   }
 
@@ -178,9 +182,9 @@ class WebContentModule extends Module with Initializable with Runnable {
     val generators =
       if (useGenerators)
         s"""
-           |routeGenerators = [{
-           |  prefix=${FileFromDirGenerator.Prefix}
-           |  class = eu.akkamo.web.FileFromDirGenerator
+           |${RouteGenerators} = [{
+           |  $Prefix=${FileFromDirGenerator.Prefix}
+           |  $Clazz = eu.akkamo.web.FileFromDirGenerator
            |}]
          """.stripMargin
       else ""
@@ -188,8 +192,8 @@ class WebContentModule extends Module with Initializable with Runnable {
       WebContentModuleKey -> ConfigFactory.parseString(
         s"""
            |{
-           |  akkaHttpAlias=${WebContentModuleKey}
-           |  default = true
+           |  ${RouteRegistryAlias}=${WebContentModuleKey}
+           |  ${Default} = true
            |$generators
            |}""".stripMargin))
   }

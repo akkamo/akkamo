@@ -4,7 +4,6 @@ import java.io.File
 
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.RouteDirectives.{complete => _}
 import eu.akkamo.web.WebContentRegistry.RouteGenerator
 
 /**
@@ -14,12 +13,16 @@ class FileFromDirGenerator(base: Either[File, String]) extends RouteGenerator {
 
   def this() = this(FileFromDirGenerator.defaultBaseSource)
 
-  override def apply(): Route = extractUnmatchedPath { remaining =>
-    base match {
-      case Left(dir) => getFromFile(new File(dir, remaining.toString()))
-      case Right(url) => getFromResource(url + remaining.toString)
-    }
+  override def apply(): Route = extractUnmatchedPath(remaining => apply(remaining.toString()))
+
+  def apply(suffix: String) = base match {
+    case Left(dir) => fromFile(new File(dir, suffix))
+    case Right(url) => fromResource(url + suffix)
   }
+
+  def fromFile(f: File) = getFromFile(f)
+
+  def fromResource(path: String) = getFromResource(path)
 }
 
 
