@@ -20,12 +20,12 @@ recommendations when designing your configuration structure:
 Anyhow your project name might be unique, you should never use names without proper namespace as a
 root for your module configuration. Consider the following examples:
 ```
-## WRONG. This name may clash with other module's config and may cause ugly runtime problems.
+// WRONG. This name may clash with other module's config and may cause ugly runtime problems.
 httpServer {
   // config keys here
 }
   
-## RIGHT. Always use properly namespaced root for your configuration.
+// RIGHT. Always use properly namespaced root for your configuration.
 my.company.httpServer {
   // config keys here
 }
@@ -120,6 +120,6 @@ can be injected:
 - Keep in mind that combination of service type (e.g. `HttpConnection`) and *key*
   (e.g. `httpConnection`) must be unique.
 
-### Further reading
+## Further reading
 - [Akkamo Module](../how-it-works/module.md)
 - [Akkamo Context](../how-it-works/context.md)
