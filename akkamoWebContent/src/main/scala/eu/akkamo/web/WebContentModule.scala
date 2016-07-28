@@ -115,7 +115,7 @@ class WebContentModule extends Module with Initializable with Runnable {
 
     val mpOption = get[Map[String, Config]](WebContentModuleKey, cfg)
 
-    val useGenerators = mpOption.isEmpty && Try(FileFromDirGenerator.defaultUri).isSuccess
+    val useGenerators = mpOption.isEmpty && Try(FileFromDirGenerator.defaultBaseSource).isSuccess
     // check  exsistence of default
     val mp = mpOption.getOrElse(defaultFile(useGenerators))
     val autoDefault = mp.size == 1

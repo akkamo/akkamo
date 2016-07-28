@@ -1,15 +1,22 @@
-/*
 
-getClass.getResource("/")
+type ANO = PartialFunction[Int, String]
 
-System.getProperty("user.home")
+val xx:Array[ANO] =  Array(
+  {case x if(x==3)  => "3"},{case x if(x==2)  => "2"})
 
-new java.io.File( "." ).toURI.toURL
+val res = xx.foldLeft(Option.empty[ANO]){(l, r)=> l match {
+    case None => Some(r)
+    case Some(x) => Some(x orElse  r)
+  }
+}
 
 
-System.getProperty("user.dir")
-*/
+res.map(_(3))
 
-getClass.getResource("/")
 
-Thread.currentThread().getContextClassLoader.getResource("/")
+
+
+
+
+
+
