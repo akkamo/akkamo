@@ -9,7 +9,7 @@ import eu.akkamo.web.WebContentRegistry.RouteGenerator
 /**
   * @author jubu
   */
-class FileFromDirGenerator(base: Either[File, String]) extends RouteGenerator {
+class FileFromDirGenerator(val base: Either[File, String]) extends RouteGenerator {
 
   def this() = this(FileFromDirGenerator.defaultBaseSource)
 
