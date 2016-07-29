@@ -8,19 +8,39 @@ import eu.akkamo.{RouteRegistry, _}
 
 import scala.util.Try
 
-
 /**
-  * Low level API is just map of prefix string to function: RequestContext=>Route
-  *
-  *
+  * Represents registry for single configured static content mapping.
   */
 trait WebContentRegistry extends Registry[ContentMapping] {
+
+  /**
+    * Mapping of route generators.
+    *
+    * @return route generators mapping
+    */
   def mapping: Map[String, RouteGenerator]
 
+  /**
+    * List of aliases, under which this content mapping registry is registered into the
+    * ''Akkamo context''.
+    *
+    * @return content mapping registry aliases
+    */
   def aliases: List[String]
 
+  /**
+    * Optional value of the Akka HTTP module's registered `RouteRegistry`
+    *
+    * @return Akka HTTP module's registered `RouteRegistry` alias
+    */
   def routeRegistryAlias: Option[String]
 
+  /**
+    * Whether this content mapping registry is registered as the `default` service instance.
+    *
+    * @return `true` if this content mapping registry is registered as the `default` service
+    *         instance
+    */
   def default: Boolean
 }
 
@@ -29,16 +49,14 @@ object WebContentRegistry {
   type ContentMapping = (String, RouteGenerator)
 }
 
-
 /**
-  * Provides serving of static data from resources, or selected directory.
-  * Implementation of concrete handler cam be plugged in runtime, see: [[eu.akkamo.web.WebContentRegistry]]
-  * or in declarative way, see `generators` section in example configuration, also [[eu.akkamo.web.FileFromDirGenerator]]
-  * gives an example of route Generator
-  *
+  * ''Akkamo module'' allowing to serve static content either from the classpath resource or
+  * selected directory. The ways how to serve the static content can be extended at runtime by
+  * plugging in custom implementation of [[WebContentRegistry]], or implementing custom
+  * [[WebContentRegistry.RouteGenerator]] (see `routeGenerators` section in example documentation
+  * below or [[FileFromDirGenerator]] example implementation).
   *
   * = Configuration example =
-  *
   * {{{
   *   akkamo.webContent = {
   *     // empty WebContentRegistryCreated
@@ -51,7 +69,7 @@ object WebContentRegistry {
   *     // RouteGenerator serving content of web directory and listening on .../web
   *     name2 = {
   *       default = true // at least in one configuration is value mandatory if the number of instances is > 1
-  *       generators = [
+  *       routeGenerators = [
   *         {
   *          prefix="web"
   *          class = eu.akkamo.web.FileFromDirGenerator
@@ -62,7 +80,10 @@ object WebContentRegistry {
   *   }
   * }}}
   *
-  * if configuration doesn't exists equivalent of:
+  * If no configuration is provided, default configuration equivalent to configuration snipped
+  * below is used, trying to serve the static content from `/web` directory, either found at
+  * classpath or file system (see [[FileFromDirGenerator]] for more details):
+  *
   * {{{
   *   default = {
   *     routeRegistryAlias="akkamo.webContent"
@@ -74,10 +95,8 @@ object WebContentRegistry {
   *      ]
   *   }
   * }}}
-  * is created, if /web directory exsists in resources See: [[eu.akkamo.web.FileFromDirGenerator]] for more details
   *
-  * @author JuBu
-  *
+  * @author jubu
   */
 class WebContentModule extends Module with Initializable with Runnable {
 
@@ -106,7 +125,7 @@ class WebContentModule extends Module with Initializable with Runnable {
 
 
     override def copyWith(p: (String, RouteGenerator)): DefaultWebContentRegistry.this.type = {
-      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under kee:${p._1} already registered ")
+      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered ")
       else this.copy(mapping = mapping + p).asInstanceOf[this.type]
     }
 
@@ -115,19 +134,18 @@ class WebContentModule extends Module with Initializable with Runnable {
 
   override def initialize(ctx: Context) = Try {
     val cfg: Config = ctx.inject[Config].get
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
     val mpOption = get[Map[String, Config]](WebContentModuleKey, cfg)
 
     val useGenerators = mpOption.isEmpty && Try(FileFromDirGenerator.defaultBaseSource).isSuccess
-    // check  exsistence of default
+    // check  existence of default
     val mp = mpOption.getOrElse(defaultFile(useGenerators))
     val autoDefault = mp.size == 1
-    val rrs = mp.map { case (key, cfg) =>
-      val routeRegistryAlias = get[String](RouteRegistryAlias, cfg)
-      val aliases = key :: get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
-      val default = get[Boolean](Default, cfg).getOrElse(autoDefault)
-      val generators = get[List[Config]](RouteGenerators, cfg).map(getRouteGenerators(_)).getOrElse(List.empty).toMap
+    val rrs = mp.map { case (key, conf) =>
+      val routeRegistryAlias = get[String](RouteRegistryAlias, conf)
+      val aliases = key :: get[List[String]](Aliases, conf).getOrElse(List.empty[String])
+      val default = get[Boolean](Default, conf).getOrElse(autoDefault)
+      val generators = get[List[Config]](RouteGenerators, conf).map(getRouteGenerators).getOrElse(List.empty).toMap
       DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
     }
 
@@ -188,7 +206,7 @@ class WebContentModule extends Module with Initializable with Runnable {
     val generators =
       if (useGenerators)
         s"""
-           |${RouteGenerators} = [{
+           |$RouteGenerators = [{
            |  $Prefix=${FileFromDirGenerator.Prefix}
            |  $Clazz = eu.akkamo.web.FileFromDirGenerator
            |}]
@@ -198,11 +216,9 @@ class WebContentModule extends Module with Initializable with Runnable {
       WebContentModuleKey -> ConfigFactory.parseString(
         s"""
            |{
-           |  ${RouteRegistryAlias}=${WebContentModuleKey}
-           |  ${Default} = true
+           |  $RouteRegistryAlias=$WebContentModuleKey
+           |  $Default = true
            |$generators
            |}""".stripMargin))
   }
-
-
 }
