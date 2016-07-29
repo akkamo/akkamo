@@ -81,4 +81,5 @@ class AkkamoSpec extends FlatSpec with Matchers {
     assert(l == List(a, b, c, d))
     assert(r == List(d, c, b, a))
   }
+
 }
