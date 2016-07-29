@@ -130,7 +130,13 @@ class WebContentModule extends Module with Initializable with Runnable {
       val generators = get[List[Config]](RouteGenerators, cfg).map(getRouteGenerators(_)).getOrElse(List.empty).toMap
       DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
     }
-    // more checks - like one default, distinguish mappings in generators ...
+
+    // check if only one default content registry is specified
+    val defaultsNo: Int = rrs.groupBy(_.default).get(true).map(_.size).getOrElse(0)
+    if (defaultsNo > 1) {
+      throw InitializableError("Only one content registry can be marked as 'default'")
+    }
+
     rrs.foldLeft(ctx) { (ctx, registry) =>
       val ctx1 = if (registry.default) {
         ctx.register[WebContentRegistry](registry)
