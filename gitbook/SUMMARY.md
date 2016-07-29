@@ -15,3 +15,4 @@
   - [ReactiveMongo module](modules/reactivemongo-module.md)
 - [Best practices](best-practices/index.md)
   - [Module configuration](best-practices/module-config.md)
+  - [Module dependencies](best-practices/module-dependencies.md)

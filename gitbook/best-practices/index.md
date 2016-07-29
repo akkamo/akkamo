@@ -10,3 +10,5 @@ different parts of the *Akkamo platform*.
 
 - Chapter [Module configuration](module-config.md) describes best practices for designing
   configuration structure of custom *Akkamo module*
+- Chapter [Module dependencies](module-dependencies.md) describes best practices when working
+  with module dependencies.
