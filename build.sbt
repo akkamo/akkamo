@@ -12,13 +12,13 @@ crossScalaVersions in Global := Seq("2.11.8", cScalaVersion)
 
 scalaVersion in Global := cScalaVersion
 
-publishMavenStyle := true
+publishMavenStyle in Global  := true
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
   Resolver.sonatypeRepo("snapshots"))
 
-publishTo := {
+publishTo in Global := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
     Some("snapshots" at nexus + "content/repositories/snapshots")
@@ -79,7 +79,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.1-SNAPSHOT"
+version in Global := "1.0.1"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {})
