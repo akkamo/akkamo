@@ -31,8 +31,8 @@ object WebContentRegistry {
 
 
 /**
-  * Provides serving of static data from resources, or selected directory.
-  * Implementation of concrete handler cam be plugged in runtime, see: [[eu.akkamo.web.WebContentRegistry]]
+  * Provides serving of static data from resources or selected directory.
+  * Implementation of concrete handler can be plugged in runtime, see: [[eu.akkamo.web.WebContentRegistry]]
   * or in declarative way, see `generators` section in example configuration, also [[eu.akkamo.web.FileFromDirGenerator]]
   * gives an example of route Generator
   *
@@ -106,7 +106,7 @@ class WebContentModule extends Module with Initializable with Runnable {
 
 
     override def copyWith(p: (String, RouteGenerator)): DefaultWebContentRegistry.this.type = {
-      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under kee:${p._1} already registered ")
+      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key:${p._1} already registered ")
       else this.copy(mapping = mapping + p).asInstanceOf[this.type]
     }
 
