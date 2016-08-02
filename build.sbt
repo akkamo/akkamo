@@ -126,7 +126,7 @@ lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   libraryDependencies ++= Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "1.0.1"
   )
-)
+).dependsOn(akkamo)
 
 lazy val akkamoKafka = project.in(file("akkamoKafka")).settings(
   name := "akkamo-kafka",
