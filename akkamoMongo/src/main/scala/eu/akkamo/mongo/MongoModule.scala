@@ -6,7 +6,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
-import scala.collection.{Map, Set}
+import scala.collection.Map
 import scala.util.Try
 
 /**
@@ -83,9 +83,8 @@ class MongoModule extends Module with Initializable with Disposable {
 
   override def dispose(ctx: Context): Res[Unit] = Try {
     val log: LoggingAdapter = ctx.get[LoggingAdapterFactory].apply(getClass)
-    val mongoApis: Map[MongoApi, Set[String]] = ctx.registered[MongoApi]
 
-    mongoApis foreach { case (mongoApi, aliases) =>
+    ctx.registered[MongoApi] foreach { case (mongoApi, aliases) =>
       log.info(s"Terminating Mongo connection registered for names: ${aliases.mkString(",")}")
       mongoApi.client.close()
     }
@@ -106,8 +105,7 @@ class MongoModule extends Module with Initializable with Disposable {
     val connections: Iterable[Connection] = cfg map { case (key, value) =>
       val default: Boolean =
         if (cfg.size == 1) true else value.hasPath(Keys.Default) && value.getBoolean(Keys.Default)
-      val uri: String = value.getString(Keys.Uri)
-      Connection(key, aliases(value), default, uri)
+      Connection(key, aliases(value), default, value.getString(Keys.Uri))
     }
 
     val defaultsNo = connections count (_.default)
