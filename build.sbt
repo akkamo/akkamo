@@ -12,7 +12,7 @@ crossScalaVersions in Global := Seq("2.11.8", cScalaVersion)
 
 scalaVersion in Global := cScalaVersion
 
-publishMavenStyle in Global  := true
+publishMavenStyle in Global := true
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
@@ -84,7 +84,7 @@ version in Global := "1.0.2-SNAPSHOT"
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {})
   .settings(unidocSettings: _*)
-  .settings(unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
+  .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoMongo, akkamoKafka,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
@@ -124,7 +124,7 @@ lazy val akkamoReactivemongo = project.in(file("akkamoReactivemongo")).settings(
 lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",
   libraryDependencies ++= Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "1.0.1"
+    "org.mongodb.scala" %% "mongo-scala-driver" % "1.1.1"
   )
 ).dependsOn(akkamo)
 
