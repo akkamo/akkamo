@@ -74,7 +74,47 @@ akkamo.webContent = {
 
 ## How to use in your module
 
-### Web content registry
+Each configured web content registry  is registered into the *Akkamo* context and available for injection,
+using the following rules:
+
+* **inject by the configuration name**
+  Selected web content registry can be injected using its configuration name, e.g.
+  `ctx.inject[WebContentRegistry]("wcr1")`
+* **inject the default  web content registry**
+  If any configured web content registry has set the `default = true` property, it will be considered as
+  *default* web content registry and can be injected without specifying the key, e.g.
+  `ctx.inject[WebContentRegistry]`. Please note that only one configured web content registry can be specified
+  as *default*.
+* **inject by the name alias**
+  Besides the configuration name, each configured web content registry can be identified by one or more
+  *alias name*. Such *alias name* can be used to inject the selected web content registry, e.g.
+  `ctx.inject[WebContentRegistry]("alias3")`.
+
+  Below is example code of very simple module, injecting actor systems configured by configuration
+  example shown above.
+
+```scala
+class MyModule extends Module with Initializable {
+  override def initialize(ctx: Context) = Try {
+    // injects the web content registry marked as default ('name2' in this case)
+    val wcr1: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]
+
+    // same as above, with explicitly specified name
+    val wcr1_1: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]("name2")
+
+    // injects the connection 'name1', which has defined the alias 'alias1'
+    val wcr2: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]("alias1")
+
+    // ... rest of method code ...
+
+  }
+
+  // don't forget to add WebContentModule dependency to your module
+  override def dependencies(dependencies: Dependency): Dependencies =
+    dependencies.&&[WebContentModule]
+}
+```
+
 
 ### Provided APIs
 This module registers into the *Akkamo context* following services:
