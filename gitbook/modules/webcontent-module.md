@@ -14,14 +14,16 @@ Or second one is to configure all settings directly into configuration file (see
 
 
 If no configurations is provided, web content module is self configured with following options:
-```scala
+```
 {
   routeRegistryAlias="akkamo.webContent"
   default = true
-  routeGenerators = [{
-   prefix = Web
-   class = eu.akkamo.web.FileFromDirGenerator
-   }]
+  routeGenerators = [
+    {
+      prefix = "web"
+      class = "eu.akkamo.web.FileFromDirGenerator"
+    }
+  ]
 }
 ```
 
@@ -37,7 +39,7 @@ If no configurations is provided, web content module is self configured with fol
 
 - `routeRegistryAlias` *(optional)* - web content registry alias in akka http
 
-- `generators` *(optional)* - Array of content generators configurations
+- `routeGenerators` *(optional)* - Array of content generators configurations
 
 - `prefix` *(optional)* - relative path that content generator is listening on
 
@@ -48,22 +50,22 @@ If no configurations is provided, web content module is self configured with fol
 
 ### Configuration example
 
-```scala
-akkamo.webContent = {
+```
+akkamo.webContent {
   // empty WebContentRegistryCreated
   // RouteGenerators must be added manualy
-  name1 = {
+  name1 {
     routeRegistryAlias = "akkaHttpAlias"
     aliases = ["alias1", "alias2"]
-  },
+  }
   // WebContentRegistryCreated containing one RouteGenerator serving content
   // of webStaticContent directory and listening on .../web
-  name2 = {
+  name2 {
     default = true // at least in one configuration is value mandatory if the number of instances is > 1
-    generators = [
+    routeGenerators = [
       {
-       prefix="web"
-       class = eu.akkamo.web.FileFromDirGenerator
+       prefix = "web"
+       class = "eu.akkamo.web.FileFromDirGenerator"
        parameters = ["/webStaticContent"]
       }
     ]
@@ -73,48 +75,36 @@ akkamo.webContent = {
 
 
 ## How to use in your module
-
-Each configured web content registry  is registered into the *Akkamo* context and available for injection,
-using the following rules:
-
-* **inject by the configuration name**
-  Selected web content registry can be injected using its configuration name, e.g.
-  `ctx.inject[WebContentRegistry]("wcr1")`
-* **inject the default  web content registry**
-  If any configured web content registry has set the `default = true` property, it will be considered as
-  *default* web content registry and can be injected without specifying the key, e.g.
-  `ctx.inject[WebContentRegistry]`. Please note that only one configured web content registry can be specified
-  as *default*.
-* **inject by the name alias**
-  Besides the configuration name, each configured web content registry can be identified by one or more
-  *alias name*. Such *alias name* can be used to inject the selected web content registry, e.g.
-  `ctx.inject[WebContentRegistry]("alias3")`.
-
-  Below is example code of very simple module, injecting actor systems configured by configuration
-  example shown above.
+Each configured web content registry is registered into the *Akkamo context* and selected
+`ContentMapping` can be directly injected into it using the `registerIn` method of the
+*Akkamo content*. Please note that the *Akkamo context* object is immutable, hence the `registerIn`
+method returns new instance of the context object, rather than modifying the current instance.
 
 ```scala
-class MyModule extends Module with Initializable {
-  override def initialize(ctx: Context) = Try {
-    // injects the web content registry marked as default ('name2' in this case)
-    val wcr1: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]
+class MyModule extends Module with Runnable {
 
-    // same as above, with explicitly specified name
-    val wcr1_1: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]("name2")
-
-    // injects the connection 'name1', which has defined the alias 'alias1'
-    val wcr2: Option[WebContentRegistry] = ctx.inject[WebContentRegistry]("alias1")
-
-    // ... rest of method code ...
-
+  override def run(ctx: Context): Res[Context] = Try {
+    val cm: ContentMapping = ???  // your ContentMapping
+    
+    // Possible ways how to register the content mapping into web content registry:
+    
+    // registers the content mapping into WebContentRegistry, configured with name 'name1'
+    ctx.registerIn[WebContentRegistry, ContentMapping](cm, "name1")
+    
+    // registers the content mapping into WebContentRegistry, marked as default ('name2')
+    ctx.registerIn[WebContentRegistry, ContentMapping](cm)
+    
+    // registers the content mapping into WebContentRegitry, configured for alias 'alias2'
+    ctx.registerIn[WebContentRegistry, ContentMapping](cm, "alias2")
+    
+    // ... rest of the method code
   }
-
+  
   // don't forget to add WebContentModule dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
     dependencies.&&[WebContentModule]
 }
 ```
-
 
 ### Provided APIs
 This module registers into the *Akkamo context* following services:
@@ -143,4 +133,4 @@ from files or directories in given location `source: File`.
 ## Module dependencies
 This module depends on following core modules:
 
-* [Akkamo Akka Http](akka-http-module.md)
+- [Akkamo Akka Http](akka-http-module.md)
