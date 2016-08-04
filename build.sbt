@@ -12,7 +12,7 @@ crossScalaVersions in Global := Seq("2.11.8", cScalaVersion)
 
 scalaVersion in Global := cScalaVersion
 
-publishMavenStyle in Global  := true
+publishMavenStyle in Global := true
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
@@ -33,7 +33,7 @@ publishArtifact in Test := false
 
 pomIncludeRepository := { _ => false }
 
-pomExtra in Global := (
+pomExtra in Global :=
   <url>http://www.akkamo.eu</url>
     <licenses>
       <license>
@@ -52,11 +52,11 @@ pomExtra in Global := (
         <url>https://github.com/JurajBurian</url>
       </developer>
       <developer>
-        <id>xwinus</id>
+        <id>VaclavSvejcar</id>
         <name>Vaclav Svejcar</name>
-        <url>https://github.com/xwinus</url>
+        <url>https://github.com/vaclavsvejcar</url>
       </developer>
-    </developers>)
+    </developers>
 
 scalacOptions in Global := Seq(
   "-encoding", "utf-8",
@@ -84,7 +84,7 @@ version in Global := "1.0.2-SNAPSHOT"
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {})
   .settings(unidocSettings: _*)
-  .settings(unidocProjectFilter in (ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
+  .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoKafka,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
