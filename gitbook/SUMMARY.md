@@ -13,6 +13,7 @@
   - [Log module](modules/log-module.md)
   - [Persistent config module](modules/persistent-config-module.md)
   - [ReactiveMongo module](modules/reactivemongo-module.md)
+  - [Web content module](modules/webcontent-module.md)
 - [Best practices](best-practices/index.md)
   - [Module configuration](best-practices/module-config.md)
   - [Module dependencies](best-practices/module-dependencies.md)
