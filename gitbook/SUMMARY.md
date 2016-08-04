@@ -11,6 +11,7 @@
   - [Config module](modules/config-module.md)
   - [Kafka module](modules/kafka-module.md)
   - [Log module](modules/log-module.md)
+  - [Mongo module](modules/mongo-module.md)
   - [Persistent config module](modules/persistent-config-module.md)
   - [ReactiveMongo module](modules/reactivemongo-module.md)
   - [Web content module](modules/webcontent-module.md)
