@@ -3,7 +3,7 @@ import UnidocKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
 
 lazy val cScalaVersion = "2.11.8"
-lazy val cAkkaVersion = "2.4.7"
+lazy val cAkkaVersion = "2.4.9-RC2"
 
 organization in Global := "eu.akkamo"
 
@@ -80,7 +80,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.2-SNAPSHOT"
+version in Global := "1.0.2"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})
