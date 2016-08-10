@@ -9,6 +9,7 @@ import eu.akkamo.{InitializableError, _}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.KafkaProducer
 
+import scala.collection.immutable.Iterable
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -54,31 +55,14 @@ class KafkaModule extends Module with Initializable with Disposable {
   private val Default = "default"
   private val Aliases = "aliases"
 
-
-  @scala.throws[InitializableError]("If initialization can't be finished")
   override def initialize(ctx: Context) = Try {
     implicit val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
-    val defs = blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
+
+    val defs = normalize(blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
       val properties = loadProperties("kafka-default.properties")
       Def(producer = true, consumer = true, properties, isDefault = true, List.empty) :: Nil
-    }
-    // has only one default ?
-    val dc = defs.foldLeft(0)((l, r) => if (r.isDefault) 1 else 0)
-    if (dc > 1) {
-      throw InitializableError(s"Ambiguous default instances in Kafka configurations")
-    }
-
-    def process[K <: AnyRef](k: K, p: Def, ctx: Context)(implicit ct: ClassTag[K]) = {
-      val ctx1 = if (p.isDefault) {
-        ctx.register[K](k)
-      } else {
-        ctx
-      }
-      p.aliases.foldLeft(ctx1) { (ctx, alias) =>
-        ctx.register[K](k, Some(alias))
-      }
-    }
+    })
 
     defs.foldLeft(ctx) { (ctx, p) =>
       val ctx1 = if (p.consumer) {
@@ -95,6 +79,36 @@ class KafkaModule extends Module with Initializable with Disposable {
       }
     }
   }
+
+  private def normalize(defs: Iterable[Def]) = {
+    // has only one default ?
+    val dc = defs.foldLeft(0)((l, r) => if (r.isDefault) 1 else 0)
+    if (dc > 1) {
+      throw InitializableError(s"Ambiguous default instances in Kafka configurations")
+    }
+    if(dc == 0 && defs.size > 1) {
+      throw InitializableError(s"Missing default instances in Kafka configurations")
+    }
+    // transform to have isDefault = true
+    if(dc == 0 && defs.size == 1) {
+      defs.map(_.copy(isDefault = true))
+    } else {
+      defs
+    }
+  }
+
+  private def process[K <: AnyRef](k: K, p: Def, ctx: Context)(implicit ct: ClassTag[K]) = {
+    val ctx1 = if (p.isDefault) {
+      ctx.register[K](k)
+    } else {
+      ctx
+    }
+    p.aliases.foldLeft(ctx1) { (ctx, alias) =>
+      ctx.register[K](k, Some(alias))
+    }
+  }
+
+
 
   private def loadProperties(path: String): Properties = {
     def loadFromClassPath: Option[InputStream] =
