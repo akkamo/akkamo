@@ -1,5 +1,6 @@
 import sbt.Keys._
 import UnidocKeys._
+import com.typesafe.sbt.pgp.PgpKeys._
 
 lazy val cScalaVersion = "2.11.8"
 lazy val cAkkaVersion = "2.4.7"
@@ -82,7 +83,7 @@ scalacOptions in Global := Seq(
 version in Global := "1.0.2-SNAPSHOT"
 
 lazy val akkamoRoot = project.in(file("."))
-  .settings(publish := {}, publishLocal := {})
+  .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})
   .settings(unidocSettings: _*)
   .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
