@@ -1,19 +1,22 @@
 # Akkamo Deployment
 
-Akkamo flexible deployment options is one of Akkamo core features. Any modules can be deployed from simplest single node model up-to 
-multiple modules on large Akka cluster. All deployment features known from Akka applies here and additionally dependency management is introduced 
- by Akkamo. There can be multiple sbt build scripts building your application from single or multiple modules.
+Akkamo flexible deployment option is one of Akkamo core features. Any module can be deployed from
+simplest single node model up-to multiple modules on large Akka cluster. All deployment features
+known from Akka applies here and additionally dependency management is introduced by Akkamo. There
+can be multiple sbt build scripts building your application from single or multiple modules.
  
 
-_An application can be built from one module, one module with dependent modules or multiple modules in one Akka app._
+*An application can be built from one module, one module with dependent modules or multiple modules
+in one Akka app.*
 
 
-Each module has its own Akka system. The system can be configured as known from Akka. In larger installation the Akka system
- can be assigned to a specific cluster node using Akka roles.
+Each module may have its own Akka system. The system can be configured as known from Akka. In larger
+installation the Akka system can be assigned to a specific cluster node using Akka roles.
  
 
-Akkamo modules enables 100% code reuse regardless deployment model. Even more multiple modules can share code in dependent modules and 
- make you application much more simpler. Multiple business modules can also share connection to external resources like database. 
+Akkamo modules enables 100% code reuse regardless the deployment model. Even more multiple modules
+can share code using dependent modules and make you application much more simpler. Multiple business
+modules can also share connection to external resources like database. 
  
 
 And a result for the deployment is always one Akka app that you Akka mates will know already. 
@@ -21,10 +24,10 @@ And a result for the deployment is always one Akka app that you Akka mates will 
 
 ## One root Akkamo module on one Akka node
 
-This deployment of one module to one server is typically used in development. Developer works on a single module
-and deploys on local machine for testing. The developer can use build.sbt script for deployment modules
-required for the development. Application.conf file is part of the project on classpath.
-The module can have dependencies to other modules described in build script. 
+This deployment of one module to one server is typically used in development. Developer works on a
+single module and deploys on local machine for testing. The developer can use `build.sbt` script for
+deployment modules required for the development. `application.conf` file is part of the project on
+classpath. The module can have dependencies to other modules described in build script. 
    
 {%plantuml%}
 node AkkaNode  {
@@ -47,9 +50,9 @@ node AkkaNode {
   
 ## More root Akkamo modules on one server
 
-The deployment of more modules to one server shows value of Akkamo. By creating a build
-script with multiple modules, the script can create one Akka jar application that can run.
-A deployer is flexible in number of modules to be deployed on Akka node. 
+The deployment of more modules to one server shows value of Akkamo. By creating a build script with
+multiple modules, the script can create one Akka jar application that can run. A deployer is
+flexible in number of modules to be deployed on Akka node. 
 
 Additionally multiple nodes can share resources like connection to database.
 
@@ -76,12 +79,12 @@ node AkkaNodeB {
 
 ## More root Akkamo modules on Akka cluster
 
-The deployment multiple modules into Akka cluster is what a final deployment model 
-of Akkamo modules should be. Multiple modules share connections to external services like database, 
-Kafka etc. Every module has its own Akka system and can be configured in cluster
-to get sufficient resources to work properly. Every module can be also assigned to a specific
- group of nodes in cluster as Akka allows nodes to have roles. And nodes in roles can 
- run named Akka system, i.e. Akkamo modules.
+The deployment of multiple modules into Akka cluster is what a final deployment model of Akkamo
+modules should be. Multiple modules share connections to external services like database, Kafka etc.
+Every module may have its own Akka system and can be configured in cluster to get sufficient
+resources to work properly. Every module can be also assigned to a specific group of nodes in
+cluster as Akka allows nodes to have roles. And nodes in roles can run named Akka system, i.e.
+Akkamo modules.
  
 {%plantuml%}
 artifact AkkaCluster {
