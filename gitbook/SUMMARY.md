@@ -5,6 +5,7 @@
   - [Akkamo Lifecycle](how-it-works/lifecycle.md)
   - [Akkamo Module](how-it-works/module.md)
   - [Akkamo Context](how-it-works/context.md)
+  - [Akkamo Deployment](how-it-works/deployment.md)
 - [Core modules](modules/index.md)
   - [Akka module](modules/akka-module.md)
   - [Akka HTTP module](modules/akka-http-module.md)
