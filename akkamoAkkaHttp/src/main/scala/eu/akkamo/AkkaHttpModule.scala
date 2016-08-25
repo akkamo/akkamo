@@ -170,7 +170,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter with RouteRegistry {
 
-    val routes:Set[Route]
+    val routes: Set[Route]
 
     def apply(): Future[ServerBinding] = {
       import akka.http.scaladsl.server.RouteConcatenation
@@ -189,7 +189,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private[AkkaHttpModule] case class
   HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, requestLogLevel: String,
-                    requestLogContentLength: Int, routes:Set[Route] = Set.empty)
+                    requestLogContentLength: Int, routes: Set[Route] = Set.empty)
                    (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -203,8 +203,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       }
     }
 
-    def copyWith(p:Route)  = {
-      this.copy(routes = (routes + p)).asInstanceOf[this.type]
+    def copyWith(p: Route) = {
+      this.copy(routes = routes + p).asInstanceOf[this.type]
     }
 
     val protocol = HTTP
@@ -212,7 +212,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private[AkkaHttpModule] case class
   HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext,
-                     requestLogLevel: String, requestLogContentLength: Int, routes:Set[Route] = Set.empty)
+                     requestLogLevel: String, requestLogContentLength: Int, routes: Set[Route] = Set.empty)
                     (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -226,8 +226,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       }
     }
 
-    def copyWith(p:Route) = {
-      this.copy(routes = (routes + p)).asInstanceOf[this.type]
+    def copyWith(p: Route) = {
+      this.copy(routes = routes + p).asInstanceOf[this.type]
     }
 
     val protocol = HTTPS
@@ -236,7 +236,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   /**
     * register module mappings
     *
-    * @param ctx
+    * @param ctx Akkamo context
     * @return true if initialization is complete.
     *         In case of incomplete initialization system will call this method again.
     *         Incomplete initialization mean That component is not able to find all dependencies.
@@ -254,40 +254,38 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 
     val httpConfigs = if (mp.isEmpty) {
-      val r = HttpRouteRegistry(Nil, 9000, "localhost", true, "off", 0)(
+      val r = HttpRouteRegistry(Nil, 9000, "localhost", default = true, "off", 0)(
         ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       List(r)
     } else {
       val autoDefault = mp.get.size == 1
-      mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, cfg) =>
-        val system = config.get[String](AkkaAlias, cfg).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
+      mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, conf) =>
+        val system = config.get[String](AkkaAlias, conf).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
         if (system.isEmpty) {
           throw InitializableError(s"Can't find akka system for http configuration key: $key")
         }
-        val protocol = config.get[String](Protocol, cfg).getOrElse("http")
-        val port = config.get[Int](Port, cfg).getOrElse(-1)
-        val interface = config.get[String](Interface, cfg).getOrElse("localhost")
-        val aliases = key :: config.get[List[String]](Aliases, cfg).getOrElse(List.empty[String])
-        val default = config.get[Boolean](Default, cfg).getOrElse(autoDefault)
-        val requestLogLevel: String = config.get[String](RequestLogLevel, cfg).getOrElse("off")
-        val requestLogContentLength = config.get[Int](RequestLogContentLength, cfg).getOrElse(0)
-        if (requestLogContentLength < 0) throw new InitializableError("requestLogContentLength parameters has invalid value. Only positive value are allowed")
+        val protocol = config.get[String](Protocol, conf).getOrElse("http")
+        val port = config.get[Int](Port, conf).getOrElse(-1)
+        val interface = config.get[String](Interface, conf).getOrElse("localhost")
+        val aliases = key :: config.get[List[String]](Aliases, conf).getOrElse(List.empty[String])
+        val default = config.get[Boolean](Default, conf).getOrElse(autoDefault)
+        val requestLogLevel: String = config.get[String](RequestLogLevel, conf).getOrElse("off")
+        val requestLogContentLength = config.get[Int](RequestLogContentLength, conf).getOrElse(0)
+        if (requestLogContentLength < 0) throw InitializableError("requestLogContentLength parameters has invalid value. Only positive value are allowed")
         protocol.toLowerCase match {
-          case "http" => {
+          case "http" =>
             val r = HttpRouteRegistry(aliases, port, interface, default, requestLogLevel, requestLogContentLength)(system.get)
             log.info(s"created: $r ")
             r
-          }
-          case "https" => {
-            val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(cfg), requestLogLevel, requestLogContentLength)(system.get)
+          case "https" =>
+            val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(conf), requestLogLevel, requestLogContentLength)(system.get)
             log.info(s"created: $r ")
             r
-          }
           case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
         }
       }
     }
-    val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).fold(0)(_ + _)
+    val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).sum
     if (combinations != httpConfigs.size) {
       throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
     }
@@ -318,7 +316,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       val entry = res match {
         case Complete(resp) =>
           entityAsString(resp.entity).map(data ⇒ LogEntry(s"${req.method} ${req.uri}: HTTP/${resp.status} <: ${shortData(req.entity)(contentLength)} >: ${shortData(data)(contentLength)}", level))
-        case Rejected(resp) if (resp.isEmpty) =>
+        case Rejected(resp) if resp.isEmpty =>
           Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/404 NotFound <: ${shortData(req.entity)(contentLength)}", level))
         case Rejected(resp) =>
           Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/400 BadRequest ${shortData(resp.mkString)(contentLength)} <: ${shortData(req.entity)(contentLength)}", level))
@@ -368,7 +366,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       val companionObj = runtimeMirror.reflectModule(module).instance.asInstanceOf[HttpsConnectionContextFactory]
       companionObj(cfg)
     } catch {
-      case th: Throwable => throw new InitializableError(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
+      case th: Throwable => throw InitializableError(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
     }
   }
 
@@ -386,7 +384,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     keyManagerFactory.init(keyStore, keyStorePassword)
     val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
     trustManagerFactory.init(keyStore)
-    val sslContext: SSLContext = get[String](SSLContextAlgorithm).map(SSLContext.getInstance(_)).getOrElse(SSLContext.getDefault)
+    val sslContext: SSLContext = get[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
     sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
     ConnectionContext.https(sslContext)
   }
