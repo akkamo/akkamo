@@ -21,8 +21,8 @@ specified HTTP connection.
   [Akka module](akka-module.md), if not defined, *default* registered actor system will be used
 - `requestLogLevel` *(optional)* - defined log level for request level logging, default `off` means
   no logging
-- `requestLogContentLength` *(optional)* - defines max content length of request log, default `0`
-  means disabled content
+- `requestLogFormat` *(optional)* - defined log format, defaults to
+  `%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}` if no custom format defined
 
 Example of fully working configuration is shown below:
 
@@ -36,13 +36,37 @@ akkamo.akkaHttp = {
     host = "localhost" // host, default localhost
     akkaAlias = "alias" // not required, default is used if exists
     requestLogLevel = "info"  // defines level for request level logging. Default "off" means no logging
-    requestLogContentLength = 1024 // defines max content length in request log, default 0  to disable content logging
   }
 }
 ```
 
 The above configuration creates one HTTP connection, registered into the context under its name
 `name1` and aliases `alias1` and `alias2`.
+
+### Request log formatting
+If the request logging is enabled (using the `requestLogLever` option set to other than `off`),
+custom log format can be specified using own log string with parameters placeholders, that are
+automatically replaced by actual values. Example of such log string is shown below:
+
+```
+%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}
+```
+
+Each parameter is enclosed between the `%{` and `}` strings, e.g. `%{PARAM_NAME}`. Recommended param
+name style is uppercase with words separated using underscore.
+
+At this moment, following parameters are available for use:
+
+- `${HTTP_METHOD}` - is replaced with the actual request HTTP method (e.g. `POST`)
+- `${REQ_URI}` - is replaced with the actual request URI (e.g. `http://localhost/foo/bar`)
+- `${RESP_STATUS}` - is replaced with the actual response status (e.g. `403 Forbidden`)
+
+If unknown parameter name is used (e.g. accidentally misspelled), warning message will be logged in
+following format:
+
+```
+Invalid param 'FOO' in source string '%{FOO} %{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}'
+```
 
 ## How to use in your module
 Each configured connection registers into the *Akkamo context* instance of `RouteRegistry`,
