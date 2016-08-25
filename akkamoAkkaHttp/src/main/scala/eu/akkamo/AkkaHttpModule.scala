@@ -106,7 +106,7 @@ object RouteRegistry {
   *       host = "localhost" // host, default localhost
   *       akkaAlias = "alias" // not required, default is used if exists
   *       requestLogLevel = "info"  // defines level for request level logging. Default "off" means no logging
-  *       RequestLogContentLength = 1024 // defines max content length in request log, default 0  to disable content logging
+  *       requestLogFormat = "%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}" // defines log format, defaults to this if not specified
   *     },
   *     // configuration registered as default (only one instance is allowed)
   *     name2 = {
@@ -138,6 +138,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   private val Interface = "interface"
 
   private val RequestLogLevel = "requestLogLevel"
+
+  private val RequestLogFormat = "requestLogFormat"
 
   private val AkkaAlias = "akkaAlias"
 
@@ -185,7 +187,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private[AkkaHttpModule] case class
   HttpRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean,
-                    requestLogLevel: String, routes: Set[Route] = Set.empty)
+                    requestLogLevel: String, requestLogFormat: String, routes: Set[Route] = Set.empty)
                    (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -194,7 +196,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       if (requestLogLevel == "off") {
         Http().bindAndHandle(route, interface, port)
       } else {
-        val myLoggedRoute = logRequestResult(requestLogLevel, route)
+        val myLoggedRoute = logRequestResult(requestLogLevel, requestLogFormat, route)
         Http().bindAndHandle(myLoggedRoute, interface, port)
       }
     }
@@ -207,8 +209,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   private[AkkaHttpModule] case class
-  HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean, ctx: HttpsConnectionContext,
-                     requestLogLevel: String, routes: Set[Route] = Set.empty)
+  HttpsRouteRegistry(aliases: List[String], port: Int, interface: String, default: Boolean,
+                     ctx: HttpsConnectionContext, requestLogLevel: String, requestLogFormat: String,
+                     routes: Set[Route] = Set.empty)
                     (implicit as: ActorSystem) extends BaseRouteRegistry {
 
     def bind(route: Route): Future[ServerBinding] = {
@@ -217,7 +220,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       if (requestLogLevel == "off") {
         Http().bindAndHandle(route, interface, port, ctx)
       } else {
-        val myLoggedRoute = logRequestResult(requestLogLevel, route)
+        val myLoggedRoute = logRequestResult(requestLogLevel, requestLogFormat, route)
         Http().bindAndHandle(myLoggedRoute, interface, port, ctx)
       }
     }
@@ -250,7 +253,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 
     val httpConfigs = if (mp.isEmpty) {
-      val r = HttpRouteRegistry(Nil, 9000, "localhost", default = true, "off")(
+      val r = HttpRouteRegistry(Nil, 9000, "localhost", default = true, "off", defaultLogFormat)(
         ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       List(r)
     } else {
@@ -266,13 +269,16 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val aliases = key :: config.get[List[String]](Aliases, conf).getOrElse(List.empty[String])
         val default = config.get[Boolean](Default, conf).getOrElse(autoDefault)
         val requestLogLevel: String = config.get[String](RequestLogLevel, conf).getOrElse("off")
+        val requestLogFormat: String = config.get[String](RequestLogFormat, conf).getOrElse(defaultLogFormat)
         protocol.toLowerCase match {
           case "http" =>
-            val r = HttpRouteRegistry(aliases, port, interface, default, requestLogLevel)(system.get)
+            val r = HttpRouteRegistry(aliases, port, interface, default,
+              requestLogLevel, requestLogFormat)(system.get)
             log.info(s"created: $r ")
             r
           case "https" =>
-            val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(conf), requestLogLevel)(system.get)
+            val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(conf),
+              requestLogLevel, requestLogFormat)(system.get)
             log.info(s"created: $r ")
             r
           case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
@@ -295,23 +301,37 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-  def logRequestResult(logLevel: String, route: Route)(implicit ec: ExecutionContext): Route = {
+  def logRequestResult(logLevel: String, logFormat: String, route: Route)
+                      (implicit ec: ExecutionContext): Route = {
+
+    def requestLog(request: HttpRequest, status: String, log: LoggingAdapter): String = {
+      val replacements: Map[String, String] = Map(
+        "HTTP_METHOD" -> request.method.value,
+        "REQ_URI" -> request.uri.toString(),
+        "RESP_STATUS" -> status
+      )
+
+      ParamsReplacer.replaceParams(logFormat, replacements, Some(log))
+    }
+
     def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: Any): Unit = {
 
       val level = Logging.levelFor(logLevel).getOrElse(Logging.DebugLevel)
       val entry = res match {
         case Complete(resp) =>
-          Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/${resp.status}", level))
-        case Rejected(resp) if resp.isEmpty =>
-          Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/404 NotFound", level))
-        case Rejected(resp) =>
-          Future.successful(LogEntry(s"${req.method} ${req.uri}: HTTP/400 BadRequest", level))
+          Future.successful(LogEntry(requestLog(req, resp.status.toString(), logger), level))
+        case Rejected(rejections) if rejections.isEmpty =>
+          Future.successful(LogEntry(requestLog(req, "404 Not Found", logger), level))
+        case Rejected(rejections) =>
+          Future.successful(LogEntry(requestLog(req, "400 Bad Request", logger), level))
         case other => Future.successful(LogEntry(s"Other: $other", level))
       }
       entry.foreach(_.logTo(logger))
     }
     DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))(route)
   }
+
+  private def defaultLogFormat: String = "%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}"
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
