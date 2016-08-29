@@ -252,14 +252,15 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           val default = config.get[Boolean](Default, conf).getOrElse(autoDefault)
           protocol.toLowerCase match {
             case "http" =>
-              val r = HttpRouteRegistry(aliases, port, interface, default)(system.get)
-              log.info(s"created: $r ")
-              r
+              val registry = HttpRouteRegistry(aliases, port, interface, default)(system.get)
+              log.info(s"created: $registry ")
+              registry
             case "https" =>
-              val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(conf))(system.get)
-              log.info(s"created: $r ")
-              r
-            case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
+              val registry = HttpsRouteRegistry(aliases, port, interface, default,
+                getHttpsConnectionContext(conf))(system.get)
+              log.info(s"created: $registry ")
+              registry
+            case other => throw InitializableError(s"unknown protocol: $other in route registry, see: $config")
           }
       }
     }
