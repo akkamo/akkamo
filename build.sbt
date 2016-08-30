@@ -1,9 +1,11 @@
+import sbt.Keys._
+import UnidocKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
-import sbtunidoc.Plugin.UnidocKeys._
 
 lazy val cScalaVersion = "2.11.8"
-lazy val cAkkaVersion = "2.4.14"
-lazy val cAkkaHttpVersion = "10.0.0"
+lazy val cAkkaVersion = "2.4.9"
+lazy val cReactiveMongoVersion = "0.11.14"
+
 
 organization in Global := "eu.akkamo"
 
@@ -80,7 +82,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.5"
+version in Global := "1.1.0-SNAPSHOT"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})
@@ -94,13 +96,9 @@ lazy val akkamoRoot = project.in(file("."))
 lazy val akkamo = project.in(file("akkamo")).settings(
   name := "akkamo",
   libraryDependencies ++= Seq(
-    "org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
-    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-cluster-tools" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
+    "org.scala-lang" % "scala-reflect" % cScalaVersion withSources ,
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
     "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
-    "com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
   )
 )
@@ -108,11 +106,8 @@ lazy val akkamo = project.in(file("akkamo")).settings(
 lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
   name := "akkamo-akka-http",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-http-core" % cAkkaHttpVersion withSources,
-    "com.typesafe.akka" %% "akka-http" % cAkkaHttpVersion withSources,
-    "com.typesafe.akka" %% "akka-http-spray-json" % cAkkaHttpVersion withSources,
-    "com.typesafe.akka" %% "akka-http-jackson" % cAkkaHttpVersion withSources,
-    "com.typesafe.akka" %% "akka-http-xml" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion % "provided" withSources,
+    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources,
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
   )
 ).dependsOn(akkamo)
@@ -121,39 +116,47 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
 lazy val akkamoReactivemongo = project.in(file("akkamoReactivemongo")).settings(
   name := "akkamo-reactivemongo",
   libraryDependencies ++= Seq(
-    "org.reactivemongo" %% "reactivemongo" % "0.11.14" withSources
+    "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
   )
 ).dependsOn(akkamo)
 
 lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",
   libraryDependencies ++= Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "1.1.1"
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
+    "org.mongodb.scala" %% "mongo-scala-driver" % "1.1.1" % "provided"
   )
 ).dependsOn(akkamo)
 
 lazy val akkamoKafka = project.in(file("akkamoKafka")).settings(
   name := "akkamo-kafka",
   libraryDependencies ++= Seq(
-    "org.apache.kafka" % "kafka-clients" % "0.9.0.1" excludeAll(
-      ExclusionRule(organization = "com.sun.jdmk"),
-      ExclusionRule(organization = "com.sun.jmx"),
-      ExclusionRule(organization = "javax.jms"),
-      ExclusionRule(organization = "org.slf4j")) withSources
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
+    "org.apache.kafka" % "kafka-clients" % "0.9.0.1" % "provided" withSources
   )
 ).dependsOn(akkamo)
 
 lazy val akkamoWebContent = project.in(file("akkamoWebContent")).settings(
-  name := "akkamo-web-content"
+  name := "akkamo-web-content",
+  libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion % "provided" withSources
+  )
 ).dependsOn(akkamoAkkaHttp)
 
 
 lazy val akkamoPersistentConfig = project.in(file("akkamoPersistentConfig/api")).settings(
-  name := "akkamo-persistent-config"
+  name := "akkamo-persistent-config",
+  libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources
+  )
 ).dependsOn(akkamo)
 
 lazy val akkamoMongoPersistentConfig = project.in(file("akkamoPersistentConfig/mongo")).settings(
-  name := "akkamo-mongo-persistent-config"
+  name := "akkamo-mongo-persistent-config",
+  libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
+    "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
+  )
 ).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
 
 lazy val akkamoSbtPlugin = project.in(file("akkamoSbtPlugin")).settings(
