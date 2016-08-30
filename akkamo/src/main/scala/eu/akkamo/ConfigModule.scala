@@ -18,7 +18,7 @@ class ConfigModule extends Module with Initializable {
     * @return `true` if the module has been properly initialized
     */
   override def initialize(ctx: Context) = {
-    ctx.register(ConfigFactory.defaultApplication())
+    ctx.register(ConfigFactory.load())
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies
