@@ -18,8 +18,10 @@ object AkkaHttpLoggingUtil {
     * = Example of use =
     * {{{
     *   val logged = requestLogger(
-    *     completed = LogEntry(s"${req.method}:${req.uri}: ${res.status}", Logging.InfoLevel),
-    *     rejected = LogEntry(s"${req.method}:${req.uri}: request was rejected", Logging.ErrorLevel))
+    *     completed = (req, res) =>
+    *       LogEntry(s"${req.method}:${req.uri}: ${res.status}", Logging.InfoLevel),
+    *     rejected =(req, rejections) =>
+    *       LogEntry(s"${req.method}:${req.uri}: request was rejected", Logging.ErrorLevel))
     *   )
     *
     * val route = logged {
