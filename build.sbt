@@ -1,6 +1,6 @@
-import sbt.Keys._
-import UnidocKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
+import sbt.Keys._
+import sbtunidoc.Plugin.UnidocKeys._
 
 lazy val cScalaVersion = "2.11.8"
 lazy val cAkkaVersion = "2.4.9"
@@ -79,7 +79,9 @@ scalacOptions in Global := Seq(
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
-  "-Ywarn-unused-import"
+  "-Ywarn-unused-import",
+  "-Ywarn-unused",
+  "-Xlint:missing-interpolator"
 )
 
 version in Global := "1.1.0-SNAPSHOT"
@@ -96,7 +98,7 @@ lazy val akkamoRoot = project.in(file("."))
 lazy val akkamo = project.in(file("akkamo")).settings(
   name := "akkamo",
   libraryDependencies ++= Seq(
-    "org.scala-lang" % "scala-reflect" % cScalaVersion withSources ,
+    "org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
     "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
@@ -156,6 +158,42 @@ lazy val akkamoMongoPersistentConfig = project.in(file("akkamoPersistentConfig/m
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
     "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
+  )
+).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
+
+
+// all akka dependencies
+// may be published independently, version number follows Akka version
+lazy val akkamoAkkaDependencies = project.in(file("akkamoAkkaDependencies")).settings(
+  name := s"akkamo-akka-dependencies",
+  version := cAkkaVersion,
+  libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-agent" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-camel" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-cluster-metrics" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-cluster-sharding" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-cluster-tools" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-core" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-osgi" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-persistence" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-persistence-tck" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-remote" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-stream" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-stream-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-distributed-data-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-typed-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-jackson-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-http-xml-experimental" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-persistence-query-experimental" % cAkkaVersion withSources
   )
 ).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
 
