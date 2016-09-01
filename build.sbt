@@ -62,11 +62,6 @@ pomExtra in Global :=
         <name>Vaclav Svejcar</name>
         <url>https://github.com/vaclavsvejcar</url>
       </developer>
-      <developer>
-        <id>JanCajthaml</id>
-        <name>Jan Cajthaml</name>
-        <url>https://github.com/jancajthaml</url>
-      </developer>
     </developers>
 
 scalacOptions in Global := Seq(
