@@ -163,7 +163,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private type ServerBindingGetter = () => Future[ServerBinding]
 
-  private var bindings = List.empty[ServerBinding]
+  private val bindings = List.empty[ServerBinding]
 
 
   private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter with RouteRegistry {
@@ -374,7 +374,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       throw InitializableError("Can't find keyStoreName value"))
     val keyStorePassword = config.get[String](KeyStorePassword).getOrElse(
       throw InitializableError("Can't find keyStorePassword value")).toCharArray
-    val sslCtx = SSLContext.getInstance("TLS")
+    //val sslCtx = SSLContext.getInstance("TLS")
     val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
       throw InitializableError(s"Can't initialize key store for keyStoreName: $keyStoreName"))
     val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))

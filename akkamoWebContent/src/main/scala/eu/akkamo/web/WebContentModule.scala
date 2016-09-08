@@ -102,7 +102,7 @@ class WebContentModule extends Module with Initializable with Runnable {
 
   import config._
 
-  val WebContentModuleKey = "webContent"
+  val WebContentModuleKey = "akkamo.webContent"
 
   val RouteRegistryAlias = "routeRegistryAlias"
 

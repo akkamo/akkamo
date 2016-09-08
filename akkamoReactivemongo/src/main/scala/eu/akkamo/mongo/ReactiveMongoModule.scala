@@ -111,7 +111,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   override def dispose(ctx: Context) = Try {
     val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     log.info("Dispose 'ReactiveMongo' module")
-    ctx.inject[MongoDriver](ReactiveMongoModuleKey).map(_.close())
+    ctx.inject[MongoDriver](ReactiveMongoModuleKey).foreach(_.close())
     ()
   }
 
@@ -132,7 +132,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
 
       val defaults: Int = configs count (_.default)
       if (defaults != 1) {
-        throw new InitializableError(s"Found $defaults default config blocks in module " +
+        throw InitializableError(s"Found $defaults default config blocks in module " +
           s"configuration. Only one module can be declared as default.")
       }
       configs.toList
@@ -182,8 +182,6 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   }
 
   private def wrapInitErr[T] = wrapErr[T](InitializableError) _
-
-  private def wrapDispErr[T] = wrapErr[T](DisposableError) _
 
   private case class Conf(name: String, config: Config, default: Boolean, aliases: Seq[String])
 
