@@ -15,9 +15,11 @@ scalaVersion in Global := cScalaVersion
 
 publishMavenStyle in Global := true
 
-resolvers ++= Seq(
+resolvers in Global ++= Seq(
   Resolver.sonatypeRepo("releases"),
-  Resolver.sonatypeRepo("snapshots"))
+  Resolver.sonatypeRepo("snapshots"),
+  Resolver.bintrayRepo("websudos", "oss-releases")
+)
 
 publishTo in Global := {
   val nexus = "https://oss.sonatype.org/"
@@ -87,7 +89,7 @@ lazy val akkamoRoot = project.in(file("."))
   .settings(unidocSettings: _*)
   .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
-    akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoMongo, akkamoKafka,
+    akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoMongo, akkamoKafka, akkamoCassandra,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
   )
 
@@ -126,6 +128,13 @@ lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",
   libraryDependencies ++= Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "1.1.1"
+  )
+).dependsOn(akkamo)
+
+lazy val akkamoCassandra = project.in(file("akkamoCassandra")).settings(
+  name := "akkamo-cassandra",
+  libraryDependencies ++= Seq(
+    "com.websudos" %% "phantom-dsl" % "1.28.14"
   )
 ).dependsOn(akkamo)
 
