@@ -56,7 +56,27 @@ class AkkamoSpec extends FlatSpec with Matchers {
     (new A, new B, new C, new D, new AE)
   }
 
-  "AkkamoRun" should "thrown exception when dependency is missing" in {
+  class DeadCtx extends Module with Initializable {
+
+    override def initialize(ctx: Context): Res[Context] = Try {
+      ctx.register("Caf")
+      ctx
+    }
+
+    override def dependencies(dependencies: Dependency): Dependency = dependencies
+  }
+
+  class DeadCtx2 extends Module with Runnable {
+
+    override def run(ctx: Context): Res[Context] = Try {
+      ctx.register("Caf")
+      ctx
+    }
+    override def dependencies(dependencies: Dependency): Dependency = dependencies
+  }
+
+
+  "AkkamoRun" should "throw exception when dependency is missing" in {
     implicit val (l, r) = (new IO, new DO)
     val (a, _, c, d, _) = build
     val akkamo = new Akkamo
@@ -64,7 +84,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
     an[InitializationError] should be thrownBy akkamo.run(ctx, List(c, a, d))
   }
 
-  "AkkamoRun" should "thrown exception when cycle is detected" in {
+  "AkkamoRun" should "throw exception when cycle is detected" in {
     implicit val (l, r) = (new IO, new DO)
     val (_, b, c, d, ae) = build
     val akkamo = new Akkamo
@@ -80,6 +100,23 @@ class AkkamoSpec extends FlatSpec with Matchers {
     akkamo.run(ctx, List(c, a, b, d))
     assert(l == List(a, b, c, d))
     assert(r == List(d, c, b, a))
+  }
+
+  "AkkamoInit" should "throw exception if unused context is created" in {
+    System.setProperty(Akkamo.Strict, "true")
+    val akkamo = new Akkamo
+    val ctx = new CTX
+    an[InitializationError] should be thrownBy akkamo.run(ctx, List(new DeadCtx))
+    System.setProperty(Akkamo.Strict, "false")
+  }
+
+
+  "AkkamoRun" should "throw exception if unused context is created" in {
+    System.setProperty(Akkamo.Strict, "true")
+    val akkamo = new Akkamo
+    val ctx = new CTX
+    an[RunError] should be thrownBy akkamo.run(ctx, List(new DeadCtx2))
+    System.setProperty(Akkamo.Strict, "false")
   }
 
 }
