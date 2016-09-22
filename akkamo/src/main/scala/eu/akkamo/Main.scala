@@ -13,6 +13,10 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
 
   val Default = "@$DEFAULT$@"
 
+  // register newly created context as last
+  CTX.last.set((this, Thread.currentThread().getStackTrace))
+
+
   override def inject[T](implicit ct: ClassTag[T]): Option[T] = {
     inject(Default)
   }
@@ -77,6 +81,35 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
   }
 }
 
+private[akkamo] object CTX {
+  /**
+    *
+    * keep last created context in local thread variable
+     */
+  private[CTX] val last  = new ThreadLocal[(Context, Array[StackTraceElement])]()
+
+  /**
+    * compare `ctx` with last created Context
+    * @param ctx
+    * @return true if `ctx` eq last.get
+    */
+  def isLast(ctx:Context) = getContext.map(_ eq ctx).getOrElse(false)
+
+  /**
+    *
+    * @return  formatted information about place when the problem happened
+    */
+  def getInvocationInfo = getStackTrace.map{p=>
+    val el = p.toSeq.tail.filterNot(filter).headOption
+    el.map(el=>s"(${el.getFileName}${el.getClassName}:${el.getMethodName} at line ${el.getLineNumber})").getOrElse("unknown location")
+  }
+
+  private def getContext = Option(last.get()).map(_._1)
+  private def getStackTrace = Option(last.get()).map(_._2)
+
+  private val names = Set(classOf[CTX].getName)
+  private val filter = (e:StackTraceElement) => names.contains(e.getClassName)
+}
 
 class Akkamo {
 
@@ -170,7 +203,16 @@ class Akkamo {
         log(s"Initialising module: $x")
         x.asInstanceOf[Initializable].initialize(ctx).asTry() match {
           case Failure(th) => init(xs, (x, th) :: out)(ctx)
-          case Success(c) => init(xs, out)(c)
+          case Success(c) => {
+            if(!CTX.isLast(c)) {
+              val info = CTX.getInvocationInfo.getOrElse("unknown location")
+              log(s"-----------------\nUnused context created at: ${info}  during initialization\n-----------------\n", true)
+              if(Akkamo.isContextStrict) {
+                throw InitializationError(s"Unused context created: ${info}")
+              }
+            }
+            init(xs, out)(c)
+          }
         }
       } else {
         init(xs, out)(ctx)
@@ -186,7 +228,16 @@ class Akkamo {
         log(s"Running module: $x")
         x.asInstanceOf[Runnable].run(ctx).asTry() match {
           case Failure(th) => run(xs, (x, th) :: out)(ctx)
-          case Success(c) => run(xs, out)(c)
+          case Success(c) => {
+            if(!CTX.isLast(c)) {
+              val info = CTX.getInvocationInfo.getOrElse("unknown location")
+              log(s"-----------------\nUnused context created at: ${info} during run\n-----------------\n", true)
+              if(Akkamo.isContextStrict) {
+                throw RunError(s"Unused context created: ${info}")
+              }
+            }
+            run(xs, out)(c)
+          }
         }
       } else {
         run(xs, out)(ctx)
@@ -241,6 +292,15 @@ object Akkamo {
   import scala.collection.JavaConversions._
 
   def modules() = java.util.ServiceLoader.load[Module](classOf[Module]).toList
+
+  /**
+    * if the System property named `Strict` is defined,
+    * then system throws an Exception if last created Context is not returned from [[eu.akkamo.Initializable#initialize]] or [[eu.akkamo.Runnable#run]]
+    *
+    */
+  val Strict = "akkamo.ctx.strict"
+
+  def isContextStrict = System.getProperty(Strict, "false").toBoolean
 
 }
 
