@@ -9,6 +9,7 @@ import reactivemongo.api.{DB, DBMetaCommands, MongoConnection, MongoDriver}
 import scala.collection.Map
 import scala.concurrent.Future
 import scala.concurrent.duration._
+
 import scala.util.Try
 
 /**
@@ -105,7 +106,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
     val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg))
     val ctx2 = ctx.register(driver, ReactiveMongoModuleKey)
     // we must remove driver by hands if something goes wrong
-    registerConnections(ctx2, cfg).transform(identity, {th=> Try(driver.close()); th})
+    registerConnections(ctx2, cfg).transform(identity, {th => Try(driver.close()); th})
   }
 
   override def dispose(ctx: Context) = Try {
@@ -162,18 +163,23 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
     }
   }
 
-
   private def createConnection(driver: MongoDriver, config: Conf): Future[ReactiveMongo] = {
+    val strategy = FailoverStrategy(
+      initialDelay = 5.milliseconds,
+      retries = 4,
+      delayFactor = n => 1
+    )
+
     for {
       uri <- Future.fromTry(MongoConnection.parseURI(config.config.getString(UriKey)))
       conn = driver.connection(uri)
       dbName <- Future(uri.db.get)
-      db <- conn.database(dbName)
+      db <- conn.database(dbName, strategy)
     } yield ReactiveMongo(driver, conn, db)
   }
 
   private def makeDefault: Map[String, Config] = Map(
-    "default" -> ConfigFactory.parseString("""uri = "mongodb://localhost/default"	""".stripMargin))
+    "default" -> ConfigFactory.parseString("""uri = "mongodb://localhost/default" """.stripMargin))
 
 
   private def wrapErr[T](err: (String, Throwable) => Throwable)
