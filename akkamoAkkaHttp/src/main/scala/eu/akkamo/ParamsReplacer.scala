@@ -34,7 +34,7 @@ private[akkamo] object ParamsReplacer {
 
     def replace: Regex.Match => String = {
       case Regex.Groups(index) => replacements.getOrElse(index, {
-        log.foreach(_.warning(s"Invalid param '$index' in source string '$source'"))
+        log.foreach(_.warning(s"Invalid param '${index}' in source string '${source}'"))
         s"%{$index}"
       })
     }
