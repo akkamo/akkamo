@@ -59,6 +59,11 @@ pomExtra in Global :=
         <name>Vaclav Svejcar</name>
         <url>https://github.com/vaclavsvejcar</url>
       </developer>
+      <developer>
+        <id>JanCajthaml</id>
+        <name>Jan Cajthaml</name>
+        <url>https://github.com/jancajthaml</url>
+      </developer>
     </developers>
 
 scalacOptions in Global := Seq(
@@ -91,6 +96,7 @@ lazy val akkamoRoot = project.in(file("."))
   .settings(unidocSettings: _*)
   .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
+    akkamoAkkaDependencies,
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoMongo, akkamoKafka,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
   )
@@ -113,7 +119,6 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
   )
 ).dependsOn(akkamo)
-
 
 lazy val akkamoReactivemongo = project.in(file("akkamoReactivemongo")).settings(
   name := "akkamo-reactivemongo",
@@ -195,7 +200,7 @@ lazy val akkamoAkkaDependencies = project.in(file("akkamoAkkaDependencies")).set
     "com.typesafe.akka" %% "akka-http-xml-experimental" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-persistence-query-experimental" % cAkkaVersion withSources
   )
-).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
+)
 
 lazy val akkamoSbtPlugin = project.in(file("akkamoSbtPlugin")).settings(
   name := "sbt-akkamo",
