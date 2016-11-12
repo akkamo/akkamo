@@ -105,7 +105,7 @@ object RouteRegistry {
   *       protocol = "http" // http, https, ...
   *       host = "localhost" // host, default localhost
   *       akkaAlias = "alias" // not required, default is used if exists
-  *       requestLogLevel = "info"  // defines level for request level logging. Default "off" means no logging
+  *       requestLogLevel = "INFO"  // defines level for request level logging. Default "off" means no logging
   *       requestLogFormat = "%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}" // defines log format, defaults to this if not specified
   *     },
   *     // configuration registered as default (only one instance is allowed)
@@ -181,7 +181,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     def aliases: List[String]
 
     override def toString() = {
-      s"${this.getClass.getSimpleName}(aliases=$aliases, uri=$interface:$port, isDefault=$default)"
+      s"${this.getClass.getSimpleName}(aliases=${aliases}, uri=${interface}:${port}, isDefault=${default})"
     }
   }
 
@@ -261,7 +261,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, conf) =>
         val system = config.get[String](AkkaAlias, conf).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
         if (system.isEmpty) {
-          throw InitializableError(s"Can't find akka system for http configuration key: $key")
+          throw InitializableError(s"Can't find akka system for http configuration key: ${key}")
         }
         val protocol = config.get[String](Protocol, conf).getOrElse("http")
         val port = config.get[Int](Port, conf).getOrElse(-1)
@@ -274,14 +274,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           case "http" =>
             val r = HttpRouteRegistry(aliases, port, interface, default,
               requestLogLevel, requestLogFormat)(system.get)
-            log.info(s"created: $r ")
+            log.info(s"created: ${r}")
             r
           case "https" =>
             val r = HttpsRouteRegistry(aliases, port, interface, default, getHttpsConnectionContext(conf),
               requestLogLevel, requestLogFormat)(system.get)
-            log.info(s"created: $r ")
+            log.info(s"created: ${r}")
             r
-          case p => throw InitializableError(s"unknown protocol:$p in route registry, see: $config")
+          case p => throw InitializableError(s"unknown protocol: ${p} in route registry, see: ${config}")
         }
       }
     }
@@ -324,7 +324,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           Future.successful(LogEntry(requestLog(req, "404 Not Found", logger), level))
         case Rejected(rejections) =>
           Future.successful(LogEntry(requestLog(req, "400 Bad Request", logger), level))
-        case other => Future.successful(LogEntry(s"Other: $other", level))
+        case other => Future.successful(LogEntry(s"Other: ${other}", level))
       }
       entry.foreach(_.logTo(logger))
     }
@@ -339,23 +339,22 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     import scala.concurrent.ExecutionContext.Implicits.global
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val httpConfigs = ctx.registered[RouteRegistry].keySet.map(_.asInstanceOf[BaseRouteRegistry])
-    val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can`t initialize route $p", th)))
+    val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p =>
-      log.info(s"run: $httpConfigs")
+      log.info(s"run: ${httpConfigs}")
       ctx
     }
   }
 
   override def dispose(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val futures = bindings.map(p => p.unbind().transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
+    val futures = bindings.map(p => p.unbind().transform(p => p, th => DisposableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p => () }
   }
 
   private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
     get[String](HttpsConnectionContextFactoryClassName, cfg)
       .map(getHttpsConnectionContextFormFactory(cfg)).getOrElse(getHttpsConnectionContextFormConfig(cfg))
-
 
   private def getHttpsConnectionContextFormFactory(cfg: Config) = (clazzName: String) => {
     try {
@@ -365,7 +364,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       val companionObj = runtimeMirror.reflectModule(module).instance.asInstanceOf[HttpsConnectionContextFactory]
       companionObj(cfg)
     } catch {
-      case th: Throwable => throw InitializableError(s"Can't construct HttpsConnectionContext from the factory: $clazzName", th)
+      case th: Throwable => throw InitializableError(s"Can't construct HttpsConnectionContext from the factory: ${clazzName}", th)
     }
   }
 
@@ -376,7 +375,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       throw InitializableError("Can't find keyStorePassword value")).toCharArray
     //val sslCtx = SSLContext.getInstance("TLS")
     val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
-      throw InitializableError(s"Can't initialize key store for keyStoreName: $keyStoreName"))
+      throw InitializableError(s"Can't initialize key store for keyStoreName: ${keyStoreName}"))
     val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
     keyStore.load(keyStoreStream, keyStorePassword)
     val keyManagerFactory = KeyManagerFactory.getInstance(get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
