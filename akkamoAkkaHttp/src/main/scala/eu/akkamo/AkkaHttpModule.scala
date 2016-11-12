@@ -248,6 +248,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config._
+    println(">>>>> initialized published locally")
 
     // create list of configuration tuples
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
@@ -315,6 +316,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
 
     def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: Any): Unit = {
+      println(">>>>> logging function was called")
 
       val level = Logging.levelFor(logLevel).getOrElse(Logging.DebugLevel)
       val entry = res match {
@@ -328,6 +330,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       }
       entry.foreach(_.logTo(logger))
     }
+    println(">>>>> logRequestResult was initialized")
+
     DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))(route)
   }
 
