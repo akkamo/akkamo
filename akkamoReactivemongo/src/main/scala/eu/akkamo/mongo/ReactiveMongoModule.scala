@@ -99,10 +99,9 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
     val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
-
     log.info("Initializing 'ReactiveMongo' module")
 
-    val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg))
+    val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg), None)
     val ctx2 = ctx.register(driver, ReactiveMongoModuleKey)
     // we must remove driver by hands if something goes wrong
     registerConnections(ctx2, cfg).transform(identity, {th=> Try(driver.close()); th})
