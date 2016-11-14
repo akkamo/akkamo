@@ -71,5 +71,3 @@ case class PersistentConfigException(message: String, throwable: Throwable = nul
   * @author jubu
   */
 trait PersistentConfigModule extends Module with Initializable
-
-

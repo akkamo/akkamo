@@ -42,5 +42,4 @@ trait Module {
     * @return chained module dependencies
     */
   def dependencies(dependencies: Dependency): Dependency
-
 }

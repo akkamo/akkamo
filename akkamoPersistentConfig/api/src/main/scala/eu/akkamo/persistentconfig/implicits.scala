@@ -28,28 +28,28 @@ object implicits {
 		(storage:Storage, cfg:Config, key:String) =>	Reader(key, storage.getString, cfg)
 
 	implicit val intReader:PersistentConfig#Reader[Int] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key, storage.getInt, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key, storage.getInt, cfg)
 
 	implicit val booleanReader:PersistentConfig#Reader[Boolean] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key, storage.getBoolean, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key, storage.getBoolean, cfg)
 
 	implicit val longReader:PersistentConfig#Reader[Long] =
-		(storage:Storage,  cfg:Config,  key:String) => Reader(key,storage.getLong, cfg)
+		(storage:Storage, cfg:Config,  key:String) => Reader(key,storage.getLong, cfg)
 
 	implicit val doubleReader:PersistentConfig#Reader[Double] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key,storage.getDouble, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key,storage.getDouble, cfg)
 
 	implicit val stringListReader:PersistentConfig#Reader[List[String]] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key, storage.getStringList, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key, storage.getStringList, cfg)
 
 	implicit val intListReader:PersistentConfig#Reader[List[Int]] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key,storage.getIntList, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key,storage.getIntList, cfg)
 
 	implicit val longListReader:PersistentConfig#Reader[List[Long]] =
-		(storage:Storage,  cfg:Config, key:String) => Reader(key,storage.getLongList, cfg)
+		(storage:Storage, cfg:Config, key:String) => Reader(key,storage.getLongList, cfg)
 
 	implicit val doubleListReader:PersistentConfig#Reader[List[Double]] =
-		(storage:Storage,  cfg:Config,  key:String) => Reader(key,storage.getDoubleList, cfg)
+		(storage:Storage, cfg:Config,  key:String) => Reader(key,storage.getDoubleList, cfg)
 
 	implicit val stringWriter:PersistentConfig#Writer[String] = (storage:Storage, key:String, value:String) => storage.storeString(key, value)
 
@@ -68,6 +68,4 @@ object implicits {
 	implicit val longListWriter:PersistentConfig#Writer[List[Long]] = (storage:Storage, key:String, value:List[Long]) => storage.storeLongList(key, value)
 
 	implicit val doubleListWriter:PersistentConfig#Writer[List[Double]] = (storage:Storage, key:String, value:List[Double]) => storage.storeDoubleList(key, value)
-
 }
-

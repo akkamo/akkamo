@@ -31,7 +31,7 @@ object config {
     */
   def blockAsMap(key: String)(implicit cfg: Config): Option[Map[String, Config]] = Try {
     val keys = cfg.getObject(key).keySet()
-    keys.map { p => (p, cfg.getConfig(s"$key.$p")) }.toMap.map(p => (p._1, p._2.resolve()))
+    keys.map { p => (p, cfg.getConfig(s"${key}.${p}")) }.toMap.map(p => (p._1, p._2.resolve()))
   }.toOption
 
   /**
@@ -115,9 +115,9 @@ object config {
 
   implicit val cfg2ConfigMap: Transformer[Map[String, Config]] = (cfg: Config, key: String) => try {
     val keys = cfg.getObject(key).keySet()
-    keys.map { p => (p, cfg.getConfig(s"$key.$p")) }.toMap.map(p => (p._1, p._2.resolve()))
+    keys.map { p => (p, cfg.getConfig(s"${key}.${p}")) }.toMap.map(p => (p._1, p._2.resolve()))
   } catch {
-    case th: Throwable => throw new ConfigException.Missing(s"Can`t convert config value to map for key:$key ", th)
+    case th: Throwable => throw new ConfigException.Missing(s"Can't convert config value to map for key: ${key} ", th)
   }
 
 }

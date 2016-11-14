@@ -118,5 +118,4 @@ class AkkamoSpec extends FlatSpec with Matchers {
     an[RunError] should be thrownBy akkamo.run(ctx, List(new DeadCtx2))
     System.setProperty(Akkamo.Strict, "false")
   }
-
 }

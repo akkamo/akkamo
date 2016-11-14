@@ -18,7 +18,6 @@ trait Disposable {
     * @return instance of Res
     */
   def dispose(ctx: Context): Res[Unit]
-
 }
 
 /**

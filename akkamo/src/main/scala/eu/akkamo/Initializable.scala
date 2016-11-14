@@ -40,4 +40,3 @@ trait Initializable {
   * @param cause   optional value of cause
   */
 case class InitializableError(message: String, cause: Throwable = null) extends Error(message, cause)
-

@@ -40,7 +40,6 @@ class CTXSpec extends FlatSpec with Matchers {
 
     assert(ctxBeans.get[Bean1](second1.v) == second1)
 
-
     assert(ctxBeans.inject[Bean2] == Some(first2))
 
     assert(ctxBeans.get[Bean2] == first2)
@@ -76,5 +75,4 @@ class CTXSpec extends FlatSpec with Matchers {
     val registered = ctx.registered[MyRegistry]
     assert(registered.get(ctx.get[MyRegistry]) == Some(Set(defaultRegistry.k)))
   }
-
 }
