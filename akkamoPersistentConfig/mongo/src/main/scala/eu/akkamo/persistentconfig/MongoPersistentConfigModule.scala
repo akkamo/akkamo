@@ -6,16 +6,10 @@ import eu.akkamo._
 import eu.akkamo.mongo.{ReactiveMongoApi, ReactiveMongoModule}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
-import reactivemongo.bson.Macros.Options.AllImplementations
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONHandler}
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter}
 
 import scala.concurrent.Future
 import scala.util.Try
-
-sealed trait Property[V] {
-  val _id: String
-  val value: V
-}
 
 case class IntProperty(val _id: String, val value: Int) extends Property[Int]
 
@@ -34,6 +28,11 @@ case class StringListProperty(val _id: String, val value: List[String]) extends 
 case class LongListProperty(val _id: String, val value: List[Long]) extends Property[List[Long]]
 
 case class DoubleListProperty(val _id: String, val value: List[Double]) extends Property[List[Double]]
+
+sealed trait Property[V]  {
+  val _id: String
+  val value: V
+}
 
 
 /**
@@ -62,9 +61,26 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit val ic = api.driver.system.dispatcher
 
-      private implicit val H: BSONDocumentReader[Property[_]] with BSONDocumentWriter[Property[_]] with BSONHandler[BSONDocument, Property[_]] =
-        reactivemongo.bson.Macros.handlerOpts[Property[_], AllImplementations]
+      implicit object PropertyReader extends  BSONDocumentReader[Property[_]] {
+        override def read(bson: BSONDocument) = {
+         // bson.getAs[String]("className")
+          // TODO
+          BooleanProperty("", true)
+        }
+      }
 
+      implicit object PropertyWriter extends  BSONDocumentWriter[Property[_]] {
+        override def write(t: Property[_]) = {
+          BSONDocument()
+        }
+      }
+
+
+
+      /*
+            implicit val pH: BSONDocumentReader[Property[_]] with BSONDocumentWriter[Property[_]]
+              with BSONHandler[BSONDocument, Property[_]] = reactivemongo.bson.Macros.handlerOpts[Property[_], SaveSimpleName]
+      */
 
       override def getString(key: String): Future[Option[String]] = find[String, StringProperty](key)
 

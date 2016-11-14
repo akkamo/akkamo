@@ -8,6 +8,7 @@ import reactivemongo.api.{DB, DBMetaCommands, MongoConnection, MongoDriver}
 
 import scala.collection.Map
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.Try
 
 /**
@@ -43,15 +44,13 @@ trait ReactiveMongoApi {
   *
   * = Example configuration =
   * {{{
-  *   akkamo.reactiveMongoConfig {
-  *    	// ReactiveMongo loads driver configuration from here (e.g. configuration of the underlying Akka system)
-  *    	mongo-async-driver {
-  *    	  akka {
-  *      	  	loglevel = WARNING
-  *     	}
-  *     }
-  *   }
   *   akkamo.reactiveMongo {
+  *
+  *    	// ReactiveMongo loads its configuration from here (e.g. configuration of the
+  *    	// underlying Akka system)
+  *    	akka {
+  *      		loglevel = WARNING
+  *    	}
   *     name1 = {
   *       aliases=["alias1", "alias2"]
   *       default = true // required if more than one reactive mongo configuration exists
@@ -73,8 +72,6 @@ trait ReactiveMongoApi {
   *
   * ==If configuration is missing, then default entry with `uri: mongodb://localhost/default` is created.==
   *
-  * Remarks:
-  *
   * @author vaclav.svejcar
   * @author jubu
   */
@@ -90,7 +87,8 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   val DefaultKey: String = "default"
   val UriKey: String = "uri"
 
-  val MongoDriverKey = ReactiveMongoModuleKey + "Config"
+  val ConnectionStartTimeout: FiniteDuration = 30.seconds
+  val ConnectionStopTimeout: FiniteDuration = 10.seconds
 
   case class ReactiveMongo(driver: MongoDriver, connection: MongoConnection,
                            db: DB with DBMetaCommands) extends ReactiveMongoApi
@@ -101,13 +99,12 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
     val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
-
     log.info("Initializing 'ReactiveMongo' module")
 
-    val driver = new MongoDriver(get[Config](MongoDriverKey, cfg))
-    val ctx2 = ctx.register(driver)
+    val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg), None)
+    val ctx2 = ctx.register(driver, ReactiveMongoModuleKey)
     // we must remove driver by hands if something goes wrong
-    registerConnections(ctx2, cfg).transform(identity, { th => Try(driver.close()); th })
+    registerConnections(ctx2, cfg).transform(identity, {th=> Try(driver.close()); th})
   }
 
   override def dispose(ctx: Context) = Try {
@@ -142,7 +139,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   }
 
   private def registerConnections(ctx: Context, cfg: Config) = {
-    val driver = ctx.get[MongoDriver]
+    val driver = ctx.get[MongoDriver](ReactiveMongoModuleKey)
     val configMap = akkamo.config.blockAsMap(ReactiveMongoModuleKey)(cfg).getOrElse(makeDefault)
     parseConfig(configMap).foldLeft(Future.successful(ctx)) { case (ctxFt, conf) =>
       val connFt: Future[ReactiveMongo] = wrapInitErr(createConnection(driver, conf),

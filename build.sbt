@@ -3,8 +3,9 @@ import sbt.Keys._
 import sbtunidoc.Plugin.UnidocKeys._
 
 lazy val cScalaVersion = "2.11.8"
-lazy val cAkkaVersion = "2.4.9"
-lazy val cReactiveMongoVersion = "0.11.14"
+lazy val cAkkaVersion = "2.4.12"
+lazy val cAkkaHttpVersion = "2.4.11"
+lazy val cReactiveMongoVersion = "0.12.0"
 
 
 organization in Global := "eu.akkamo"
@@ -107,16 +108,16 @@ lazy val akkamo = project.in(file("akkamo")).settings(
     "org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
     "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
+    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
   )
 )
 
 lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
   name := "akkamo-akka-http",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion % "provided" withSources,
-    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaHttpVersion % "provided" withSources,
+    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaHttpVersion % "test" withSources,
+    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
   )
 ).dependsOn(akkamo)
 
@@ -146,7 +147,7 @@ lazy val akkamoKafka = project.in(file("akkamoKafka")).settings(
 lazy val akkamoWebContent = project.in(file("akkamoWebContent")).settings(
   name := "akkamo-web-content",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion % "provided" withSources
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaHttpVersion % "provided" withSources
   )
 ).dependsOn(akkamoAkkaHttp)
 
@@ -181,24 +182,33 @@ lazy val akkamoAkkaDependencies = project.in(file("akkamoAkkaDependencies")).set
     "com.typesafe.akka" %% "akka-cluster-sharding" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-cluster-tools" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-core" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % cAkkaVersion % "test" withSources,
     "com.typesafe.akka" %% "akka-osgi" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-persistence" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-persistence-tck" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-remote" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-stream" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-stream-testkit" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-stream-testkit" % cAkkaVersion % "test" withSources,
+    "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
     "com.typesafe.akka" %% "akka-distributed-data-experimental" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-typed-experimental" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-jackson-experimental" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-xml-experimental" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-persistence-query-experimental" % cAkkaVersion withSources
+  )
+)
+
+// all akka dependencies
+// may be published independently, version number follows Akka version
+lazy val akkamoAkkaHttpDependencies = project.in(file("akkamoAkkaHttpDependencies")).settings(
+  name := s"akkamo-akka-http-dependencies",
+  version := cAkkaHttpVersion,
+  libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-http-core" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-jackson-experimental" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-xml-experimental" % cAkkaHttpVersion withSources
   )
 )
 
