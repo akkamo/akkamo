@@ -6,7 +6,7 @@ import eu.akkamo._
 import eu.akkamo.mongo.{ReactiveMongoApi, ReactiveMongoModule}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter}
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID}
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -37,6 +37,7 @@ sealed trait Property[V]  {
 
 /**
   * @author jubu
+  * @author jan.cajthaml <jan.cajthaml@gmail.com>
   */
 class MongoPersistentConfigModule extends PersistentConfigModule with Initializable {
 
@@ -61,26 +62,109 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit val ic = api.driver.system.dispatcher
 
-      implicit object PropertyReader extends  BSONDocumentReader[Property[_]] {
-        override def read(bson: BSONDocument) = {
-         // bson.getAs[String]("className")
-          // TODO
-          BooleanProperty("", true)
+      private val BooleanPropertyClz = BooleanProperty.getClass.getName
+      private val IntPropertyClz = IntProperty.getClass.getName
+      private val LongPropertyClz = LongProperty.getClass.getName
+      private val StringPropertyClz = StringProperty.getClass.getName
+      private val DoublePropertyClz = DoubleProperty.getClass.getName
+      private val IntListPropertyClz = IntListProperty.getClass.getName
+      private val LongListPropertyClz = LongListProperty.getClass.getName
+      private val DoubleListPropertyClz = DoubleListProperty.getClass.getName
+      private val StringListPropertyClz = StringListProperty.getClass.getName
+
+      implicit object PropertyReader extends BSONDocumentReader[Property[_]] {
+
+        override def read(bson: BSONDocument) = bson.getAs[String]("className") match {
+          case Some(BooleanPropertyClz) => BooleanProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[Boolean]("value").get
+          )
+          case Some(IntPropertyClz) => IntProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[Int]("value").get
+          )
+          case Some(LongPropertyClz) => LongProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[Long]("value").get
+          )
+          case Some(StringPropertyClz) => StringProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[String]("value").get
+          )
+          case Some(DoublePropertyClz) => DoubleProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[Double]("value").get
+          )
+          case Some(IntListPropertyClz) => IntListProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[List[Int]]("value").get
+          )
+          case Some(LongListPropertyClz) => LongListProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[List[Long]]("value").get
+          )
+          case Some(DoubleListPropertyClz) => DoubleListProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[List[Double]]("value").get
+          )
+          case Some(StringListPropertyClz) => StringListProperty(
+            bson.getAs[BSONObjectID]("_id").get.stringify,
+            bson.getAs[List[String]]("value").get
+          )
+          case x => throw InitializableError(s"Can't read BSON property: ${bson} with className: ${x}")
         }
       }
 
-      implicit object PropertyWriter extends  BSONDocumentWriter[Property[_]] {
-        override def write(t: Property[_]) = {
-          BSONDocument()
+      implicit object PropertyWriter extends BSONDocumentWriter[Property[_]] {
+
+        override def write(t: Property[_]) = t match {
+          case x: BooleanProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[Boolean],
+            "className" -> BooleanPropertyClz
+          )
+          case x: IntProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[Int],
+            "className" -> IntPropertyClz
+          )
+          case x: LongProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[Long],
+            "className" -> LongPropertyClz
+          )
+          case x: DoubleProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[Double],
+            "className" -> DoublePropertyClz
+          )
+          case x: StringProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[String],
+            "className" -> StringPropertyClz
+          )
+          case x: IntListProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[List[Int]],
+            "className" -> IntListPropertyClz
+          )
+          case x: LongListProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[List[Long]],
+            "className" -> LongListPropertyClz
+          )
+          case x: DoubleListProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[List[Double]],
+            "className" -> DoubleListPropertyClz
+          )
+          case x: StringListProperty => BSONDocument(
+            "_id" -> BSONObjectID.parse(x._id).get,
+            "value" -> x.value.asInstanceOf[List[String]],
+            "className" -> StringListPropertyClz
+          )
         }
       }
-
-
-
-      /*
-            implicit val pH: BSONDocumentReader[Property[_]] with BSONDocumentWriter[Property[_]]
-              with BSONHandler[BSONDocument, Property[_]] = reactivemongo.bson.Macros.handlerOpts[Property[_], SaveSimpleName]
-      */
 
       override def getString(key: String): Future[Option[String]] = find[String, StringProperty](key)
 
@@ -140,7 +224,6 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
         val ret = collection.find(selector).one[Property[_]].asInstanceOf[Future[Option[T]]]
         ret.map(_.map(_.value))
       }
-
 
       private def ok(wr: WriteResult) = Ok
 
