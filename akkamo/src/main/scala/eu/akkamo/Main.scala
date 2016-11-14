@@ -66,7 +66,7 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
     val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
     val realKey = key.getOrElse(Default)
     if (key2Inst.contains(realKey) && public) {
-      throw ContextError(s"module: $value under key: $key already registered")
+      throw ContextError(s"module: ${value} under key: ${key} already registered")
     }
     val resKey2Inst = key2Inst + (key.getOrElse(Default) -> value)
     val res = class2Key2Inst + (clazz -> resKey2Inst)
@@ -123,7 +123,7 @@ class Akkamo {
 
   def run(ctx: Context, modules: List[Module]): AkkamoData = {
 
-    log(s"Modules: $modules")
+    log(s"Modules: ${modules}")
 
     val (_, ordered) = order(modules)
 
@@ -189,7 +189,7 @@ class Akkamo {
       (rset, rout ++ out)
     } else {
       if (rout.isEmpty) {
-        throw InitializationError(s"Can't initialize modules: $in, cycle or unresolved dependency detected.")
+        throw InitializationError(s"Can't initialize modules: ${in}, cycle or unresolved dependency detected.")
       }
       val df = in.diff(rout)
       order(df, rset, rout ++ out)
@@ -206,7 +206,7 @@ class Akkamo {
           case Success(c) => {
             if(!CTX.isLast(c)) {
               val info = CTX.getInvocationInfo.getOrElse("unknown location")
-              log(s"-----------------\nUnused context created at: ${info}  during initialization\n-----------------\n", true)
+              log(s"-----------------\nUnused context created at: ${info} during initialization\n-----------------\n", true)
               if(Akkamo.isContextStrict) {
                 throw InitializationError(s"Unused context created: ${info}")
               }
@@ -265,7 +265,7 @@ class Akkamo {
   private def dispose(in: List[Module], out: List[(Module, Throwable)] = Nil)(ctx: Context): List[(Module, Throwable)] = in match {
     case x :: xs =>
       if (x.isInstanceOf[Disposable]) {
-        log(s"Dispose module: $x")
+        log(s"Dispose module: ${x}")
         x.asInstanceOf[Disposable].dispose(ctx).asTry() match {
           case Failure(th) => dispose(xs, (x, th) :: out)(ctx)
           case _ => dispose(xs, out)(ctx)

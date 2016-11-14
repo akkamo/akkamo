@@ -97,7 +97,7 @@ class AkkaModule extends Module with Initializable with Disposable {
             case (ctx, name) => ctx.register(system, Some(name))
           }).getOrElse(ctx3)
         } catch {
-          case th: Throwable => throw InitializableError(s"Can't initialize Akka system defined by: $key", th)
+          case th: Throwable => throw InitializableError(s"Can't initialize Akka system defined by: ${key}", th)
         }
       }
     }
@@ -110,7 +110,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can`t initialize route $p", th)))
+    val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p => () }
   }
 

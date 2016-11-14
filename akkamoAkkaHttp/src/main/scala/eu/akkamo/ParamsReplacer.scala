@@ -41,5 +41,4 @@ private[akkamo] object ParamsReplacer {
 
     paramsRegex.replaceAllIn(source, replace)
   }
-
 }

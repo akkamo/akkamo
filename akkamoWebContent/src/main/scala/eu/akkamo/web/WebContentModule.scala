@@ -125,7 +125,7 @@ class WebContentModule extends Module with Initializable with Runnable {
 
 
     override def copyWith(p: (String, RouteGenerator)): DefaultWebContentRegistry.this.type = {
-      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered ")
+      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered")
       else this.copy(mapping = mapping + p).asInstanceOf[this.type]
     }
 
@@ -152,7 +152,7 @@ class WebContentModule extends Module with Initializable with Runnable {
     // check if only one default content registry is specified
     val defaultsNo: Int = rrs.groupBy(_.default).get(true).map(_.size).getOrElse(0)
     if (defaultsNo > 1) {
-      throw InitializableError("Only one content registry can be marked as 'default'")
+      throw InitializableError("Only one content registry can be marked as `default`")
     }
 
     rrs.foldLeft(ctx) { (ctx, registry) =>
@@ -175,12 +175,12 @@ class WebContentModule extends Module with Initializable with Runnable {
       val (wcr, _) = r
       // build routes
       val routes = wcr.mapping.map { case (prefix, rg) =>
-        log.debug(s"generating route for $Prefix:$Prefix")
+        log.debug(s"generating route for ${Prefix}: ${Prefix}")
         pathPrefix(prefix)(get(rg()))
       }
       // register routes
       routes.foldLeft(ctx) { (ctx, route) =>
-        log.debug(s"register in route for key:${wcr.routeRegistryAlias}")
+        log.debug(s"register in route for key: ${wcr.routeRegistryAlias}")
         ctx.registerIn[RouteRegistry, Route](route, wcr.routeRegistryAlias)
       }
     }

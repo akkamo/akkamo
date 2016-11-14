@@ -63,5 +63,3 @@ private[akkamo] object Res {
     }
   }
 }
-
-

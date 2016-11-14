@@ -102,7 +102,7 @@ trait Context {
     */
   @throws[ContextError]
   def get[T](key: String, strict: Boolean = false)(implicit ct: ClassTag[T]): T = inject[T](key, strict)
-    .getOrElse(throw ContextError(s"Can't find registered bean under key: $key of type: ${ct.runtimeClass.getName}"))
+    .getOrElse(throw ContextError(s"Can't find registered bean under key: ${key} of type: ${ct.runtimeClass.getName}"))
 
 
   /**

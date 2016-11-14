@@ -26,7 +26,6 @@ trait Runnable {
     * @return registration key class
     */
   def rKey() = this.getClass
-
 }
 
 /**
