@@ -93,52 +93,52 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
       }
 
       implicit object PropertyWriter extends BSONDocumentWriter[Property[_]] {
-        val id = (x: String) => BSONObjectID.parse(x).get
 
         override def write(t: Property[_]) = {
+          val id = () => BSONObjectID.parse(t._id).get
           t match {
             case x: BooleanProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> BooleanPropertyClz
             )
             case x: IntProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> IntPropertyClz
             )
             case x: LongProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> LongPropertyClz
             )
             case x: DoubleProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> DoublePropertyClz
             )
             case x: StringProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> StringPropertyClz
             )
             case x: IntListProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> IntListPropertyClz
             )
             case x: LongListProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> LongListPropertyClz
             )
             case x: DoubleListProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> DoubleListPropertyClz
             )
             case x: StringListProperty => BSONDocument(
-              "_id" -> id(x._id),
+              "_id" -> id(),
               "value" -> x.value,
               "className" -> StringListPropertyClz
             )
