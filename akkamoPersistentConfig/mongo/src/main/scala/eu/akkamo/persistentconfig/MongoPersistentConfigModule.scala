@@ -6,7 +6,7 @@ import eu.akkamo._
 import eu.akkamo.mongo.{ReactiveMongoApi, ReactiveMongoModule}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID}
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID, BSONReader, BSONValue, BSONWriter}
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -62,20 +62,17 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit val ic = api.driver.system.dispatcher
 
-      private val BooleanPropertyClz = BooleanProperty.getClass.getName
-      private val IntPropertyClz = IntProperty.getClass.getName
-      private val LongPropertyClz = LongProperty.getClass.getName
-      private val StringPropertyClz = StringProperty.getClass.getName
-      private val DoublePropertyClz = DoubleProperty.getClass.getName
-      private val IntListPropertyClz = IntListProperty.getClass.getName
-      private val LongListPropertyClz = LongListProperty.getClass.getName
-      private val DoubleListPropertyClz = DoubleListProperty.getClass.getName
-      private val StringListPropertyClz = StringListProperty.getClass.getName
-
       implicit object PropertyReader extends BSONDocumentReader[Property[_]] {
 
-        override def read(bson: BSONDocument) = {
-          val id = () => bson.getAs[BSONObjectID]("_id").get.stringify
+        private val BooleanPropertyClz = BooleanProperty.getClass.getName
+        private val IntPropertyClz = IntProperty.getClass.getName
+        private val LongPropertyClz = LongProperty.getClass.getName
+        private val StringPropertyClz = StringProperty.getClass.getName
+        private val DoublePropertyClz = DoubleProperty.getClass.getName
+        private val IntListPropertyClz = IntListProperty.getClass.getName
+        private val LongListPropertyClz = LongListProperty.getClass.getName
+        private val DoubleListPropertyClz = DoubleListProperty.getClass.getName
+        private val StringListPropertyClz = StringListProperty.getClass.getName
 
           bson.getAs[String]("className") match {
             case Some(BooleanPropertyClz) => BooleanProperty(id(), bson.getAs[Boolean]("value").get)
@@ -94,55 +91,18 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit object PropertyWriter extends BSONDocumentWriter[Property[_]] {
 
-        override def write(t: Property[_]) = {
-          val id = () => BSONObjectID.parse(t._id).get
-          t match {
-            case x: BooleanProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> BooleanPropertyClz
-            )
-            case x: IntProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> IntPropertyClz
-            )
-            case x: LongProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> LongPropertyClz
-            )
-            case x: DoubleProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> DoublePropertyClz
-            )
-            case x: StringProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> StringPropertyClz
-            )
-            case x: IntListProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> IntListPropertyClz
-            )
-            case x: LongListProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> LongListPropertyClz
-            )
-            case x: DoubleListProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> DoubleListPropertyClz
-            )
-            case x: StringListProperty => BSONDocument(
-              "_id" -> id(),
-              "value" -> x.value,
-              "className" -> StringListPropertyClz
-            )
-          }
+        def w[T, V <: BSONValue](x:Property[T])(implicit writer: BSONWriter[T, V]) =
+          BSONDocument("_id" -> BSONObjectID.parse(x._id).get, "value" -> x.value, "className" -> x.getClass.getName)
+        override def write(t: Property[_]) = t match {
+          case x: BooleanProperty => w(x)
+          case x: IntProperty => w(x)
+          case x: LongProperty => w(x)
+          case x: DoubleProperty => w(x)
+          case x: StringProperty => w(x)
+          case x: IntListProperty => w(x)
+          case x: LongListProperty => w(x)
+          case x: DoubleListProperty => w(x)
+          case x: StringListProperty => w(x)
         }
       }
 
