@@ -74,95 +74,75 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit object PropertyReader extends BSONDocumentReader[Property[_]] {
 
-        override def read(bson: BSONDocument) = bson.getAs[String]("className") match {
-          case Some(BooleanPropertyClz) => BooleanProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[Boolean]("value").get
-          )
-          case Some(IntPropertyClz) => IntProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[Int]("value").get
-          )
-          case Some(LongPropertyClz) => LongProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[Long]("value").get
-          )
-          case Some(StringPropertyClz) => StringProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[String]("value").get
-          )
-          case Some(DoublePropertyClz) => DoubleProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[Double]("value").get
-          )
-          case Some(IntListPropertyClz) => IntListProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[List[Int]]("value").get
-          )
-          case Some(LongListPropertyClz) => LongListProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[List[Long]]("value").get
-          )
-          case Some(DoubleListPropertyClz) => DoubleListProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[List[Double]]("value").get
-          )
-          case Some(StringListPropertyClz) => StringListProperty(
-            bson.getAs[BSONObjectID]("_id").get.stringify,
-            bson.getAs[List[String]]("value").get
-          )
-          case x => throw InitializableError(s"Can't read BSON property: ${bson} with className: ${x}")
+        override def read(bson: BSONDocument) = {
+          val id = () => bson.getAs[BSONObjectID]("_id").get.stringify
+
+          bson.getAs[String]("className") match {
+            case Some(BooleanPropertyClz) => BooleanProperty(id(), bson.getAs[Boolean]("value").get)
+            case Some(IntPropertyClz) => IntProperty(id(), bson.getAs[Int]("value").get)
+            case Some(LongPropertyClz) => LongProperty(id(), bson.getAs[Long]("value").get)
+            case Some(StringPropertyClz) => StringProperty(id(), bson.getAs[String]("value").get)
+            case Some(DoublePropertyClz) => DoubleProperty(id(), bson.getAs[Double]("value").get)
+            case Some(IntListPropertyClz) => IntListProperty(id(), bson.getAs[List[Int]]("value").get)
+            case Some(LongListPropertyClz) => LongListProperty(id(), bson.getAs[List[Long]]("value").get)
+            case Some(DoubleListPropertyClz) => DoubleListProperty(id(), bson.getAs[List[Double]]("value").get)
+            case Some(StringListPropertyClz) => StringListProperty(id(), bson.getAs[List[String]]("value").get)
+            case x => throw InitializableError(s"Can't read BSON property: ${bson} with className: ${x}")
+          }
         }
       }
 
       implicit object PropertyWriter extends BSONDocumentWriter[Property[_]] {
+        val id = (x: String) => BSONObjectID.parse(x).get
 
-        override def write(t: Property[_]) = t match {
-          case x: BooleanProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[Boolean],
-            "className" -> BooleanPropertyClz
-          )
-          case x: IntProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[Int],
-            "className" -> IntPropertyClz
-          )
-          case x: LongProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[Long],
-            "className" -> LongPropertyClz
-          )
-          case x: DoubleProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[Double],
-            "className" -> DoublePropertyClz
-          )
-          case x: StringProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[String],
-            "className" -> StringPropertyClz
-          )
-          case x: IntListProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[List[Int]],
-            "className" -> IntListPropertyClz
-          )
-          case x: LongListProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[List[Long]],
-            "className" -> LongListPropertyClz
-          )
-          case x: DoubleListProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[List[Double]],
-            "className" -> DoubleListPropertyClz
-          )
-          case x: StringListProperty => BSONDocument(
-            "_id" -> BSONObjectID.parse(x._id).get,
-            "value" -> x.value.asInstanceOf[List[String]],
-            "className" -> StringListPropertyClz
-          )
+        override def write(t: Property[_]) = {
+          t match {
+            case x: BooleanProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> BooleanPropertyClz
+            )
+            case x: IntProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> IntPropertyClz
+            )
+            case x: LongProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> LongPropertyClz
+            )
+            case x: DoubleProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> DoublePropertyClz
+            )
+            case x: StringProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> StringPropertyClz
+            )
+            case x: IntListProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> IntListPropertyClz
+            )
+            case x: LongListProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> LongListPropertyClz
+            )
+            case x: DoubleListProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> DoubleListPropertyClz
+            )
+            case x: StringListProperty => BSONDocument(
+              "_id" -> id(x._id),
+              "value" -> x.value,
+              "className" -> StringListPropertyClz
+            )
+          }
         }
       }
 
