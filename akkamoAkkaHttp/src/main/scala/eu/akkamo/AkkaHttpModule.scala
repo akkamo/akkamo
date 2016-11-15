@@ -4,12 +4,13 @@ import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
+import akka.event.Logging.LogLevel
 import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import akka.http.scaladsl.server.directives.{DebuggingDirectives, LogEntry, LoggingMagnet}
+import akka.http.scaladsl.server.{Route, RouteResult}
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
@@ -106,7 +107,7 @@ object RouteRegistry {
   *       host = "localhost" // host, default localhost
   *       akkaAlias = "alias" // not required, default is used if exists
   *       requestLogLevel = "INFO"  // defines level for request level logging. Default "off" means no logging
-  *       requestLogFormat = "%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}" // defines log format, defaults to this if not specified
+  *       requestLogFormat = "%1s %2s: HTTP/%3s%4s headers:%5s" // defines log format, defaults to this if not specified
   *     },
   *     // configuration registered as default (only one instance is allowed)
   *     name2 = {
@@ -120,6 +121,8 @@ object RouteRegistry {
   * the `akkamo.akkaHttp`, instance of [[RouteRegistry]] is registered to the ''Akkamo'' context
   * both using its name (e.g. ''name1'') and aliases (e.g. ''alias1'') if provided. Injected
   * instance of [[RouteRegistry]] can be then used to register own Akka HTTP routes.
+  *
+  * log format: 1 - method, 2 - relative uri, 3 - status, 4-extrainfo about failure if presented, 5 - headers
   *
   * @author jubu
   * @see RouteRegistry
@@ -180,6 +183,31 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
     def aliases: List[String]
 
+    def logRequestResult(level: LogLevel, logFormat: String, route: Route)
+                        (implicit ec: ExecutionContext): Route = {
+
+
+      def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
+        def format(status: String) = {
+          val method = req.method.value
+          val uri = req.uri.toRelative.toString
+          val headers = req.headers.mkString(",")
+          logFormat.format(method, uri, status, headers)
+        }
+        val entry = res match {
+          case Complete(resp) =>
+            Future.successful(LogEntry(format(resp.status.toString), level))
+          case Rejected(rejections) if rejections.isEmpty =>
+            Future.successful(LogEntry(format("404 Not Found"), level))
+          case Rejected(rejections) =>
+            Future.successful(LogEntry(format("400 Bad Request"), level))
+        }
+        entry.foreach(_.logTo(logger))
+      }
+      DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))(route)
+    }
+
+
     override def toString() = {
       s"${this.getClass.getSimpleName}(aliases=${aliases}, uri=${interface}:${port}, isDefault=${default})"
     }
@@ -196,7 +224,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       if (requestLogLevel == "off") {
         Http().bindAndHandle(route, interface, port)
       } else {
-        val myLoggedRoute = logRequestResult(requestLogLevel, requestLogFormat, route)
+        val myLoggedRoute = logRequestResult(
+          Logging.levelFor(requestLogLevel).getOrElse(Logging.InfoLevel), requestLogFormat, route)
         Http().bindAndHandle(myLoggedRoute, interface, port)
       }
     }
@@ -220,7 +249,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       if (requestLogLevel == "off") {
         Http().bindAndHandle(route, interface, port, ctx)
       } else {
-        val myLoggedRoute = logRequestResult(requestLogLevel, requestLogFormat, route)
+        val myLoggedRoute = logRequestResult(
+          Logging.levelFor(requestLogLevel).getOrElse(Logging.InfoLevel), requestLogFormat, route)
         Http().bindAndHandle(myLoggedRoute, interface, port, ctx)
       }
     }
@@ -248,8 +278,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config._
-    println(">>>>> initialized published locally")
-
     // create list of configuration tuples
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 
@@ -302,40 +330,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-  def logRequestResult(logLevel: String, logFormat: String, route: Route)
-                      (implicit ec: ExecutionContext): Route = {
 
-    def requestLog(request: HttpRequest, status: String, log: LoggingAdapter): String = {
-      val replacements: Map[String, String] = Map(
-        "HTTP_METHOD" -> request.method.value,
-        "REQ_URI" -> request.uri.toString(),
-        "RESP_STATUS" -> status
-      )
-
-      ParamsReplacer.replaceParams(logFormat, replacements, Some(log))
-    }
-
-    def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: Any): Unit = {
-      println(">>>>> logging function was called")
-
-      val level = Logging.levelFor(logLevel).getOrElse(Logging.DebugLevel)
-      val entry = res match {
-        case Complete(resp) =>
-          Future.successful(LogEntry(requestLog(req, resp.status.toString(), logger), level))
-        case Rejected(rejections) if rejections.isEmpty =>
-          Future.successful(LogEntry(requestLog(req, "404 Not Found", logger), level))
-        case Rejected(rejections) =>
-          Future.successful(LogEntry(requestLog(req, "400 Bad Request", logger), level))
-        case other => Future.successful(LogEntry(s"Other: ${other}", level))
-      }
-      entry.foreach(_.logTo(logger))
-    }
-    println(">>>>> logRequestResult was initialized")
-
-    DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))(route)
-  }
-
-  private def defaultLogFormat: String = "%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}"
+  private def defaultLogFormat: String = "%1s %2s: HTTP/%3s/ headers:%5s"
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
