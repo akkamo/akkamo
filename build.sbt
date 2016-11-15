@@ -98,6 +98,7 @@ lazy val akkamoRoot = project.in(file("."))
   .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamoAkkaDependencies,
+    akkamoAkkaHttpDependencies,
     akkamo, akkamoAkkaHttp, akkamoReactivemongo, akkamoMongo, akkamoKafka,
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
   )
