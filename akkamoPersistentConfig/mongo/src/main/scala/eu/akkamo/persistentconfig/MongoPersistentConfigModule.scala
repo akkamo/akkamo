@@ -74,6 +74,9 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
         private val DoubleListPropertyClz = DoubleListProperty.getClass.getName
         private val StringListPropertyClz = StringListProperty.getClass.getName
 
+        override def read(bson: BSONDocument) = {
+          val id = () => bson.getAs[BSONObjectID]("_id").get.stringify
+
           bson.getAs[String]("className") match {
             case Some(BooleanPropertyClz) => BooleanProperty(id(), bson.getAs[Boolean]("value").get)
             case Some(IntPropertyClz) => IntProperty(id(), bson.getAs[Int]("value").get)
