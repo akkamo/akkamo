@@ -6,7 +6,7 @@ import eu.akkamo._
 import eu.akkamo.mongo.{ReactiveMongoApi, ReactiveMongoModule}
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.api.commands.WriteResult
-import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID, BSONReader, BSONValue, BSONWriter}
+import reactivemongo.bson.{BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONObjectID, BSONValue, BSONWriter}
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -29,7 +29,7 @@ case class LongListProperty(val _id: String, val value: List[Long]) extends Prop
 
 case class DoubleListProperty(val _id: String, val value: List[Double]) extends Property[List[Double]]
 
-sealed trait Property[V]  {
+sealed trait Property[V] {
   val _id: String
   val value: V
 }
@@ -94,8 +94,9 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
       implicit object PropertyWriter extends BSONDocumentWriter[Property[_]] {
 
-        def w[T, V <: BSONValue](x:Property[T])(implicit writer: BSONWriter[T, V]) =
+        def w[T, V <: BSONValue](x: Property[T])(implicit writer: BSONWriter[T, V]) =
           BSONDocument("_id" -> BSONObjectID.parse(x._id).get, "value" -> x.value, "className" -> x.getClass.getName)
+
         override def write(t: Property[_]) = t match {
           case x: BooleanProperty => w(x)
           case x: IntProperty => w(x)
