@@ -115,7 +115,5 @@ class AkkaLogModule extends LogModule {
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[AkkaModule]
 
-
-
   override def iKey() = classOf[LogModule]
 }

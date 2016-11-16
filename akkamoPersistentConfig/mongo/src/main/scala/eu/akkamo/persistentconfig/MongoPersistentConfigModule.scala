@@ -1,6 +1,5 @@
 package eu.akkamo.persistentconfig
 
-import akka.event.LoggingAdapter
 import com.typesafe.config.Config
 import eu.akkamo._
 import eu.akkamo.mongo.{ReactiveMongoApi, ReactiveMongoModule}
@@ -43,17 +42,15 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
   val cfgKey = "persistentConfig"
 
   override def initialize(ctx: Context) = Try {
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
-    val api = ctx.inject[ReactiveMongoApi](cfgKey).getOrElse(throw InitializableError("Missing ReactiveMongoApi instance!"))
-    val cfg = ctx.inject[Config].get
-    val register = initialize(log, api, cfg)
+    val register = build(ctx)
     ctx.register[PersistentConfig](register)
   }
 
   override def dependencies(dependencies: Dependency): Dependency =
     dependencies.&&[ConfigModule].&&[ReactiveMongoModule].&&[LogModule]
 
-  def initialize(log: LoggingAdapter, api: ReactiveMongoApi, config: Config): PersistentConfig = {
+  def build(ctx: Context): PersistentConfig = {
+    val api = ctx.inject[ReactiveMongoApi](cfgKey).getOrElse(throw InitializableError("Missing ReactiveMongoApi instance!"))
 
     val mongoStorage = new Storage {
 
@@ -150,7 +147,7 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
     new PersistentConfig with StorageHolder with ConfigHolder {
       override def storage: Storage = mongoStorage
 
-      override def cfg: Config = config
+      override def cfg: Config = ctx.inject[Config].get
     }
   }
 
