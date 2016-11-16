@@ -1,6 +1,5 @@
 package eu.akkamo.mongo
 
-import akka.event.LoggingAdapter
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import eu.akkamo.config._
@@ -94,11 +93,12 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
                            db: DB with DBMetaCommands) extends ReactiveMongoApi
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
+    dependencies.&&[ConfigModule].&&[LogModule]
 
   override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+
     log.info("Initializing 'ReactiveMongo' module")
 
     val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg), None)
@@ -108,7 +108,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   }
 
   override def dispose(ctx: Context) = Try {
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     log.info("Dispose 'ReactiveMongo' module")
     ctx.inject[MongoDriver](ReactiveMongoModuleKey).foreach(_.close())
     ()

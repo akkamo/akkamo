@@ -5,7 +5,7 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
 import akka.event.Logging.LogLevel
-import akka.event.{Logging, LoggingAdapter}
+import akka.event.{Logging, LoggingAdapter => AkkaLogingAdapter}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
@@ -168,6 +168,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private val bindings = List.empty[ServerBinding]
 
+  private def defaultLogFormat: String = "%1s %2s: HTTP/%3s/ headers:%5s"
 
   private[AkkaHttpModule] trait BaseRouteRegistry extends ServerBindingGetter with RouteRegistry {
 
@@ -187,7 +188,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
                         (implicit ec: ExecutionContext): Route = {
 
 
-      def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
+      def myLoggingFunction(logger: AkkaLogingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
         def format(status: String) = {
           val method = req.method.value
           val uri = req.uri.toRelative.toString
@@ -270,14 +271,11 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     *         In case of incomplete initialization system will call this method again.
     *         Incomplete initialization mean That component is not able to find all dependencies.
     */
-  override def initialize(ctx: Context) = {
-    val cfg = ctx.inject[Config]
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
-    initialize(ctx, cfg.get, log.get)
-  }
-
-  def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
+  override def initialize(ctx: Context) = Try {
     import config._
+    val cfg = ctx.inject[Config].get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+
     // create list of configuration tuples
     val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
 
@@ -330,16 +328,15 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-
-  private def defaultLogFormat: String = "%1s %2s: HTTP/%3s/ headers:%5s"
-
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
+
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val httpConfigs = ctx.registered[RouteRegistry].keySet.map(_.asInstanceOf[BaseRouteRegistry])
     val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can't initialize route ${p}", th)))
+
     Future.sequence(futures).map { p =>
       log.info(s"run: ${httpConfigs}")
       ctx
@@ -348,6 +345,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   override def dispose(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
+
     val futures = bindings.map(p => p.unbind().transform(p => p, th => DisposableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p => () }
   }
@@ -369,21 +367,29 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   private def getHttpsConnectionContextFormConfig(implicit cfg: Config) = {
+
     val keyStoreName = config.get[String](KeyStoreName).getOrElse(
       throw InitializableError("Can't find keyStoreName value"))
+
     val keyStorePassword = config.get[String](KeyStorePassword).getOrElse(
       throw InitializableError("Can't find keyStorePassword value")).toCharArray
+
     //val sslCtx = SSLContext.getInstance("TLS")
     val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
       throw InitializableError(s"Can't initialize key store for keyStoreName: ${keyStoreName}"))
+
     val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
     keyStore.load(keyStoreStream, keyStorePassword)
+
     val keyManagerFactory = KeyManagerFactory.getInstance(get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
     keyManagerFactory.init(keyStore, keyStorePassword)
+
     val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
     trustManagerFactory.init(keyStore)
+
     val sslContext: SSLContext = get[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
     sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
+
     ConnectionContext.https(sslContext)
   }
 }

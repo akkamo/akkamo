@@ -1,6 +1,5 @@
 package eu.akkamo.mongo
 
-import akka.event.LoggingAdapter
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
@@ -57,7 +56,7 @@ class MongoModule extends Module with Initializable with Disposable {
   override def initialize(ctx: Context): Res[Context] = Try {
     import eu.akkamo.config.blockAsMap
     val cfg: Config = ctx.get[Config]
-    val log: LoggingAdapter = ctx.get[LoggingAdapterFactory].apply(getClass)
+    val log = ctx.get[LoggingAdapterFactory].apply(getClass)
 
     log.info("Initializing 'MongoDB' module...")
     val configMap = blockAsMap(Keys.ConfigNamespace)(cfg).getOrElse(defaultConfig)
