@@ -3,7 +3,7 @@ package eu.akkamo.kafka
 import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
 
-import akka.event.LoggingAdapter
+
 import com.typesafe.config.Config
 import eu.akkamo.{InitializableError, _}
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -56,7 +56,7 @@ class KafkaModule extends Module with Initializable with Disposable {
   private val Aliases = "aliases"
 
   override def initialize(ctx: Context) = Try {
-    implicit val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    implicit val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
 
     val defs = normalize(blockAsMap(key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {

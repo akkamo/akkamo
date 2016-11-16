@@ -75,7 +75,7 @@ class AkkaModule extends Module with Initializable with Disposable {
         }
         val defaultCount = ret.count({ case (_, _, x) => x })
         if (defaultCount != 1) {
-          throw new InitializableError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
+          throw InitializableError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
         }
         ret
       }
@@ -105,11 +105,7 @@ class AkkaModule extends Module with Initializable with Disposable {
 
   @throws[DisposableError]("If dispose execution fails")
   override def dispose(ctx: Context) = {
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (getClass)).get
-    log.info(s"Terminating Actor systems: $actorSystems")
-
     import scala.concurrent.ExecutionContext.Implicits.global
-
     val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p => () }
   }

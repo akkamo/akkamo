@@ -1,6 +1,5 @@
 package eu.akkamo.web
 
-import akka.event.LoggingAdapter
 import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo.web.WebContentRegistry.{ContentMapping, RouteGenerator}
@@ -170,12 +169,13 @@ class WebContentModule extends Module with Initializable with Runnable {
 
   override def run(ctx: Context) = Try {
     import akka.http.scaladsl.server.Directives._
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+
     ctx.registered[WebContentRegistry].foldLeft(ctx) { (ctx, r) =>
       val (wcr, _) = r
       // build routes
       val routes = wcr.mapping.map { case (prefix, rg) =>
-        log.debug(s"generating route for ${Prefix}: ${Prefix}")
+        log.debug(s"generating route for ${Prefix}: ${prefix}")
         pathPrefix(prefix)(get(rg()))
       }
       // register routes
