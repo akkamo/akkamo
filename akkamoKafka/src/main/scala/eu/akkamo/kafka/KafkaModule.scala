@@ -3,6 +3,7 @@ package eu.akkamo.kafka
 import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
 
+
 import com.typesafe.config.Config
 import eu.akkamo.{InitializableError, _}
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -36,7 +37,7 @@ import scala.util.{Failure, Success, Try}
   * @author JuBu
   *
   */
-class KafkaModule extends Module with Initializable with Disposable with Publisher {
+class KafkaModule extends Module with Initializable with Disposable {
 
   import config._
 
@@ -85,11 +86,11 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
     if (dc > 1) {
       throw InitializableError(s"Ambiguous default instances in Kafka configurations")
     }
-    if (dc == 0 && defs.size > 1) {
+    if(dc == 0 && defs.size > 1) {
       throw InitializableError(s"Missing default instances in Kafka configurations")
     }
     // transform to have isDefault = true
-    if (dc == 0 && defs.size == 1) {
+    if(dc == 0 && defs.size == 1) {
       defs.map(_.copy(isDefault = true))
     } else {
       defs
@@ -108,13 +109,12 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
   }
 
 
+
   private def loadProperties(path: String): Properties = {
     def loadFromClassPath: Option[InputStream] =
       Option.apply(this.getClass.getResourceAsStream(s"/$path"))
-
     def loadFromDir(dir: String): Option[InputStream] =
       Try(new FileInputStream(new File(dir, path))).toOption
-
     def loadFromAbsolutePath: Option[InputStream] = loadFromDir(null)
 
     val streamOpt: Option[InputStream] = loadFromAbsolutePath
@@ -143,9 +143,7 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
   }
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[LoggingAdapterFactory].&&[Config]
-
-  override def publish(): Set[Class[_]] = Set(classOf[KC], classOf[KP])
+    dependencies.&&[LogModule].&&[ConfigModule]
 
   private def buildDef(key: String, cfg: Config)(implicit log: LoggingAdapter) = {
     val propertiesFileName = get[String](Properties, cfg)
