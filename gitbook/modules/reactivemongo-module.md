@@ -119,6 +119,18 @@ This module registers into the *Akkamo context* following types:
   - `db: reactivemongo.api.DB` - reference to the *ReactiveMongo* database (see
     [Scaladoc](http://reactivemongo.org/releases/0.11/api/#reactivemongo.api.DB))
 
+## Extra configuration
+The next snipped of configuration shows way how to configure Actor system used by REactive mongo driver.   
+```
+akkamo.reactiveMongoConfig {
+  mongo-async-driver {
+    akka {
+      loglevel = WARNING
+    }
+  }
+}
+```
+
 ## Module dependencies
 This module depends on following core modules:
 

@@ -1,5 +1,6 @@
 package eu.akkamo.mongo
 
+import akka.event.LoggingAdapter
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import eu.akkamo.config._
@@ -7,7 +8,6 @@ import reactivemongo.api.{DB, DBMetaCommands, MongoConnection, MongoDriver}
 
 import scala.collection.Map
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.util.Try
 
 /**
@@ -43,13 +43,15 @@ trait ReactiveMongoApi {
   *
   * = Example configuration =
   * {{{
+  *   akkamo.reactiveMongoConfig {
+  *    	// ReactiveMongo loads driver configuration from here (e.g. configuration of the underlying Akka system)
+  *    	mongo-async-driver {
+  *    	  akka {
+  *      	  	loglevel = WARNING
+  *     	}
+  *     }
+  *   }
   *   akkamo.reactiveMongo {
-  *
-  *    	// ReactiveMongo loads its configuration from here (e.g. configuration of the
-  *    	// underlying Akka system)
-  *    	akka {
-  *      		loglevel = WARNING
-  *    	}
   *     name1 = {
   *       aliases=["alias1", "alias2"]
   *       default = true // required if more than one reactive mongo configuration exists
@@ -71,6 +73,8 @@ trait ReactiveMongoApi {
   *
   * ==If configuration is missing, then default entry with `uri: mongodb://localhost/default` is created.==
   *
+  * Remarks:
+  *
   * @author vaclav.svejcar
   * @author jubu
   */
@@ -86,31 +90,30 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   val DefaultKey: String = "default"
   val UriKey: String = "uri"
 
-  val ConnectionStartTimeout: FiniteDuration = 30.seconds
-  val ConnectionStopTimeout: FiniteDuration = 10.seconds
+  val MongoDriverKey = ReactiveMongoModuleKey + "Config"
 
   case class ReactiveMongo(driver: MongoDriver, connection: MongoConnection,
                            db: DB with DBMetaCommands) extends ReactiveMongoApi
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[ConfigModule].&&[LogModule]
+    dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
 
   override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
     log.info("Initializing 'ReactiveMongo' module")
 
-    val driver = new MongoDriver(get[Config](ReactiveMongoModuleKey, cfg), None)
-    val ctx2 = ctx.register(driver, ReactiveMongoModuleKey)
+    val driver = new MongoDriver(get[Config](MongoDriverKey, cfg))
+    val ctx2 = ctx.register(driver)
     // we must remove driver by hands if something goes wrong
-    registerConnections(ctx2, cfg).transform(identity, {th=> Try(driver.close()); th})
+    registerConnections(ctx2, cfg).transform(identity, { th => Try(driver.close()); th })
   }
 
   override def dispose(ctx: Context) = Try {
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     log.info("Dispose 'ReactiveMongo' module")
-    ctx.inject[MongoDriver](ReactiveMongoModuleKey).foreach(_.close())
+    ctx.inject[MongoDriver](ReactiveMongoModuleKey).map(_.close())
     ()
   }
 
@@ -131,7 +134,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
 
       val defaults: Int = configs count (_.default)
       if (defaults != 1) {
-        throw InitializableError(s"Found $defaults default config blocks in module " +
+        throw new InitializableError(s"Found $defaults default config blocks in module " +
           s"configuration. Only one module can be declared as default.")
       }
       configs.toList
@@ -139,7 +142,7 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   }
 
   private def registerConnections(ctx: Context, cfg: Config) = {
-    val driver = ctx.get[MongoDriver](ReactiveMongoModuleKey)
+    val driver = ctx.get[MongoDriver]
     val configMap = akkamo.config.blockAsMap(ReactiveMongoModuleKey)(cfg).getOrElse(makeDefault)
     parseConfig(configMap).foldLeft(Future.successful(ctx)) { case (ctxFt, conf) =>
       val connFt: Future[ReactiveMongo] = wrapInitErr(createConnection(driver, conf),
@@ -181,6 +184,8 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
   }
 
   private def wrapInitErr[T] = wrapErr[T](InitializableError) _
+
+  private def wrapDispErr[T] = wrapErr[T](DisposableError) _
 
   private case class Conf(name: String, config: Config, default: Boolean, aliases: Seq[String])
 
