@@ -13,7 +13,7 @@ _ScalaDoc_ documentation for each version is available online for, see:
 _Akkamo_ is available for Scala 2.11
 To get started with SBT, add dependency to your `build.sbt` file:
 ```Scala
-libraryDependencies += "eu.akkamo" %% "akkamo" % "1.0.3" withSources
+libraryDependencies += "eu.akkamo" %% "akkamo" % "1.0.4" withSources
 ```
 _Akkamo_ consist from multiple modules, please consult documentation 
 if you want use other modules.
