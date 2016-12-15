@@ -21,8 +21,10 @@ specified HTTP connection.
   [Akka module](akka-module.md), if not defined, *default* registered actor system will be used
 - `requestLogLevel` *(optional)* - defined log level for request level logging, default `off` means
   no logging
+- `useMDC` - *(optional)* - `true/false` (default false) defines usage of logger than support custom 
+[MDC](http://logback.qos.ch/manual/mdc.html), in this case headers are mapped in to MDC     
 - `requestLogFormat` *(optional)* - defined log format, defaults to
-  `%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}` if no custom format defined
+   "%1s %2s: HTTP/%3s headers:%4s" or "%1s %2s: HTTP/%3s" (if useMDC=true) if no custom format defined
 
 Example of fully working configuration is shown below:
 
@@ -49,7 +51,7 @@ custom log format can be specified using own log string with parameters placehol
 automatically replaced by actual values. Example of such log string is shown below:
 
 ```
-%{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}
+"%1s %2s: HTTP/%3s headers:%4s"
 ```
 
 Each parameter is enclosed between the `%{` and `}` strings, e.g. `%{PARAM_NAME}`. Recommended param
@@ -57,16 +59,11 @@ name style is uppercase with words separated using underscore.
 
 At this moment, following parameters are available for use:
 
-- `${HTTP_METHOD}` - is replaced with the actual request HTTP method (e.g. `POST`)
-- `${REQ_URI}` - is replaced with the actual request URI (e.g. `http://localhost/foo/bar`)
-- `${RESP_STATUS}` - is replaced with the actual response status (e.g. `403 Forbidden`)
+1. is replaced with the actual request HTTP method (e.g. `POST`)
+2. is replaced with the actual request reklative uri URI
+3. is replaced with the actual response status (e.g. `403 Forbidden`)
+4. is replaced with list of headers (only if useMDC=false)
 
-If unknown parameter name is used (e.g. accidentally misspelled), warning message will be logged in
-following format:
-
-```
-Invalid param 'FOO' in source string '%{FOO} %{HTTP_METHOD} %{REQ_URI}: HTTP/%{RESP_STATUS}'
-```
 
 ## How to use in your module
 Each configured connection registers into the *Akkamo context* instance of `RouteRegistry`,
