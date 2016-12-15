@@ -1,9 +1,9 @@
-import sbt.Keys._
-import UnidocKeys._
 import com.typesafe.sbt.pgp.PgpKeys._
+import sbtunidoc.Plugin.UnidocKeys._
 
 lazy val cScalaVersion = "2.11.8"
-lazy val cAkkaVersion = "2.4.9"
+lazy val cAkkaVersion = "2.4.14"
+lazy val cAkkaHttpVersion = "10.0.0"
 
 organization in Global := "eu.akkamo"
 
@@ -80,7 +80,7 @@ scalacOptions in Global := Seq(
   "-Ywarn-unused-import"
 )
 
-version in Global := "1.0.3"
+version in Global := "1.0.5"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})
@@ -100,7 +100,7 @@ lazy val akkamo = project.in(file("akkamo")).settings(
     "com.typesafe.akka" %% "akka-cluster" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-contrib" % cAkkaVersion withSources,
     "com.typesafe.akka" %% "akka-testkit" % cAkkaVersion % "test" withSources,
-    "com.typesafe.akka" % "akka-slf4j_2.11" % cAkkaVersion withSources,
+    "com.typesafe.akka" %% "akka-slf4j" % cAkkaVersion withSources,
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
   )
 )
@@ -108,8 +108,11 @@ lazy val akkamo = project.in(file("akkamo")).settings(
 lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
   name := "akkamo-akka-http",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-http-experimental" % cAkkaVersion withSources,
-    "com.typesafe.akka" %% "akka-http-testkit" % cAkkaVersion % "test" withSources,
+    "com.typesafe.akka" %% "akka-http-core" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-spray-json" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-jackson" % cAkkaHttpVersion withSources,
+    "com.typesafe.akka" %% "akka-http-xml" % cAkkaHttpVersion withSources,
     "org.scalatest" %% "scalatest" % "3.0.0-RC2" % "test" withSources
   )
 ).dependsOn(akkamo)
