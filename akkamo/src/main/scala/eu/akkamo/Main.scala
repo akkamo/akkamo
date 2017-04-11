@@ -1,7 +1,5 @@
 package eu.akkamo
 
-import java.util.concurrent.atomic.AtomicReference
-
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -88,7 +86,7 @@ private[akkamo] object CTX {
     *
     * keep last created context in local thread variable
      */
-  private[CTX] val last  = new AtomicReference[(Context, Array[StackTraceElement])]()
+  private[CTX] val last  = new ThreadLocal[(Context, Array[StackTraceElement])]()
 
   /**
     * compare `ctx` with last created Context
