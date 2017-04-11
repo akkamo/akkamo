@@ -82,9 +82,9 @@ class MyModule extends Module with Initializable {
 
   }
 
-  // don't forget to add MongoModule module dependency to your module
+  // don't forget to add MongoApi module dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
-    dependencies.&&[MongoModule]
+    dependencies.&&[MongoApi]
 }
 ```
 

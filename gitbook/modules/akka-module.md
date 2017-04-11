@@ -84,9 +84,9 @@ class MyModule extends Module with Initializable {
 
   }
 
-  // don't forget to add Akka module dependency to your module
+  // don't forget to add ActorSystem dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
-    dependencies.&&[AkkaModule]
+    dependencies.&&[ActorSystem]
 }
 ```
 

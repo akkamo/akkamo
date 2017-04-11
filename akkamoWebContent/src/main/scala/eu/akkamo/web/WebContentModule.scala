@@ -97,7 +97,7 @@ object WebContentRegistry {
   *
   * @author jubu
   */
-class WebContentModule extends Module with Initializable with Runnable {
+class WebContentModule extends Module with Initializable with Runnable with Publisher {
 
   import config._
 
@@ -187,7 +187,10 @@ class WebContentModule extends Module with Initializable with Runnable {
   }
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[LogModule].&&[ConfigModule].&&[AkkaHttpModule]
+    dependencies.&&[LoggingAdapterFactory].&&[Config].&&[RouteRegistry]
+
+
+  override def publish(): Set[Class[_]] = Set(classOf[WebContentRegistry])
 
   private def getRouteGenerators(p: List[Config]) = p.map { cfg =>
     val className = get[String](Clazz, cfg).getOrElse(classOf[FileFromDirGenerator].getName)

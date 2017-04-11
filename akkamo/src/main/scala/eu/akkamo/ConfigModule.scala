@@ -1,6 +1,6 @@
 package eu.akkamo
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 /**
   * Module providing application-wide configuration, using the ''Typesafe Config'' library.
@@ -9,7 +9,7 @@ import com.typesafe.config.ConfigFactory
   *
   * @author jubu
   */
-class ConfigModule extends Module with Initializable {
+class ConfigModule extends Module with Initializable with Publisher {
 
   /**
     * Initializes ''Typesafe Config'' configuration and registers into the ''Akkamo'' context.
@@ -22,4 +22,10 @@ class ConfigModule extends Module with Initializable {
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies
+
+  /**
+    *
+    * @return class of Config is published
+    */
+  override def publish(): Set[Class[_]] = Set(classOf[Config])
 }

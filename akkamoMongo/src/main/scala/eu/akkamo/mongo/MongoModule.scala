@@ -41,7 +41,7 @@ import scala.util.Try
   *
   * @author Vaclav Svejcar (vaclav.svejcar@gmail.com)
   */
-class MongoModule extends Module with Initializable with Disposable {
+class MongoModule extends Module with Initializable with Disposable with Publisher {
 
   object Keys {
     val Aliases = "aliases"
@@ -51,7 +51,9 @@ class MongoModule extends Module with Initializable with Disposable {
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies
-    .&&[ConfigModule].&&[LogModule]
+    .&&[Config].&&[LoggingAdapterFactory]
+
+  override def publish(): Set[Class[_]] = Set(classOf[MongoApi])
 
   override def initialize(ctx: Context): Res[Context] = Try {
     import eu.akkamo.config.blockAsMap

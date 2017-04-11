@@ -1,4 +1,6 @@
 # Log module
+TODO review documentation - new multiple implementations 
+
 This module provides logging support for non-*Akka* components, using the standard
 [Akka Logging](http://doc.akka.io/docs/akka/current/scala/logging.html) mechanism.
 
@@ -28,7 +30,7 @@ class MyModule extends Module with Initializable {
   
   // don't forget to add Log module dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
-    dependencies.&&[LogModule]
+    dependencies.&&[LoggingAdapter]
 }
 ```
 

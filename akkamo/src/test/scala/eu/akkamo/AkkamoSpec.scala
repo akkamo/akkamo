@@ -28,29 +28,46 @@ class AkkamoSpec extends FlatSpec with Matchers {
 
   def build(implicit initOut: IO, disposeOut: DO) = {
 
+
     class E extends P {
       override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[A]
     }
 
-    class D extends P {
+    trait DD
+
+    trait IKeyD extends Initializable
+
+    class D extends P with IKeyD with Publisher {
       override def dependencies(dependencies: Dependency): Dependency = dependencies
-    }
-    class C extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[D]
+
+      override def publish(): Set[Class[_]] = Set(classOf[DD])
+
+      override def iKey(): Class[_ <: Initializable] = classOf[IKeyD]
     }
 
-    class B extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[D]
+
+    class C extends P {
+      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[IKeyD]
+    }
+
+    trait BB
+
+    trait BBB
+
+    class B extends P with Publisher {
+      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[DD]
+
+      override def publish(): Set[Class[_]] = Set(classOf[BB], classOf[BBB])
     }
 
 
     class A extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[D].&&[C].&&[B]
+      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[IKeyD].&&[C].&&[BB]
     }
 
 
     class AE extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[D].&&[C].&&[B].&&[E]
+      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[DD].&&[C].&&[BBB].&&[E]
     }
 
     (new A, new B, new C, new D, new AE)
@@ -72,6 +89,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
       ctx.register("Caf")
       ctx
     }
+
     override def dependencies(dependencies: Dependency): Dependency = dependencies
   }
 

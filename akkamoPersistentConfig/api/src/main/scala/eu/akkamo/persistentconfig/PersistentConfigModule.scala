@@ -1,7 +1,7 @@
 package eu.akkamo.persistentconfig
 
 import com.typesafe.config.Config
-import eu.akkamo.{Initializable, Module}
+import eu.akkamo.{Initializable, Module, Publisher}
 
 import scala.concurrent.Future
 
@@ -70,4 +70,7 @@ case class PersistentConfigException(message: String, throwable: Throwable = nul
   *
   * @author jubu
   */
-trait PersistentConfigModule extends Module with Initializable
+trait PersistentConfigModule extends Module with Initializable with Publisher {
+
+  override def publish(): Set[Class[_]] = Set(classOf[PersistentConfig])
+}
