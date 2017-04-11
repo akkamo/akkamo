@@ -17,7 +17,7 @@ trait Dependency {
     * @tparam T type of dependency
     * @return chained dependencies
     */
-  def &&[T <: (Module with Initializable)](implicit ct: ClassTag[T]): Dependency
+  def &&[T](implicit ct: ClassTag[T]): Dependency
 
   def apply() = res
 

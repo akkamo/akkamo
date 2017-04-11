@@ -95,9 +95,9 @@ class MyModule extends Module with Initializable {
 
   }
 
-  // don't forget to add Akka HTTP module dependency to your module
+  // don't forget to add RouteRegistry dependency to your module
   override def dependencies(dependencies: Dependency): Dependencies =
-    dependencies.&&[AkkaHttpModule]
+    dependencies.&&[RouteRegistry]
 }
 ```
 

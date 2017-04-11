@@ -31,6 +31,22 @@ override def dependencies(dependencies: Dependency): Dependency =
 
 The above example defines the `ModuleA` and `ModuleB` modules as dependencies.
 
+If an module publish an service (interface) than if implements `eu.akkamo.Publisher` interface,
+one can use this interface as dependency. For example `ModuleA` publish interface `IServiceA` than
+one can write previous construct in following way:
+    
+```scala
+override def dependencies(dependencies: Dependency): Dependency =
+  dependencies.&&[IServiceA].&&[ModuleB]
+```
+
+> **Hint** Modules that publish an interface(s) should implement `Publisher` interface.
+> Previous example can be implemented in this way:
+>```scala
+>override def publish():Set[Class[_]] = Set(classOf[IServiceA])
+>```
+ 
+
 > **Warning** Please pay attention to always properly define your module dependencies. If not done
 so, dependend modules may not be properly initialized during the Akkamo initialization, which may
 lead to unexpected runtime errors.

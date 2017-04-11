@@ -125,7 +125,9 @@ class Akkamo {
 
     log(s"Modules: ${modules}")
 
-    val (_, ordered) = order(modules)
+    val publishers = publisherMap(modules)
+
+    val ordered = order(modules, publishers)
 
     val (ctx1, errors1) = init(ordered.reverse)(ctx)
     // end of game
@@ -163,10 +165,31 @@ class Akkamo {
     (ctx2, ordered)
   }
 
-  private def order(in: List[Module], set: Set[Class[_]] = Set.empty, out: List[Module] = Nil): (Set[Class[_]], List[Module]) = {
+  private def publisherMap(modules: List[Module]): Map[Class[_], Class[_]] = modules.flatMap(_ match {
+    case c:Publisher =>
+      val keys = c.asInstanceOf[Publisher].publish()
+      val value: Class[_] =
+        if(c.isInstanceOf[Initializable]) c.asInstanceOf[Initializable].iKey()
+        else c.getClass
+      keys.map(_ -> value)
+    case _ => List.empty
+  }).toMap
 
+
+  /**
+    * order list of the modules by dependencies if X depends on Y then X is before Y
+    *
+    * @param in input modules
+    * @param map map between interface and Module, given mapping is defined by `Publisher`
+    * @param set helper set contains included dependencies (out)
+    * @param out dependencies ordered by
+    * @return ordered list of modules
+    */
+  private def order(in: List[Module], map:Map[Class[_], Class[_]], set: Set[Class[_]] = Set.empty, out: List[Module] = Nil): List[Module] = {
+
+    // one round of this method sohould put at least one elemnt to set and out
     def orderRound(in: List[Module], set: Set[Class[_]], out: List[Module] = Nil): (Set[Class[_]], List[Module]) = {
-      val des = createDependencies(set)
+      val des = createDependencies(set, map)
       in match {
         case x :: xs => {
           val r = x.dependencies(des)
@@ -186,13 +209,13 @@ class Akkamo {
 
     val (rset, rout) = orderRound(in, set)
     if (in.isEmpty) {
-      (rset, rout ++ out)
+      rout ++ out
     } else {
       if (rout.isEmpty) {
         throw InitializationError(s"Can't initialize modules: ${in}, cycle or unresolved dependency detected.")
       }
       val df = in.diff(rout)
-      order(df, rset, rout ++ out)
+      order(df, map,rset, rout ++ out)
     }
   }
 
@@ -276,15 +299,17 @@ class Akkamo {
     case _ => out
   }
 
-  def createDependencies(dependencies: Set[Class[_]]): Dependency = {
+  def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): Dependency = {
     case class W(res: Boolean) extends Dependency {
-      override def &&[K <: Module with Initializable](implicit ct: ClassTag[K]): Dependency = {
-        W(this.res && dependencies.contains(ct.runtimeClass))
+      override def &&[K](implicit ct: ClassTag[K]): Dependency = {
+        val mr = map.get(ct.runtimeClass)
+        val mappedRes = mr.map(p=>dependencies.contains(p))
+        W(this.res &&
+          (dependencies.contains(ct.runtimeClass) ||mappedRes.getOrElse(false)))
       }
     }
     W(true)
   }
-
 }
 
 object Akkamo {

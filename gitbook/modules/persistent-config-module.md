@@ -34,9 +34,9 @@ specified by choosing the proper module implementation in the build description 
       val persistentConfig: PersistentConfig = ctx.get[PersistentConfig]
     }
 
-    // don't forget to add Persistent config module dependency to your module
+    // don't forget to add PersistentConfig dependency to your module
     override def dependencies(dependencies: Dependency): Dependencies =
-      dependencies.&&[PersistentConfigModule]
+      dependencies.&&[PersistentConfig]
   }
   ```
 

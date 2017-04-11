@@ -33,7 +33,7 @@ import scala.util.Try
   * In a case when more than one akka configuration exists, one must be denoted as `default` <br/>
   * In case when missing configuration one default Akka system is created with name default.
   */
-class AkkaModule extends Module with Initializable with Disposable {
+class AkkaModule extends Module with Initializable with Disposable with Publisher {
 
   /**
     * pointer to array containing set of akka Actor System names in configuration
@@ -110,6 +110,8 @@ class AkkaModule extends Module with Initializable with Disposable {
     Future.sequence(futures).map { p => () }
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule]
+  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config]
 
+
+  override def publish(): Set[Class[_]] = Set(classOf[ActorSystem])
 }

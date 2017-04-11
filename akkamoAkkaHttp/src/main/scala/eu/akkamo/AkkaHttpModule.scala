@@ -128,7 +128,7 @@ object RouteRegistry {
   * @see RouteRegistry
   * @see http://doc.akka.io/docs/akka/current/scala/http/
   */
-class AkkaHttpModule extends Module with Initializable with Runnable with Disposable {
+class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
   import config._
 
@@ -195,6 +195,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           val headers = req.headers.mkString(",")
           logFormat.format(method, uri, status, headers)
         }
+
         val entry = res match {
           case Complete(resp) =>
             Future.successful(LogEntry(format(resp.status.toString), level))
@@ -205,6 +206,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         }
         entry.foreach(_.logTo(logger))
       }
+
       DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))(route)
     }
 
@@ -328,7 +330,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
+  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
+
+  override def publish(): Set[Class[_]] = Set(classOf[RouteRegistry])
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global

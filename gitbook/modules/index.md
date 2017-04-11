@@ -8,4 +8,4 @@ In the default *Akkamo* distribution, several modules are available, both as a 
 * [Kafka module](kafka-module.md) - provides support for the [Apache Kafka](http://kafka.apache.org), publish-subscribe messaging rethought as a distributed commit log
 * [Log module](log-module.md) - providing logging support
 * [Persistent config module](persistent-config-module.md) - providing persistable configuration, based on the [Lightbend Config](https://github.com/typesafehub/config) and by default backed by the [MongoDB](https://www.mongodb.com) database
-* [ReactiveMongo module](reactivemongo-module.md) - provides support for the [MongoDB](https://www.mongodb.com) database, using the [ReactiveMongo](http://reactivemongo.org) Scala driver
+* [ReactiveMongo module](reactivemongo-module.md) - / TODO remove / provides support for the [MongoDB](https://www.mongodb.com) database, using the [ReactiveMongo](http://reactivemongo.org) Scala driver
