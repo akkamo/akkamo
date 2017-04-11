@@ -47,7 +47,7 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
   }
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[ConfigModule].&&[ReactiveMongoModule].&&[LogModule]
+    dependencies.&&[Config].&&[ReactiveMongoModule].&&[LoggingAdapter]
 
   def build(ctx: Context): PersistentConfig = {
     val api = ctx.inject[ReactiveMongoApi](cfgKey).getOrElse(throw InitializableError("Missing ReactiveMongoApi instance!"))
