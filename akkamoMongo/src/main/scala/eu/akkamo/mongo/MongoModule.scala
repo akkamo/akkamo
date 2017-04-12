@@ -66,19 +66,11 @@ class MongoModule extends Module with Initializable with Disposable with Publish
       log.info(s"Initializing Mongo connection for name '${conn.name}'")
       val mongoApi: MongoApi = createMongoApi(conn)
 
-      // create state builder providing safe way of altering immutable context
-      val stateB = new StateBuilder[Context](context)
+      val ctx1 = context.register[MongoApi](mongoApi, Some(conn.name))
 
-      // register the MongoApi for the specified connection name
-      stateB.next(_.register[MongoApi](mongoApi, Some(conn.name)))
+      val ctx2 = if (conn.default) ctx1.register[MongoApi](mongoApi) else ctx1
 
-      // register the MongoApi as default (if necessary)
-      if (conn.default) stateB.next(_.register[MongoApi](mongoApi))
-
-      // register the MongoApi for all specified connection aliases
-      conn.aliases foreach (alias => stateB.next(_.register[MongoApi](mongoApi, Some(alias))))
-
-      stateB.value
+      conn.aliases.foldLeft(ctx2) {(ctx, alias) => ctx.register[MongoApi](mongoApi, Some(alias)) }
     }
   }
 
@@ -119,16 +111,6 @@ class MongoModule extends Module with Initializable with Disposable with Publish
   private def defaultConfig: Map[String, Config] = Map(
     "default" -> ConfigFactory.parseString("""uri = "mongodb://localhost/default"	""".stripMargin))
 
-  private class StateBuilder[T](initial: T) {
-    private var state = initial
-
-    def next(f: T => T): StateBuilder[T] = {
-      state = f(state)
-      this
-    }
-
-    def value: T = state
-  }
 
   private case class Connection(name: String, aliases: Seq[String], default: Boolean, uri: String)
 

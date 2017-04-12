@@ -6,6 +6,8 @@ val cScalaVersion = "2.11.8"
 val cAkkaVersion = "2.4.17"
 val cAkkaHttpVersion = "10.0.5"
 val cReactiveMongoVersion = "0.12.0"
+val cMongoVersion = "2.0.0"
+val cScalaTestVersion = "3.0.1"
 
 
 organization in Global := "eu.akkamo"
@@ -108,7 +110,7 @@ lazy val akkamo = project.in(file("akkamo")).settings(
   libraryDependencies ++= Seq(
     "com.typesafe" % "config" % "1.3.1",
     "org.scala-lang" % "scala-reflect" % cScalaVersion withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 )
 
@@ -116,7 +118,7 @@ lazy val akkamoAkka = project.in(file("akkamoAkka")).settings(
   name := "akkamo-akka",
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 ).dependsOn(akkamo, akkamoLog)
 
@@ -127,7 +129,7 @@ lazy val akkamoAkkaLog = project.in(file("akkamoLog/akka")).settings(
   name := "akkamo-akka-log",
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 
 ).dependsOn(akkamoAkka, akkamoLog)
@@ -137,7 +139,7 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-http" % cAkkaHttpVersion % "provided" withSources,
     "com.typesafe.akka" %% "akka-http-testkit" % cAkkaHttpVersion % "test" withSources,
-    "org.scalatest" %% "scalatest" % "3.0.0" % "test" withSources
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 ).dependsOn(akkamoAkka)
 
@@ -152,7 +154,7 @@ lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",
   libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
-    "org.mongodb.scala" %% "mongo-scala-driver" % "2.0.0" % "provided"
+    "org.mongodb.scala" %% "mongo-scala-driver" % cMongoVersion % "provided" withSources
   )
 ).dependsOn(akkamo, akkamoLog)
 
@@ -182,10 +184,12 @@ lazy val akkamoPersistentConfig = project.in(file("akkamoPersistentConfig/api"))
 lazy val akkamoMongoPersistentConfig = project.in(file("akkamoPersistentConfig/mongo")).settings(
   name := "akkamo-mongo-persistent-config",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
-    "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
+    "org.mongodb.scala" %% "mongo-scala-driver" % cMongoVersion % "provided" withSources,
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
-).dependsOn(akkamoPersistentConfig, akkamoReactivemongo)
+).dependsOn(akkamoPersistentConfig, akkamoMongo)
+  .dependsOn(akkamoAkkaLog % "test->compile")
+  .dependsOn(akkamoAkkaDependencies % "test->compile")
 
 
 // all akka dependencies
