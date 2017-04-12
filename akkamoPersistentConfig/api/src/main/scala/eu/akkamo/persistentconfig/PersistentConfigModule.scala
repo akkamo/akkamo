@@ -17,7 +17,7 @@ trait PersistentConfig {
   self: StorageHolder with ConfigHolder =>
 
   type Reader[T] = (Storage, Config, String) => Future[T]
-  type Writer[T] = (Storage, String, T) => Future[Storage#Result]
+  type Writer[T] = (Storage, String, T) => Future[Unit]
 
   /**
     * Reads value of the persistent property, specified by its ''key''.
@@ -40,7 +40,7 @@ trait PersistentConfig {
     * @tparam T type of the property value
     * @return operation result
     */
-  def store[T](key: String, value: T)(implicit writer: Writer[T]): Future[Storage#Result] = {
+  def store[T](key: String, value: T)(implicit writer: Writer[T]): Future[Unit] = {
     writer(storage, key, value)
   }
 
@@ -50,7 +50,7 @@ trait PersistentConfig {
     * @param key property key
     * @return operation result
     */
-  def remove(key: String): Future[Storage#Result] = {
+  def remove(key: String): Future[Unit] = {
     storage.remove(key)
   }
 }
