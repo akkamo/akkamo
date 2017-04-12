@@ -136,7 +136,7 @@ object RouteRegistry {
   * @see RouteRegistry
   * @see http://doc.akka.io/docs/akka/current/scala/http/
   */
-class AkkaHttpModule extends Module with Initializable with Runnable with Disposable {
+class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
   import config._
 
@@ -193,7 +193,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
     def logDirective(level: LogLevel, formater:(String, HttpRequest)=>String) = {
 
-      def myLoggingFunction(logger: LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
+      def myLoggingFunction(logger: akka.event.LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
         val status = res match {
           case c: Complete => c.response.status.toString
           case r: Rejected => if (r.rejections.isEmpty) "404 Not Found" else "400 Bad Request"
@@ -325,7 +325,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private def defaultLogFormat(mdc:Boolean) = if(mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
+  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapter].&&[ActorSystem]
+
+  override def publish(): Set[Class[_]] = Set(classOf[RouteRegistry])
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
