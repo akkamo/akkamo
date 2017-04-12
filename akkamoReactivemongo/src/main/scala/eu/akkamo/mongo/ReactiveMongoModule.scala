@@ -1,6 +1,6 @@
 package eu.akkamo.mongo
 
-import akka.event.LoggingAdapter
+import akka.actor.ActorSystem
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo._
 import eu.akkamo.config._
@@ -96,22 +96,22 @@ class ReactiveMongoModule extends Module with Initializable with Disposable {
                            db: DB with DBMetaCommands) extends ReactiveMongoApi
 
   override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[ConfigModule].&&[LogModule].&&[AkkaModule]
+    dependencies.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
   override def initialize(ctx: Context) = {
     val cfg: Config = ctx.inject[Config].get
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
 
     log.info("Initializing 'ReactiveMongo' module")
 
-    val driver = new MongoDriver(get[Config](MongoDriverKey, cfg))
+    val driver = new MongoDriver(get[Config](MongoDriverKey, cfg), Some(Thread.currentThread().getContextClassLoader()))
     val ctx2 = ctx.register(driver)
     // we must remove driver by hands if something goes wrong
     registerConnections(ctx2, cfg).transform(identity, { th => Try(driver.close()); th })
   }
 
   override def dispose(ctx: Context) = Try {
-    val log: LoggingAdapter = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     log.info("Dispose 'ReactiveMongo' module")
     ctx.inject[MongoDriver](ReactiveMongoModuleKey).foreach(_.close())
     ()
