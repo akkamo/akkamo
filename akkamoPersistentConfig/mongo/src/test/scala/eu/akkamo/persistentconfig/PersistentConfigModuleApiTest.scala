@@ -2,8 +2,6 @@ package eu.akkamo.persistentconfig
 
 import eu.akkamo.{Akkamo, Context, Dependency, Initializable, Module}
 import org.scalatest._
-
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
 
@@ -14,7 +12,6 @@ import scala.util.Try
 class PersistentConfigModuleApiTest extends AsyncFlatSpec with BeforeAndAfter {
 
   import implicits._
-
 
   val akkamo = new Akkamo()
 
