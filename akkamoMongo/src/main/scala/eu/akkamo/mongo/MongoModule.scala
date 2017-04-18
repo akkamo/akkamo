@@ -90,10 +90,10 @@ class MongoModule extends Module with Initializable with Disposable with Publish
   }
 
   private def parseConfig(cfg: Map[String, Config]): List[Connection] = {
-    import scala.collection.JavaConversions._
+    import scala.collection.JavaConverters._
 
     def aliases(conf: Config): Seq[String] =
-      if (conf.hasPath(Keys.Aliases)) conf.getStringList(Keys.Aliases) else Seq.empty[String]
+      if (conf.hasPath(Keys.Aliases)) conf.getStringList(Keys.Aliases).asScala else Seq.empty[String]
 
     val connections: Iterable[Connection] = cfg map { case (key, value) =>
       val default: Boolean =

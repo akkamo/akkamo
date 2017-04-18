@@ -2,11 +2,10 @@ package eu.akkamo.persistentconfig
 
 import org.mongodb.scala.bson.{BsonArray, BsonValue}
 import org.mongodb.scala.bson.collection.mutable.Document
-import scala.collection.JavaConversions._
 
 
 /**
-
+  * interface that allow convert Value to Document and back
   * @tparam T the type
   * @author JuBu
   */
@@ -27,7 +26,7 @@ trait VDV[T] {
 }
 
 /**
-  *
+  * interface that allow convert List Value to Document and back to List of Value
   * @tparam T the type
   * @author JuBu
   */
@@ -35,5 +34,7 @@ trait ListVDV[T] extends VDV[List[T]] {
 
   def convert: (BsonValue) => T
 
-  override val back = (d: Document) => d.get[BsonArray]("v").map(_.getValues.toList.map(convert))
+  import scala.collection.JavaConverters._
+
+  override val back = (d: Document) => d.get[BsonArray]("v").map(_.getValues.asScala.toList.map(convert))
 }

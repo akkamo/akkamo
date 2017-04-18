@@ -19,7 +19,8 @@ object config {
 
   import com.typesafe.config.Config
 
-  import scala.collection.JavaConversions._
+  import scala.collection.JavaConverters._
+
   import scala.util.Try
 
   /**
@@ -30,7 +31,7 @@ object config {
     * @return parsed map
     */
   def blockAsMap(key: String)(implicit cfg: Config): Option[Map[String, Config]] = Try {
-    val keys = cfg.getObject(key).keySet()
+    val keys = cfg.getObject(key).keySet().asScala
     keys.map { p => (p, cfg.getConfig(s"${key}.${p}")) }.toMap.map(p => (p._1, p._2.resolve()))
   }.toOption
 
@@ -99,22 +100,22 @@ object config {
     cfg.getConfig(key)
 
   implicit val cfg2IntList: Transformer[List[Int]] = (cfg: Config, key: String) =>
-    cfg.getIntList(key).toList.asInstanceOf[List[Int]]
+    cfg.getIntList(key).asScala.toList.asInstanceOf[List[Int]]
 
   implicit val cfg2StringList: Transformer[List[String]] = (cfg: Config, key: String) =>
-    cfg.getStringList(key).toList
+    cfg.getStringList(key).asScala.toList
 
   implicit val cfg2LongList: Transformer[List[Long]] = (cfg: Config, key: String) =>
-    cfg.getLongList(key).toList.asInstanceOf[List[Long]]
+    cfg.getLongList(key).asScala.toList.asInstanceOf[List[Long]]
 
   implicit val cfg2DoubleList: Transformer[List[Double]] = (cfg: Config, key: String) =>
-    cfg.getDoubleList(key).toList.asInstanceOf[List[Double]]
+    cfg.getDoubleList(key).asScala.toList.asInstanceOf[List[Double]]
 
   implicit val cfg2ConfigList: Transformer[List[Config]] = (cfg: Config, key: String) =>
-    cfg.getConfigList(key).toList
+    cfg.getConfigList(key).asScala.toList
 
   implicit val cfg2ConfigMap: Transformer[Map[String, Config]] = (cfg: Config, key: String) => try {
-    val keys = cfg.getObject(key).keySet()
+    val keys = cfg.getObject(key).keySet().asScala
     keys.map { p => (p, cfg.getConfig(s"${key}.${p}")) }.toMap.map(p => (p._1, p._2.resolve()))
   } catch {
     case th: Throwable => throw new ConfigException.Missing(s"Can't convert config value to map for key: ${key} ", th)
