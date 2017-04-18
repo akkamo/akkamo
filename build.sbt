@@ -2,7 +2,7 @@ import com.typesafe.sbt.pgp.PgpKeys._
 import sbt.Keys._
 import sbtunidoc.Plugin.UnidocKeys._
 
-val cScalaVersion = "2.11.8"
+val cScalaVersion = "2.12.1"
 val cAkkaVersion = "2.4.17"
 val cAkkaHttpVersion = "10.0.5"
 val cReactiveMongoVersion = "0.12.0"
@@ -101,7 +101,7 @@ lazy val akkamoRoot = project.in(file("."))
   .aggregate(
     akkamoAkkaDependencies,
     akkamoAkkaHttpDependencies,
-    akkamo, akkamoAkka, akkamoAkkaHttp, akkamoLog, akkamoAkkaLog, akkamoReactivemongo, akkamoMongo, akkamoKafka,
+    akkamo, akkamoAkka, akkamoAkkaHttp, akkamoLog, akkamoAkkaLog, akkamoMongo, akkamoKafka, //akkamoReactivemongo
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
   )
 
@@ -143,12 +143,14 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
   )
 ).dependsOn(akkamoAkka)
 
+/*
 lazy val akkamoReactivemongo = project.in(file("akkamoReactivemongo")).settings(
   name := "akkamo-reactivemongo",
   libraryDependencies ++= Seq(
     "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
   )
 ).dependsOn(akkamo, akkamoLog)
+*/
 
 lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",

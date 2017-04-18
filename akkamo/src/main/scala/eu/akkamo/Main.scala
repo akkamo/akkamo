@@ -316,9 +316,9 @@ class Akkamo {
 
 object Akkamo {
 
-  import scala.collection.JavaConversions._
+  import scala.collection.JavaConverters._
 
-  def modules() = java.util.ServiceLoader.load[Module](classOf[Module]).toList
+  def modules() = java.util.ServiceLoader.load[Module](classOf[Module]).asScala.toList
 
   /**
     * if the System property named `Strict` is defined,
