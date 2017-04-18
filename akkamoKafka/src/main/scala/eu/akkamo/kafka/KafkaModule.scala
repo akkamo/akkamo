@@ -2,6 +2,7 @@ package eu.akkamo.kafka
 
 import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.Config
 import eu.akkamo.{InitializableError, _}
@@ -137,7 +138,6 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
             case th: Throwable => th.printStackTrace()
           }
         }
-
         properties
     }
   }
@@ -162,20 +162,30 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
 
 
   override def dispose(ctx: Context) = {
-    val err = DisposableError("Can't dispose some kafka instances")
-    val res = ctx.registered[KC].map { p =>
-      Try {
-        p._1.unsubscribe()
-        p._1
-      }
-    }
-    res.foldLeft(err) { (ex, v) =>
-      v match {
-        case Failure(th) => err.addSuppressed(th); err
-        case _ => err
-      }
+
+    // error handler
+    val eh = (ex: DisposableError, v: Try[Unit]) => v match {
+      case Failure(th) => ex.addSuppressed(th); ex
+      case _ => ex
     }
 
+    val err = DisposableError("Can't dispose some kafka instances")
+
+    ctx.registered[KP].map { p =>
+      Try {
+        // close operation is blocking
+        // TODO - put timeout to config
+        p._1.close(60, TimeUnit.SECONDS)
+      }
+    }.foldLeft(err)(eh)
+
+    ctx.registered[KC].map { p =>
+      Try {
+        p._1.unsubscribe()
+      }
+    }.foldLeft(err)(eh)
+
+    // return error if not empty suppressed
     if (err.getSuppressed.length == 0) Success(()) else Failure.apply[Unit](err)
   }
 }
