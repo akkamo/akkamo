@@ -137,7 +137,7 @@ class Akkamo {
       val e = InitializationError(s"Some errors occurred during initialization")
       errors1.foldLeft(e) {
         case (e, (m, th)) => {
-          e.addSuppressed(th);
+          e.addSuppressed(th)
           e
         }
       }
@@ -170,10 +170,7 @@ class Akkamo {
   private def publisherMap(modules: List[Module]): Map[Class[_], Class[_]] = modules.flatMap(_ match {
     case c:Publisher =>
       val keys = c.asInstanceOf[Publisher].publish()
-      val value: Class[_] =
-        if(c.isInstanceOf[Initializable]) c.asInstanceOf[Initializable].iKey()
-        else c.getClass
-      keys.map(_ -> value)
+      keys.map(_ -> c.iKey())
     case _ => List.empty
   }).toMap
 
@@ -196,11 +193,7 @@ class Akkamo {
         case x :: xs => {
           val r = x.dependencies(des)
           if (r()) {
-            if (x.isInstanceOf[Initializable]) {
-              orderRound(xs, set + x.asInstanceOf[Initializable].iKey, x :: out)
-            } else {
-              orderRound(xs, set + x.getClass, x :: out)
-            }
+            orderRound(xs, set + x.iKey(), x :: out)
           } else {
             orderRound(xs, set, out)
           }
@@ -214,7 +207,23 @@ class Akkamo {
       rout ++ out
     } else {
       if (rout.isEmpty) {
-        throw InitializationError(s"Can't initialize modules: ${in}, cycle or unresolved dependency detected.")
+        val missingMap = in.reverse.flatMap{m=>
+          val dependsOn = m.dependencies(createReportDependencies()).asInstanceOf[Depends].dependsOn
+          // missing dependencies for given module
+          val moduleDiffs = dependsOn.map{ dependency =>
+            // try get transform to modules
+            map.getOrElse(dependency, dependency)
+          }.toSet.diff(in.map(_.iKey()).toSet).map(_.getSimpleName)
+          if(moduleDiffs.isEmpty) List.empty else List((m.toString, moduleDiffs))
+        }
+        val mappingMsg = missingMap.map{case (k,v) => s"$k->${v.mkString(", ")}"}.mkString("\n")
+        val msg =
+          s"""
+             |Can't initialize modules: (${in.mkString(", ")}), cycle or unresolved dependency detected.
+             |The map of missing dependencies:
+             |$mappingMsg
+             |""".stripMargin
+        throw InitializationError(msg)
       }
       val df = in.diff(rout)
       order(df, map,rset, rout ++ out)
@@ -301,16 +310,28 @@ class Akkamo {
     case _ => out
   }
 
-  def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): Dependency = {
-    case class W(res: Boolean) extends Dependency {
+  private def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): Dependency = {
+    class W(val res: Boolean) extends Dependency {
       override def &&[K](implicit ct: ClassTag[K]): Dependency = {
         val mr = map.get(ct.runtimeClass)
         val mappedRes = mr.map(p=>dependencies.contains(p))
-        W(this.res &&
-          (dependencies.contains(ct.runtimeClass) ||mappedRes.getOrElse(false)))
+        new W(this.res && (dependencies.contains(ct.runtimeClass) || mappedRes.getOrElse(false)))
       }
     }
-    W(true)
+    new W(true)
+  }
+
+  private trait Depends {
+    def dependsOn:Seq[Class[_]]
+  }
+
+  private def createReportDependencies() = {
+    class W(val dependsOn:Seq[Class[_]], val res:Boolean = false) extends Dependency with Depends {
+      override def &&[T](implicit ct: ClassTag[T]): Dependency = {
+        new W(ct.runtimeClass +: this.dependsOn)
+      }
+    }
+    new W(Nil)
   }
 }
 

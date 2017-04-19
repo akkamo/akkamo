@@ -19,6 +19,7 @@ trait Dependency {
     */
   def &&[T](implicit ct: ClassTag[T]): Dependency
 
+
   def apply() = res
 
   def res: Boolean

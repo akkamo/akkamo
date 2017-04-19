@@ -163,7 +163,7 @@ lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
 lazy val akkamoKafka = project.in(file("akkamoKafka")).settings(
   name := "akkamo-kafka",
   libraryDependencies ++= Seq(
-    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion % "provided" withSources,
+    "com.typesafe.akka" %% "akka-actor" % cAkkaVersion withSources,
     "org.apache.kafka" % "kafka-clients" % "0.9.0.1" % "provided" withSources
   )
 ).dependsOn(akkamo, akkamoLog)

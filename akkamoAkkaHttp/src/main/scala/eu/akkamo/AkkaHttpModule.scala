@@ -325,7 +325,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private def defaultLogFormat(mdc:Boolean) = if(mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapter].&&[ActorSystem]
+  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
   override def publish(): Set[Class[_]] = Set(classOf[RouteRegistry])
 

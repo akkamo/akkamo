@@ -22,14 +22,6 @@ trait Initializable {
     */
   def initialize(ctx: Context): Res[Context]
 
-  /**
-    * Instance of [[eu.akkamo.Initializable]] is registered into the ''Akkamo'' context by default under
-    * this module class. Override this method in order to achieve different registration key
-    * class, for example an interface instead of concrete implementation.
-    *
-    * @return registration key class
-    */
-  def iKey(): Class[_ <: Initializable] = this.getClass
 }
 
 /**
