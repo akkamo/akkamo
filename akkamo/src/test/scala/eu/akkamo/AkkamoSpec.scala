@@ -42,7 +42,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
 
       override def publish(): Set[Class[_]] = Set(classOf[DD])
 
-      override def iKey(): Class[_ <: Initializable] = classOf[IKeyD]
+      override def iKey() = classOf[IKeyD]
     }
 
 

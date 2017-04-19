@@ -35,11 +35,24 @@ trait Module {
     *
     * {{{
     *   override def dependencies(dependencies: Dependency): Dependency =
-    *     dependencies.&&[ModuleA].&&[ModuleB]ś
+    *     dependencies.&&[ModuleA].&&[ModuleB]
     * }}}
+    *
+    * Instead of modules, one can use interfaces that are published by given module, see: [[eu.akkamo.Publisher]] interface for more details
     *
     * @param dependencies instance of [[eu.akkamo.Dependency]]
     * @return chained module dependencies
     */
   def dependencies(dependencies: Dependency): Dependency
+
+
+  /**
+    * Instance of [[eu.akkamo.Module]] is registered into the ''Akkamo'' context by default under
+    * this module class. Override this method in order to achieve different registration key
+    * class, for example an interface instead of concrete implementation.
+    *
+    * @return registration key class
+    */
+  def iKey(): Class[_] = this.getClass
+
 }
