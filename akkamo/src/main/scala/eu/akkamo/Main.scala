@@ -129,7 +129,8 @@ class Akkamo {
 
     val publishers = publisherMap(modules)
 
-    val ordered = order(modules, publishers)
+    val ordered =
+      order(modules, publishers)
 
     val (ctx1, errors1) = init(ordered.reverse)(ctx)
     // end of game
@@ -216,7 +217,7 @@ class Akkamo {
           }.toSet.diff(in.map(_.iKey()).toSet).map(_.getSimpleName)
           if(moduleDiffs.isEmpty) List.empty else List((m.toString, moduleDiffs))
         }
-        val mappingMsg = missingMap.map{case (k,v) => s"$k->${v.mkString(", ")}"}.mkString("\n")
+        val mappingMsg = missingMap.map{case (k,v) => s"for: $k is missing: ${v.mkString(", ")}"}.mkString("\n")
         val msg =
           s"""
              |Can't initialize modules: (${in.mkString(", ")}), cycle or unresolved dependency detected.
@@ -235,7 +236,7 @@ class Akkamo {
     case x :: xs =>
       if (x.isInstanceOf[Initializable]) {
         log(s"Initialising module: $x")
-        x.asInstanceOf[Initializable].initialize(ctx).asTry() match {
+        Try(x.asInstanceOf[Initializable].initialize(ctx).asTry()).flatten match {
           case Failure(th) => init(xs, (x, th) :: out)(ctx)
           case Success(c) => {
             if(!CTX.isLast(c)) {
@@ -260,7 +261,7 @@ class Akkamo {
     case x :: xs =>
       if (x.isInstanceOf[Runnable]) {
         log(s"Running module: $x")
-        x.asInstanceOf[Runnable].run(ctx).asTry() match {
+        Try(x.asInstanceOf[Runnable].run(ctx).asTry()).flatten match {
           case Failure(th) => run(xs, (x, th) :: out)(ctx)
           case Success(c) => {
             if(!CTX.isLast(c)) {
@@ -300,7 +301,7 @@ class Akkamo {
     case x :: xs =>
       if (x.isInstanceOf[Disposable]) {
         log(s"Dispose module: ${x}")
-        x.asInstanceOf[Disposable].dispose(ctx).asTry() match {
+        Try(x.asInstanceOf[Disposable].dispose(ctx).asTry()) match {
           case Failure(th) => dispose(xs, (x, th) :: out)(ctx)
           case _ => dispose(xs, out)(ctx)
         }
