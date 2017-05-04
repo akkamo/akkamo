@@ -413,7 +413,7 @@ private object Logger {
   * @param message detail message
   * @param cause   optional error cause
   */
-case class InitializationError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class InitializationError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)
 
 /**
   * Error thrown when Akkamo run phase fails (e.g. one of the ran modules throws
@@ -422,7 +422,7 @@ case class InitializationError(message: String, cause: Throwable = null) extends
   * @param message detail message
   * @param cause   optional error cause
   */
-case class RunError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class RunError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)
 
 /**
   * Error thrown when Akkamo dispose phase fails (e.g. one of the disposed modules throws
@@ -431,4 +431,4 @@ case class RunError(message: String, cause: Throwable = null) extends Error(mess
   * @param message detail message
   * @param cause   optional error cause
   */
-case class DisposeError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class DisposeError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)

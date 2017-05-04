@@ -34,4 +34,4 @@ trait Runnable {
   * @param message error message
   * @param cause   optional value of cause
   */
-case class RunnableError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class RunnableError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)

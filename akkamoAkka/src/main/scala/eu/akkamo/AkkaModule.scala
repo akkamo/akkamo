@@ -56,9 +56,9 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
     * Initializes the module into provided mutable context, blocking
     */
   override def initialize(ctx: Context) = Try {
-    import config._
-    val cfg = ctx.inject[Config].get
-    get[Map[String, Config]](AkkaSystemsKey, cfg).fold {
+    import config.implicits._
+    val cfg = ctx.get[Config]
+    config.getOptAs[Map[String, Config]](AkkaSystemsKey, cfg).fold {
       // empty configuration just create default
       try {
         ctx.register(ActorSystem("default"))
@@ -81,7 +81,6 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
       }
       bloksWithDefault.foldLeft(ctx) { case (ctx, (key, cfg, default)) =>
         try {
-          import config._
           val system = ActorSystem(key, cfg)
           actorSystems += system
           // register default

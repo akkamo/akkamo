@@ -26,4 +26,4 @@ trait Disposable {
   * @param message error message
   * @param cause   optional value of cause
   */
-case class DisposableError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class DisposableError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)

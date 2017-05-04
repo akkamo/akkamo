@@ -138,7 +138,7 @@ object RouteRegistry {
   */
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
-  import config._
+  import config.implicits._
 
   private val AkkaHttpKey = "akkamo.akkaHttp"
 
@@ -273,9 +273,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
-    import config._
+    import config.implicits._
     // create list of configuration tuples
-    val mp = get[Map[String, Config]](AkkaHttpKey, cfg)
+    val mp = config.get[Map[String, Config]](AkkaHttpKey, cfg)
 
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
@@ -299,7 +299,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val (protocol, connectionContext) = config.get[String](Protocol, conf).getOrElse("http").toLowerCase match  {
           case "http" => (HTTP, ConnectionContext.noEncryption())
           case "https" => (HTTPS, getHttpsConnectionContext(conf))
-          case p => throw InitializableError(s"unknown protocol: ${p} in route registry, see: ${config}")
+          case p => throw InitializableError(s"unknown protocol: ${p} in route registry")
         }
         val r = RouteRegistryImpl(
           aliases, port, interface, protocol, default, requestLogLevel, requestLogFormat, mdc, connectionContext)(system.get)
@@ -347,7 +347,8 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
-    get[String](HttpsConnectionContextFactoryClassName, cfg)
+
+    config.get[String](HttpsConnectionContextFactoryClassName, cfg)
       .map(getHttpsConnectionContextFormFactory(cfg)).getOrElse(getHttpsConnectionContextFormConfig(cfg))
 
   private def getHttpsConnectionContextFormFactory(cfg: Config) = (clazzName: String) => {
@@ -372,11 +373,11 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       throw InitializableError(s"Can't initialize key store for keyStoreName: ${keyStoreName}"))
     val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
     keyStore.load(keyStoreStream, keyStorePassword)
-    val keyManagerFactory = KeyManagerFactory.getInstance(get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
+    val keyManagerFactory = KeyManagerFactory.getInstance(config.get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
     keyManagerFactory.init(keyStore, keyStorePassword)
     val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
     trustManagerFactory.init(keyStore)
-    val sslContext: SSLContext = get[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
+    val sslContext: SSLContext = config.get[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
     sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
     ConnectionContext.https(sslContext)
   }
