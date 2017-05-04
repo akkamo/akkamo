@@ -92,7 +92,7 @@ scalacOptions in Global := Seq(
   "-Xlint:missing-interpolator"
 )
 
-version in Global := "1.1.0-SNAPSHOT"
+version in Global := "1.1.0"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})

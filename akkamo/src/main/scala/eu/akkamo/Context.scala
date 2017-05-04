@@ -190,4 +190,4 @@ trait Context {
   * @param message detail message
   * @param cause   optional error cause
   */
-case class ContextError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class ContextError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)

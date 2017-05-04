@@ -31,4 +31,4 @@ trait Initializable {
   * @param message error message
   * @param cause   optional value of cause
   */
-case class InitializableError(message: String, cause: Throwable = null) extends Error(message, cause)
+case class InitializableError(message: String, cause: Throwable = null) extends AkkamoError(message, cause)
