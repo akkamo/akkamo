@@ -126,11 +126,11 @@ object RouteRegistry {
   * <br/>
   * log format:
   * <ol>
-  *   <li>method</li>
-  *   <li>relative uri</li>
-  *   <li>status</li>
-  *   <li>headers (only if use MDC is false)</li>
-  *</ol>
+  * <li>method</li>
+  * <li>relative uri</li>
+  * <li>status</li>
+  * <li>headers (only if use MDC is false)</li>
+  * </ol>
   *
   * @author jubu
   * @see RouteRegistry
@@ -174,24 +174,22 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   type HttpsConnectionContextFactory = (Config) => HttpsConnectionContext
 
-  private type ServerBindingGetter = () => Future[ServerBinding]
-
   private val bindings = List.empty[ServerBinding]
 
   private[AkkaHttpModule] case class
   RouteRegistryImpl(aliases: List[String],
-                     port: Int,
-                     interface: String,
-                     protocol:Protocol,
-                     default: Boolean,
-                     requestLogLevel: String,
-                     requestLogFormat: String,
-                     mdc:Boolean,
-                     ctx: ConnectionContext,
-                     routes: Set[Route] = Set.empty)
-                    (implicit as: ActorSystem) extends ServerBindingGetter with RouteRegistry {
+                    port: Int,
+                    interface: String,
+                    protocol: Protocol,
+                    default: Boolean,
+                    requestLogLevel: String,
+                    requestLogFormat: String,
+                    mdc: Boolean,
+                    ctx: ConnectionContext,
+                    routes: Set[Route] = Set.empty)
+                   (implicit as: ActorSystem) extends RouteRegistry {
 
-    def logDirective(level: LogLevel, formater:(String, HttpRequest)=>String) = {
+    def logDirective(level: LogLevel, formater: (String, HttpRequest) => String) = {
 
       def myLoggingFunction(logger: akka.event.LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
         val status = res match {
@@ -200,6 +198,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         }
         logger.log(level, formater(status, req))
       }
+
       DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))
     }
 
@@ -227,14 +226,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         Http().bindAndHandle(route, interface, port, ctx)
       } else {
         // optimized formatter for each variant
-        val formatter = if(mdc) {
-          (status: String, req:HttpRequest) => {
+        val formatter = if (mdc) {
+          (status: String, req: HttpRequest) => {
             val method = req.method.value
             val uri = req.uri.toRelative.toString
             requestLogFormat.format(method, uri, status)
           }
         } else {
-          (status: String, req:HttpRequest) => {
+          (status: String, req: HttpRequest) => {
             val method = req.method.value
             val uri = req.uri.toRelative.toString
             val headers = req.headers.mkString(",")
@@ -242,7 +241,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
           }
         }
         val ld = logDirective(Logging.levelFor(requestLogLevel).getOrElse(Logging.InfoLevel), formatter)
-        val finalRoute = if(mdc){
+        val finalRoute = if (mdc) {
           val (logSource, clazz) = LogSource.fromAnyRef(this, as)
           val filter = new DefaultLoggingFilter(as.settings, as.eventStream)
           mdcLogger(filter, logSource, clazz, as.eventStream)(ld(route))
@@ -279,7 +278,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
-        Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(false), false,  ConnectionContext.noEncryption())(
+        Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(false), false, ConnectionContext.noEncryption())(
         ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       List(r)
     } else {
@@ -296,14 +295,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val mdc = config.asOpt[Boolean](MDC, conf).getOrElse(false)
         val requestLogLevel: String = config.asOpt[String](RequestLogLevel, conf).getOrElse("off")
         val requestLogFormat: String = config.asOpt[String](RequestLogFormat, conf).getOrElse(defaultLogFormat(mdc))
-        val (protocol, connectionContext) = config.asOpt[String](Protocol, conf).getOrElse("http").toLowerCase match  {
+        val (protocol, connectionContext) = config.asOpt[String](Protocol, conf).getOrElse("http").toLowerCase match {
           case "http" => (HTTP, ConnectionContext.noEncryption())
           case "https" => (HTTPS, getHttpsConnectionContext(conf))
           case p => throw InitializableError(s"unknown protocol: ${p} in route registry")
         }
         val r = RouteRegistryImpl(
           aliases, port, interface, protocol, default, requestLogLevel, requestLogFormat, mdc, connectionContext)(system.get)
-        log.info(s"created: ${r}")
+        log.info(s"route registry created: ${r.aliases.mkString(",")}, protocol:${r.protocol}, port: ${r.aliases}")
         r
       }
     }
@@ -323,7 +322,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-  private def defaultLogFormat(mdc:Boolean) = if(mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
+  private def defaultLogFormat(mdc: Boolean) = if (mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
@@ -331,11 +330,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     val httpConfigs = ctx.registered[RouteRegistry].keySet.map(_.asInstanceOf[RouteRegistryImpl])
     val futures = httpConfigs.map(p => p().transform(p => p, th => RunnableError(s"Can't initialize route ${p}", th)))
     Future.sequence(futures).map { p =>
-      log.info(s"run: ${httpConfigs}")
       ctx
     }
   }
