@@ -2,10 +2,9 @@ package eu.akkamo.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo._
+import eu.akkamo.{Context, Dependency, Disposable, Initializable, InitializableError, LoggingAdapter, LoggingAdapterFactory, Module, Publisher, Res}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
-import scala.collection.Map
 import scala.util.Try
 
 /**
@@ -43,6 +42,9 @@ import scala.util.Try
   */
 class MongoModule extends Module with Initializable with Disposable with Publisher {
 
+  import eu.akkamo.config
+  import eu.akkamo.config.implicits._
+
   object Keys {
     val Aliases = "aliases"
     val Default = "default"
@@ -55,13 +57,12 @@ class MongoModule extends Module with Initializable with Disposable with Publish
 
   override def publish(): Set[Class[_]] = Set(classOf[MongoApi])
 
-  override def initialize(ctx: Context): Res[Context] = Try {
-    import eu.akkamo.config.blockAsMap
-    val cfg: Config = ctx.get[Config]
+  override def initialize(ctx: Context) = Try {
     val log = ctx.get[LoggingAdapterFactory].apply(getClass)
-
     log.info("Initializing 'MongoDB' module...")
-    val configMap = blockAsMap(Keys.ConfigNamespace)(cfg).getOrElse(defaultConfig)
+    implicit val cfg: Config = ctx.get[Config]
+    val configMapOpt = config.asOpt[Map[String, Config]](Keys.ConfigNamespace)
+    val configMap = configMapOpt.getOrElse(defaultConfig)
     parseConfig(configMap).foldLeft(ctx) { case (context, conn) =>
       log.info(s"Initializing Mongo connection for name '${conn.name}'")
       val mongoApi: MongoApi = createMongoApi(conn)
@@ -70,7 +71,7 @@ class MongoModule extends Module with Initializable with Disposable with Publish
 
       val ctx2 = if (conn.default) ctx1.register[MongoApi](mongoApi) else ctx1
 
-      conn.aliases.foldLeft(ctx2) {(ctx, alias) => ctx.register[MongoApi](mongoApi, Some(alias)) }
+      conn.aliases.foldLeft(ctx2) { (ctx, alias) => ctx.register[MongoApi](mongoApi, Some(alias)) }
     }
   }
 

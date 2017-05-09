@@ -59,7 +59,7 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
     implicit val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
     implicit val c = ctx.inject[Config].get
 
-    val defs = normalize(config.getOptAs[Map[String, Config]](key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
+    val defs = normalize(config.asOpt[Map[String, Config]](key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
       val properties = loadProperties("kafka-default.properties")
       Def(producer = true, consumer = true, properties, isDefault = true, List.empty) :: Nil
     })
@@ -148,15 +148,15 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
   override def publish(): Set[Class[_]] = Set(classOf[KC], classOf[KP])
 
   private def buildDef(key: String, cfg: Config)(implicit log: LoggingAdapter) = {
-    val propertiesFileName = config.get[String](Properties, cfg)
+    val propertiesFileName = config.asOpt[String](Properties, cfg)
       .getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
 
     Def(
-      config.get[Boolean](Producer, cfg).getOrElse(false),
-      config.get[Boolean](Consumer, cfg).getOrElse(false),
+      config.asOpt[Boolean](Producer, cfg).getOrElse(false),
+      config.asOpt[Boolean](Consumer, cfg).getOrElse(false),
       loadProperties(propertiesFileName),
-      config.get[Boolean](Default, cfg).getOrElse(false),
-      key :: config.get[List[String]](Aliases, cfg).getOrElse(List.empty)
+      config.asOpt[Boolean](Default, cfg).getOrElse(false),
+      key :: config.asOpt[List[String]](Aliases, cfg).getOrElse(List.empty)
     )
   }
 
