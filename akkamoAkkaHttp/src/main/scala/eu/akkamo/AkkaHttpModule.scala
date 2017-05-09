@@ -302,7 +302,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         }
         val r = RouteRegistryImpl(
           aliases, port, interface, protocol, default, requestLogLevel, requestLogFormat, mdc, connectionContext)(system.get)
-        log.info(s"route registry created: ${r.aliases.mkString(",")}, protocol:${r.protocol}, port: ${r.aliases}")
+        log.info(s"route registry created: ${r.aliases.mkString(",")}, protocol:${r.protocol}, port: ${r.port}")
         r
       }
     }
