@@ -35,6 +35,8 @@ import scala.util.Try
   */
 class AkkaModule extends Module with Initializable with Disposable with Publisher {
 
+  import config.implicits._
+
   /**
     * pointer to array containing set of akka Actor System names in configuration
     */
@@ -56,9 +58,9 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
     * Initializes the module into provided mutable context, blocking
     */
   override def initialize(ctx: Context) = Try {
-    import config.implicits._
+
     val cfg = ctx.get[Config]
-    config.getOptAs[Map[String, Config]](AkkaSystemsKey, cfg).fold {
+    config.asOpt[Map[String, Config]](AkkaSystemsKey, cfg).fold {
       // empty configuration just create default
       try {
         ctx.register(ActorSystem("default"))
@@ -92,7 +94,7 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
           // register under key as name
           val ctx3 = ctx2.register(system, Some(key))
           // register rest
-          config.get[List[String]](Aliases, cfg).map(_.foldLeft(ctx3) {
+          config.asOpt[List[String]](Aliases, cfg).map(_.foldLeft(ctx3) {
             case (ctx, name) => ctx.register(system, Some(name))
           }).getOrElse(ctx3)
         } catch {

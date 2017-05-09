@@ -275,7 +275,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config.implicits._
     // create list of configuration tuples
-    val mp = config.get[Map[String, Config]](AkkaHttpKey, cfg)
+    val mp = config.asOpt[Map[String, Config]](AkkaHttpKey, cfg)
 
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
@@ -285,18 +285,18 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     } else {
       val autoDefault = mp.get.size == 1
       mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, conf) =>
-        val system = config.get[String](AkkaAlias, conf).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
+        val system = config.asOpt[String](AkkaAlias, conf).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
         if (system.isEmpty) {
           throw InitializableError(s"Can't find akka system for http configuration key: ${key}")
         }
-        val port = config.get[Int](Port, conf).getOrElse(-1)
-        val interface = config.get[String](Interface, conf).getOrElse("localhost")
-        val aliases = key :: config.get[List[String]](Aliases, conf).getOrElse(List.empty[String])
-        val default = config.get[Boolean](Default, conf).getOrElse(autoDefault)
-        val mdc = config.get[Boolean](MDC, conf).getOrElse(false)
-        val requestLogLevel: String = config.get[String](RequestLogLevel, conf).getOrElse("off")
-        val requestLogFormat: String = config.get[String](RequestLogFormat, conf).getOrElse(defaultLogFormat(mdc))
-        val (protocol, connectionContext) = config.get[String](Protocol, conf).getOrElse("http").toLowerCase match  {
+        val port = config.asOpt[Int](Port, conf).getOrElse(-1)
+        val interface = config.asOpt[String](Interface, conf).getOrElse("localhost")
+        val aliases = key :: config.asOpt[List[String]](Aliases, conf).getOrElse(List.empty[String])
+        val default = config.asOpt[Boolean](Default, conf).getOrElse(autoDefault)
+        val mdc = config.asOpt[Boolean](MDC, conf).getOrElse(false)
+        val requestLogLevel: String = config.asOpt[String](RequestLogLevel, conf).getOrElse("off")
+        val requestLogFormat: String = config.asOpt[String](RequestLogFormat, conf).getOrElse(defaultLogFormat(mdc))
+        val (protocol, connectionContext) = config.asOpt[String](Protocol, conf).getOrElse("http").toLowerCase match  {
           case "http" => (HTTP, ConnectionContext.noEncryption())
           case "https" => (HTTPS, getHttpsConnectionContext(conf))
           case p => throw InitializableError(s"unknown protocol: ${p} in route registry")
@@ -348,7 +348,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
 
-    config.get[String](HttpsConnectionContextFactoryClassName, cfg)
+    config.asOpt[String](HttpsConnectionContextFactoryClassName, cfg)
       .map(getHttpsConnectionContextFormFactory(cfg)).getOrElse(getHttpsConnectionContextFormConfig(cfg))
 
   private def getHttpsConnectionContextFormFactory(cfg: Config) = (clazzName: String) => {
@@ -364,20 +364,20 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   private def getHttpsConnectionContextFormConfig(implicit cfg: Config) = {
-    val keyStoreName = config.get[String](KeyStoreName).getOrElse(
+    val keyStoreName = config.asOpt[String](KeyStoreName).getOrElse(
       throw InitializableError("Can't find keyStoreName value"))
-    val keyStorePassword = config.get[String](KeyStorePassword).getOrElse(
+    val keyStorePassword = config.asOpt[String](KeyStorePassword).getOrElse(
       throw InitializableError("Can't find keyStorePassword value")).toCharArray
     //val sslCtx = SSLContext.getInstance("TLS")
     val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
       throw InitializableError(s"Can't initialize key store for keyStoreName: ${keyStoreName}"))
-    val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.get[String](KeyStoreLocation).getOrElse("server.p12"))
+    val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.asOpt[String](KeyStoreLocation).getOrElse("server.p12"))
     keyStore.load(keyStoreStream, keyStorePassword)
-    val keyManagerFactory = KeyManagerFactory.getInstance(config.get[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
+    val keyManagerFactory = KeyManagerFactory.getInstance(config.asOpt[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
     keyManagerFactory.init(keyStore, keyStorePassword)
     val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
     trustManagerFactory.init(keyStore)
-    val sslContext: SSLContext = config.get[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
+    val sslContext: SSLContext = config.asOpt[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
     sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
     ConnectionContext.https(sslContext)
   }

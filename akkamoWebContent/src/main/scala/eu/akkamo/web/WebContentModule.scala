@@ -134,17 +134,17 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
   override def initialize(ctx: Context) = Try {
     val cfg: Config = ctx.inject[Config].get
 
-    val mpOption = config.get[Map[String, Config]](WebContentModuleKey, cfg)
+    val mpOption = config.asOpt[Map[String, Config]](WebContentModuleKey, cfg)
 
     val useGenerators = mpOption.isEmpty && Try(FileFromDirGenerator.defaultBaseSource).isSuccess
     // check  existence of default
     val mp = mpOption.getOrElse(defaultFile(useGenerators))
     val autoDefault = mp.size == 1
     val rrs = mp.map { case (key, conf) =>
-      val routeRegistryAlias = config.get[String](RouteRegistryAlias, conf)
-      val aliases = key :: config.get[List[String]](Aliases, conf).getOrElse(List.empty[String])
-      val default = config.get[Boolean](Default, conf).getOrElse(autoDefault)
-      val generators = config.get[List[Config]](RouteGenerators, conf).map(getRouteGenerators).getOrElse(List.empty).toMap
+      val routeRegistryAlias = config.asOpt[String](RouteRegistryAlias, conf)
+      val aliases = key :: config.asOpt[List[String]](Aliases, conf).getOrElse(List.empty[String])
+      val default = config.asOpt[Boolean](Default, conf).getOrElse(autoDefault)
+      val generators = config.asOpt[List[Config]](RouteGenerators, conf).map(getRouteGenerators).getOrElse(List.empty).toMap
       DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
     }
 
@@ -193,10 +193,10 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
   override def publish(): Set[Class[_]] = Set(classOf[WebContentRegistry])
 
   private def getRouteGenerators(p: List[Config]) = p.map { cfg =>
-    val className = config.get[String](Clazz, cfg).getOrElse(classOf[FileFromDirGenerator].getName)
-    val parameters = config.get[List[String]]("parameters", cfg).getOrElse(List.empty).toArray
+    val className = config.asOpt[String](Clazz, cfg).getOrElse(classOf[FileFromDirGenerator].getName)
+    val parameters = config.asOpt[List[String]]("parameters", cfg).getOrElse(List.empty).toArray
     val prefix = config.
-      get[String](Prefix, cfg).getOrElse(FileFromDirGenerator.Prefix)
+      asOpt[String](Prefix, cfg).getOrElse(FileFromDirGenerator.Prefix)
     (prefix, newInstance(Class.forName(className), parameters))
   }
 
