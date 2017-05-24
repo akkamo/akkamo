@@ -8,12 +8,13 @@ Full  documentation is available on [http://akkamo.eu](http://akkamo.eu).
 _ScalaDoc_ documentation for each version is available online for, see:
 
 * [version 1.0.x](http://akkamo.github.io/api/1.0/)
+* [version 1.1.x](http://akkamo.github.io/api/1.1/)
 
 ## Installation
-_Akkamo_ is available for Scala 2.11
+_Akkamo_ is available for Scala 2.11 & 2.12 (version 1.1.x)
 To get started with SBT, add dependency to your `build.sbt` file:
 ```Scala
-libraryDependencies += "eu.akkamo" %% "akkamo" % "1.0.4" withSources
+libraryDependencies += "eu.akkamo" %% "akkamo" % "1.1.0" withSources
 ```
 _Akkamo_ consist from multiple modules, please consult documentation 
 if you want use other modules.
