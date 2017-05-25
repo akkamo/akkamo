@@ -137,7 +137,7 @@ class Akkamo {
     if (!errors1.isEmpty) {
       val e = InitializationError(s"Some errors occurred during initialization")
       errors1.foldLeft(e) {
-        case (e, (m, th)) => {
+        case (e, (_, th)) => {
           e.addSuppressed(th)
           e
         }
@@ -155,7 +155,7 @@ class Akkamo {
     if (!errors2.isEmpty) {
       val e = RunError("Some errors occurred during attempt to run installed modules")
       errors2.foldLeft(e) {
-        case (e, (m, th)) => {
+        case (e, (_, th)) => {
           e.addSuppressed(th);
           e
         }
@@ -288,7 +288,7 @@ class Akkamo {
     if (!errors.isEmpty) {
       val e = DisposeError(s"Some errors occurred during disposal of modules")
       errors.foldLeft(e) {
-        case (e, (m, th)) => {
+        case (e, (_, th)) => {
           e.addSuppressed(th);
           e
         }

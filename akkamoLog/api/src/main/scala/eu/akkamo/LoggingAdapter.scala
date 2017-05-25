@@ -50,7 +50,7 @@ object LoggingAdapter {
     case "warning" ⇒ Some(WarningLevel)
     case "info" ⇒ Some(InfoLevel)
     case "debug" ⇒ Some(DebugLevel)
-    case unknown ⇒ None
+    case _ ⇒ None
   }
 }
 

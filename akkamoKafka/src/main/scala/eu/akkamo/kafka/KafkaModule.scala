@@ -56,7 +56,8 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
   private val Aliases = "aliases"
 
   override def initialize(ctx: Context) = Try {
-    implicit val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    //implicit val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+
     implicit val c = ctx.inject[Config].get
 
     val defs = normalize(config.asOpt[Map[String, Config]](key).map(_.map { case (key, cfg) => buildDef(key, cfg) }).getOrElse {
@@ -147,7 +148,7 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
 
   override def publish(): Set[Class[_]] = Set(classOf[KC], classOf[KP])
 
-  private def buildDef(key: String, cfg: Config)(implicit log: LoggingAdapter) = {
+  private def buildDef(key: String, cfg: Config) = {
     val propertiesFileName = config.asOpt[String](Properties, cfg)
       .getOrElse(throw InitializableError(s"Missing properties file name under definition key:$key"))
 
