@@ -1,6 +1,7 @@
 package eu.akkamo.config
 
 import com.typesafe.config.{Config, ConfigList, ConfigObject, ConfigValue}
+import eu.akkamo.m.config.Transformer
 
 import scala.collection.immutable.ListMap
 
@@ -38,9 +39,17 @@ trait ConfigImplicits {
     }
   }
 
-
   implicit object CVBoolean extends Transformer[Boolean] {
     override def apply(v: ConfigValue): Boolean = v.unwrapped().asInstanceOf[Boolean]
+  }
+
+  implicit def cv2OPtion[T: Transformer] = new Transformer[Option[T]] {
+    override def apply(v: ConfigValue): Option[T] = {
+      val c = implicitly[Transformer[T]]
+      if(v != null) {
+        Some(c(v))
+      } else None
+    }
   }
 
   implicit def cv2List[T: Transformer] = new Transformer[List[T]] {

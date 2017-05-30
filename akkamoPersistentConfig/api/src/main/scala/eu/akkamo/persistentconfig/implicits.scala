@@ -1,8 +1,9 @@
 package eu.akkamo.persistentconfig
 
 import com.typesafe.config.Config
+import eu.akkamo.m.config.Transformer
 
-import scala.concurrent.{Future}
+import scala.concurrent.Future
 
 
 /**

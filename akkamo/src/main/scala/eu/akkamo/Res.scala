@@ -2,6 +2,7 @@ package eu.akkamo
 
 import scala.concurrent.{Await, Future, duration}
 import scala.util.{Failure, Try}
+import scala.language.postfixOps
 
 /**
   * Represents the result holder of [[eu.akkamo.Initializable#initialize]] or

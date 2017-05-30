@@ -35,8 +35,8 @@ object AkkamoSbtPlugin extends AutoPlugin {
   ) ++ super.globalSettings
 
   override def projectSettings = Seq(
-    runAkkamo <<= (thisProjectRef, fullClasspath in runAkkamo in Runtime).map(handleStartAkkamo).dependsOn(products in Runtime),
-    stopAkkamo <<= (thisProjectRef, fullClasspath in stopAkkamo in Runtime).map(handleStopAkkamo).dependsOn(products in Runtime)
+    runAkkamo := (thisProjectRef, fullClasspath in runAkkamo in Runtime).map(handleStartAkkamo).dependsOn(products in Runtime).value,
+    stopAkkamo := (thisProjectRef, fullClasspath in stopAkkamo in Runtime).map(handleStopAkkamo).dependsOn(products in Runtime).value
   )
 
   def handleStartAkkamo(project: ProjectRef, cp: Classpath) = {

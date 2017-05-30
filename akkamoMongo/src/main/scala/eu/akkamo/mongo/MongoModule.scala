@@ -2,7 +2,7 @@ package eu.akkamo.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo.{Context, Dependency, Disposable, Initializable, InitializableError, LoggingAdapter, LoggingAdapterFactory, Module, Publisher, Res}
+import eu.akkamo.{Context, Dependency, Disposable, Initializable, InitializableError, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.util.Try
@@ -75,7 +75,7 @@ class MongoModule extends Module with Initializable with Disposable with Publish
     }
   }
 
-  override def dispose(ctx: Context): Res[Unit] = Try {
+  override def dispose(ctx: Context) = Try {
     val log: LoggingAdapter = ctx.get[LoggingAdapterFactory].apply(getClass)
 
     ctx.registered[MongoApi] foreach { case (mongoApi, aliases) =>

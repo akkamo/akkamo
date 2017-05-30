@@ -1,6 +1,7 @@
 package eu.akkamo
 
 import com.typesafe.config.Config
+import eu.akkamo.m.config.{Transformer, TransformerGenerator}
 
 
 /**
@@ -136,6 +137,11 @@ package object config {
       None
     }
   } catch {
+    case th:NullPointerException => throw ConfigError(s"The value under path: $path doesn't exists", th)
     case th:Throwable => throw ConfigError(s"Can't parse value under path: $path", th)
   }
+
+  import language.experimental.macros
+
+  def generateTransformer[T]:Transformer[T] = macro TransformerGenerator.buildTransformer[T]
 }

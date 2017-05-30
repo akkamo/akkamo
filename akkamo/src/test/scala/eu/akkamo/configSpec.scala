@@ -1,14 +1,18 @@
 package eu.akkamo
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
-import eu.akkamo.config.Transformer
+import eu.akkamo.m.config._
 import org.scalatest.{FlatSpec, Matchers}
+
+case class Point(x: Int, y: Int, label: Option[String])
+
+case class Points(map: Map[String, Point])
 
 /**
   * @author jubu.
   */
 class configSpec extends FlatSpec with Matchers {
-  import eu.akkamo.config
+
   import config.implicits._
 
 
@@ -21,7 +25,6 @@ class configSpec extends FlatSpec with Matchers {
       X(x)
     }
   }
-
 
   private val cfg1 = ConfigFactory.parseString(
     """
@@ -72,11 +75,58 @@ class configSpec extends FlatSpec with Matchers {
 
 
   "config wrapper should" should "return right value for new defined custom converter" in {
-    implicit val cfg = cfg2
 
+    implicit val cfg = cfg2
     assert(config.as[X]("aox") == X(1))
     assert(config.as[List[X]]("aolx") == List(X(1), X(2)))
-    assert(config.as[Map[String, X]]("aomx") == Map("1"->X(1), "2"->X(2)))
+    assert(config.as[Map[String, X]]("aomx") == Map("1" -> X(1), "2" -> X(2)))
 
   }
+
+  "config wrapper, when uses generated transformer" should "parse to instance of Point" in {
+    implicit var cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj"}""")
+
+    implicit val trp: Transformer[Point] = config.generateTransformer[Point]
+
+    assert(trp != null)
+
+    assert(config.as[Point]("point") == Point(1, 2, Some("ahoj")))
+
+    cfg = ConfigFactory.parseString("""point = {x = 1, y = 2}""")
+
+    assert(config.as[Point]("point") == Point(1, 2, None))
+  }
+
+  "config wrapper, when uses generated transformer" should "parse to instance of Points" in {
+
+    implicit val cfg = ConfigFactory.parseString(
+      """
+        |points = {
+        | map = {
+        |   p1 = {x = 1, y = 2, label = "ahoj"}
+        |   p2 = {x = 2, y = 2}
+        | }
+        |}""".stripMargin)
+
+    implicit val trp: Transformer[Point] = config.generateTransformer
+    implicit val trps: Transformer[Points] = config.generateTransformer
+
+    assert(config.as[Points]("points") == Points(Map("p1" -> Point(1, 2, Some("ahoj")), "p2" -> Point(2, 2, None))))
+  }
+
+
+  "config wrapper, when uses generated transformer" should "parse to instance of class with two parameter lists" in {
+
+    class Point2(val x: Int, val y: Int)(val label: String)
+
+    implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj" }""")
+    implicit val trp: Transformer[Point2] = config.generateTransformer[Point2]
+
+    val pl = config.as[Point2]("point")
+    val pr = new Point2(1, 2)("ahoj")
+    assert(pl.x == pr.x)
+    assert(pl.y == pr.y)
+    assert(pl.label == pr.label)
+  }
+
 }
