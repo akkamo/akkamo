@@ -40,7 +40,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
     class D extends P with IKeyD with Publisher {
       override def dependencies(dependencies: Dependency): Dependency = dependencies
 
-      override def publish(): Set[Class[_]] = Set(classOf[DD])
+      override def publish(ds: Dependency): Dependency = ds.&&[DD]
 
       override def iKey() = classOf[IKeyD]
     }
@@ -57,17 +57,17 @@ class AkkamoSpec extends FlatSpec with Matchers {
     class B extends P with Publisher {
       override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[DD]
 
-      override def publish(): Set[Class[_]] = Set(classOf[BB], classOf[BBB])
+      override def publish(ds: Dependency): Dependency = ds.&&[BB].&&[BBB]
     }
 
 
     class A extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[IKeyD].&&[C].&&[BB]
+      override def dependencies(ds: Dependency): Dependency = ds.&&[IKeyD].&&[C].&&[BB]
     }
 
 
     class AE extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[DD].&&[C].&&[BBB].&&[E]
+      override def dependencies(ds: Dependency): Dependency = ds.&&[DD].&&[C].&&[BBB].&&[E]
     }
 
     (new A, new B, new C, new D, new AE)

@@ -142,7 +142,7 @@ trait Context {
 
   /**
     * Registers service to the ''Akkamo'' context, such service is then available to any other
-    * module via one of the `inject` methods. This method allows to register service with optional
+    * module. This method allows to register service with optional
     * ''key'', which is primarily used to disambiguate between multiple registered services of same
     * type and must be then specified when injecting the service. Please note that because the
     * [[Context]] is immutable, new updated instance will be returned after calling this method.
@@ -158,7 +158,7 @@ trait Context {
 
   /**
     * Registers service to the ''Akkamo'' context, such service is then available to any other
-    * module via one of the `inject` methods. This method allows to register service with ''key'',
+    * module. This method allows to register service with ''key'',
     * which is primarily used to disambiguate between multiple registered services of same
     * type and must be then specified when injecting the service. Please note that because the
     * [[Context]] is immutable, new updated instance will be returned after calling this method.
@@ -170,6 +170,28 @@ trait Context {
     * @return new updated instance of [[Context]]
     */
   def register[T <: AnyRef](value: T, key: String)(implicit ct: ClassTag[T]): Context = register[T](value, Some(key))
+
+
+  /**
+    * Registers several services to the ''Akkamo'' context, such services  then available to any other
+    * module via one of the `inject` methods. This method allows to register service with ''key'',
+    * which is primarily used to disambiguate between multiple registered services of same
+    * type and must be then specified when injecting the service. Please note that because the
+    * [[Context]] is immutable, new updated instance will be returned after calling this method.
+    *
+    * @param values
+    * @tparam T
+    * @return
+    */
+  def register[T <: AnyRef](values: List[Initializable.Parsed[T]])(implicit ct: ClassTag[T]): Context = {
+    values.flatMap { case (default, aliases, value) =>
+      // lineraize to pairs (Option(key), T)
+      (aliases.map(key => (Some(key), value)) ++ (if (default) (Option.empty[String], value) :: Nil else Nil))
+    }.foldLeft(this) { case (ctx, (keyOpt, value)) =>
+      // register each one
+      ctx.register(value, keyOpt)
+    }
+  }
 
   /**
     * Returns all registered instance of service of type `T`, as a map where key is instance of

@@ -170,7 +170,7 @@ class Akkamo {
 
   private def publisherMap(modules: List[Module]): Map[Class[_], Class[_]] = modules.flatMap(_ match {
     case c:Publisher =>
-      val keys = c.asInstanceOf[Publisher].publish()
+      val keys = c.asInstanceOf[Publisher].publish(createReportDependencies()).asInstanceOf[Depends].dependsOn
       keys.map(_ -> c.iKey())
     case _ => List.empty
   }).toMap
@@ -193,7 +193,7 @@ class Akkamo {
       in match {
         case x :: xs => {
           val r = x.dependencies(des)
-          if (r()) {
+          if (r.res) {
             orderRound(xs, set + x.iKey(), x :: out)
           } else {
             orderRound(xs, set, out)
@@ -241,7 +241,7 @@ class Akkamo {
           case Success(c) => {
             if(!CTX.isLast(c)) {
               val info = CTX.getInvocationInfo.getOrElse("unknown location")
-              log(s"-----------------\nUnused context created at: ${info} during initialization\n-----------------\n", true)
+              log(s"-----------------\nUnused context created at: ${info} during initialization\n-----------------\n")
               if(Akkamo.isContextStrict) {
                 throw InitializationError(s"Unused context created: ${info}")
               }
@@ -266,7 +266,7 @@ class Akkamo {
           case Success(c) => {
             if(!CTX.isLast(c)) {
               val info = CTX.getInvocationInfo.getOrElse("unknown location")
-              log(s"-----------------\nUnused context created at: ${info} during run\n-----------------\n", true)
+              log(s"-----------------\nUnused context created at: ${info} during run\n-----------------\n")
               if(Akkamo.isContextStrict) {
                 throw RunError(s"Unused context created: ${info}")
               }

@@ -33,11 +33,25 @@ trait ConfigImplicits {
   implicit object CV2BigDecimal extends Transformer[BigDecimal] {
     override def apply(v: ConfigValue): BigDecimal = {
       val uw = v.unwrapped()
-      if(uw.isInstanceOf[Number])  BigDecimal.decimal(uw.asInstanceOf[Number].doubleValue())
-      else if (uw.isInstanceOf[String]) BigDecimal(uw.asInstanceOf[String])
-      else throw ConfigError(s"Can't parse value: $v as BigDecimal")
+      uw match {
+        case number: Number => BigDecimal.decimal(number.doubleValue())
+        case string: String => BigDecimal(string)
+        case _ => throw new IllegalArgumentException(s"Can't parse value: $v as BigDecimal")
+      }
     }
   }
+
+  implicit object CV2BigInt extends Transformer[BigInt] {
+    override def apply(v: ConfigValue): BigInt = {
+      val uw = v.unwrapped()
+      uw match {
+        case number: Number => BigInt(number.longValue())
+        case string: String => BigInt(string)
+        case _ => throw new IllegalArgumentException(s"Can't parse value: $v as BigInt")
+      }
+    }
+  }
+
 
   implicit object CVBoolean extends Transformer[Boolean] {
     override def apply(v: ConfigValue): Boolean = v.unwrapped().asInstanceOf[Boolean]
@@ -63,6 +77,7 @@ trait ConfigImplicits {
   implicit def cv2Map[T: Transformer] = new Transformer[Map[String, T]] {
     override def apply(v: ConfigValue): Map[String, T] =
       c(implicitly[Transformer[T]], v.asInstanceOf[ConfigObject].keySet().iterator(), v.asInstanceOf[ConfigObject])
+
 
     @inline
     private def c(t: Transformer[T], it: java.util.Iterator[String], cfg: ConfigObject,

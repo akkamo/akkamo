@@ -1,9 +1,8 @@
 package eu.akkamo
 
 import akka.actor.ActorSystem
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 
-import scala.collection.mutable
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -40,79 +39,37 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
   /**
     * pointer to array containing set of akka Actor System names in configuration
     */
-  val AkkaSystemsKey = "akkamo.akka"
+  val CfgKey = "akkamo.akka"
 
-  /**
-    * in concrete akka config points to array of aliases
-    */
-  val Aliases = "aliases"
+  val default =
+    s"""
+       |$CfgKey = {
+       | system = {}
+       |}
+    """.stripMargin
 
-  /**
-    * the name of actor system
-    */
-  val Name = "name"
-
-  val actorSystems = mutable.Set.empty[ActorSystem]
 
   /**
     * Initializes the module into provided mutable context, blocking
     */
   override def initialize(ctx: Context) = Try {
+    implicit val cfg = ctx.get[Config]
+    val registered = Initializable.parseConfig[Config](CfgKey).getOrElse {
+      Initializable.parseConfig[Config](CfgKey, ConfigFactory.parseString(default)).get
+    }.map { case (default, alliases, cfg) => (default, alliases, ActorSystem.apply(alliases.head, cfg)) }
 
-    val cfg = ctx.get[Config]
-    config.asOpt[Map[String, Config]](AkkaSystemsKey, cfg).fold {
-      // empty configuration just create default
-      try {
-        ctx.register(ActorSystem("default"))
-      } catch {
-        case th: Throwable => throw InitializableError("Can't initialize default Akka system", th)
-      }
-    } { bloks =>
-      val bloksWithDefault = if (bloks.size == 1) {
-        bloks.map(p => (p._1, p._2, true))
-      } else {
-        val ret = bloks.map { case (key, cfg) =>
-          val default = cfg.hasPath("default") && cfg.getBoolean("default")
-          (key, cfg, default)
-        }
-        val defaultCount = ret.count({ case (_, _, x) => x })
-        if (defaultCount != 1) {
-          throw InitializableError(s"In akka module configuration found ${defaultCount} of blocks having default=true. Only one such value is allowed.")
-        }
-        ret
-      }
-      bloksWithDefault.foldLeft(ctx) { case (ctx, (key, cfg, default)) =>
-        try {
-          val system = ActorSystem(key, cfg)
-          actorSystems += system
-          // register default
-          val ctx2 = if (default) {
-            ctx.register(system)
-          } else {
-            ctx
-          }
-          // register under key as name
-          val ctx3 = ctx2.register(system, Some(key))
-          // register rest
-          config.asOpt[List[String]](Aliases, cfg).map(_.foldLeft(ctx3) {
-            case (ctx, name) => ctx.register(system, Some(name))
-          }).getOrElse(ctx3)
-        } catch {
-          case th: Throwable => throw InitializableError(s"Can't initialize Akka system defined by: ${key}", th)
-        }
-      }
-    }
+    ctx.register(Initializable.defaultReport(CfgKey, registered))
   }
 
   @throws[DisposableError]("If dispose execution fails")
   override def dispose(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    val futures = actorSystems.map(p => p.terminate.transform(p => p, th => DisposableError(s"Can't initialize route ${p}", th)))
+    val futures = ctx.registered[ActorSystem].map { case (s, _) => s.terminate() }
     Future.sequence(futures).map { p => () }
   }
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config]
 
+  override def publish(dependency: Dependency): Dependency = dependency.&&[ActorSystem]
 
-  override def publish(): Set[Class[_]] = Set(classOf[ActorSystem])
 }

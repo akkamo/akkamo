@@ -24,7 +24,7 @@ class PersistentConfigModuleApiTest extends AsyncFlatSpec with BeforeAndAfter {
   s"in application.conf defined property: $intKey" should "equals 1" in {
     val res = TestModule.pc.get[Int](intKey)
     res.map {v =>
-      assert(v == 1)
+      assert(v == 1, "This test requires fresh database")
     }
   }
 

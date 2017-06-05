@@ -12,10 +12,11 @@ trait Transformer[T] {
 
   /**
     *
-    * @param v instance of [[com.typesafe.config.ConfigValue]] or `null`
+    * @param v instance of ``com.typesafe.config.ConfigValue`` or `null`
     * @return instance created from a `ConfigValue` or throws NullPointerException
-    * @throws throws Exception if `v` can't be converted to `T`
     */
+  // TODO add throws in future
+  //@throws java.lang.Throwable in value can't be transformed, or NullPointerException 'v' is null
   @throws[Throwable]
   def apply(v: ConfigValue): T
 }

@@ -137,7 +137,8 @@ package object config {
       None
     }
   } catch {
-    case th:NullPointerException => throw ConfigError(s"The value under path: $path doesn't exists", th)
+    case th:NullPointerException => throw ConfigError(s"The value, or value parameter under path: $path doesn't exists", th)
+    case th:ConfigError => throw th
     case th:Throwable => throw ConfigError(s"Can't parse value under path: $path", th)
   }
 

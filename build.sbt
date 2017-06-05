@@ -1,6 +1,6 @@
 import com.typesafe.sbt.pgp.PgpKeys._
 import sbt.Keys._
-import sbtunidoc.Plugin.UnidocKeys._
+
 
 val cScalaVersion = "2.12.2"
 val cAkkaVersion = "2.4.17"
@@ -33,6 +33,19 @@ publishTo in Global := {
 
 // enable automatic linking to the external Scaladoc of managed dependencies
 autoAPIMappings := true
+
+// define map for extenal documentation
+// TODO integrate with java doc
+/*
+val bootClassPath =
+  System.getProperty("sun.boot.class.path").split(
+    System.getProperty("path.separator")).map { p =>
+    (p.split(System.getProperty("file.separator")).toVector.reverse.head, p)
+  }.toMap
+
+apiMappings += ( file(bootClassPath.get("rt.jar").get) -> url("https://docs.oracle.com/javase/8/docs/api") )
+*/
+
 
 publishArtifact in Test := false
 
@@ -115,30 +128,27 @@ version in Global := "1.1.0"
 
 lazy val akkamoRoot = project.in(file("."))
   .settings(publish := {}, publishLocal := {}, publishSigned := {}, publishLocalSigned := {})
-  .settings(unidocSettings: _*)
+  //.settings(unidocSettings: _*)
   .settings(unidocProjectFilter in(ScalaUnidoc, unidoc) := inAnyProject -- inProjects(akkamoSbtPlugin))
   .aggregate(
     akkamoAkkaDependencies,
     akkamoAkkaHttpDependencies,
     akkamoConfigMacro, akkamo, akkamoAkka, akkamoAkkaHttp, akkamoLog, akkamoAkkaLog, akkamoMongo, akkamoKafka, //akkamoReactivemongo
     akkamoPersistentConfig, akkamoMongoPersistentConfig, akkamoWebContent, akkamoSbtPlugin
-  )
-
+  ).enablePlugins(ScalaUnidocPlugin)
 
 lazy val akkamoConfigMacro = project.in(file("akkamoConfigMacro")).settings(
   name := "akkamo-config-macro",
   libraryDependencies ++= Seq(
     "com.typesafe" % "config" % "1.3.1",
-    "org.scala-lang" % "scala-reflect" % scalaVersion.value  withSources,
-    "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"  withSources
+    "org.scala-lang" % "scala-reflect" % scalaVersion.value withSources,
+    "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided" withSources
   )
 )
-
 
 lazy val akkamo = project.in(file("akkamo")).settings(
   name := "akkamo",
   libraryDependencies ++= Seq(
-    "com.typesafe" % "config" % "1.3.1",
      "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 ).dependsOn(akkamoConfigMacro)
@@ -171,15 +181,6 @@ lazy val akkamoAkkaHttp = project.in(file("akkamoAkkaHttp")).settings(
     "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 ).dependsOn(akkamoAkka)
-
-/*
-lazy val akkamoReactivemongo = project.in(file("akkamoReactivemongo")).settings(
-  name := "akkamo-reactivemongo",
-  libraryDependencies ++= Seq(
-    "org.reactivemongo" %% "reactivemongo" % cReactiveMongoVersion % "provided" withSources
-  )
-).dependsOn(akkamo, akkamoLog)
-*/
 
 lazy val akkamoMongo = project.in(file("akkamoMongo")).settings(
   name := "akkamo-mongo",

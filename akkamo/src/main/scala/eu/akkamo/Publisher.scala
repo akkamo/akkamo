@@ -12,7 +12,8 @@ trait Publisher {
 
   /**
     *
-    * @return published classes
+    * @param ds instance of [[eu.akkamo.Dependency]]
+    * @return chained module dependencies
     */
-  def publish():Set[Class[_]]
+  def publish(ds:Dependency):Dependency
 }

@@ -23,9 +23,5 @@ class ConfigModule extends Module with Initializable with Publisher {
 
   override def dependencies(dependencies: Dependency): Dependency = dependencies
 
-  /**
-    *
-    * @return class of Config is published
-    */
-  override def publish(): Set[Class[_]] = Set(classOf[Config])
+  override def publish(dependency: Dependency): Dependency = dependency.&&[Config]
 }

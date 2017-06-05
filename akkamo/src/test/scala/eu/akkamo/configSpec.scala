@@ -8,6 +8,9 @@ case class Point(x: Int, y: Int, label: Option[String])
 
 case class Points(map: Map[String, Point])
 
+private[akkamo] case class ClassHolder(`class`:String)
+
+
 /**
   * @author jubu.
   */
@@ -17,6 +20,8 @@ class configSpec extends FlatSpec with Matchers {
 
 
   case class X(x: Int)
+
+  private class Point2(val x: Int, val y: Int)(val label: String)
 
   implicit object CV2Type extends Transformer[X] {
     override def apply(v: ConfigValue): X = {
@@ -117,8 +122,6 @@ class configSpec extends FlatSpec with Matchers {
 
   "config wrapper, when uses generated transformer" should "parse to instance of class with two parameter lists" in {
 
-    class Point2(val x: Int, val y: Int)(val label: String)
-
     implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj" }""")
     implicit val trp: Transformer[Point2] = config.generateTransformer[Point2]
 
@@ -129,4 +132,12 @@ class configSpec extends FlatSpec with Matchers {
     assert(pl.label == pr.label)
   }
 
+  "config wrapper, when uses generated transformer" should "parse to instance of class having parameter named: `class` " in {
+    implicit val cfg = ConfigFactory.parseString("""classHolder = { class = "xxx" }""")
+    implicit val trp: Transformer[ClassHolder] = config.generateTransformer[ClassHolder]
+
+    val pl = config.as[ClassHolder]("classHolder")
+    val pr = new ClassHolder("xxx")
+    assert(pl == pr)
+  }
 }

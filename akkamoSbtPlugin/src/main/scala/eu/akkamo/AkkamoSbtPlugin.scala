@@ -31,12 +31,20 @@ object AkkamoSbtPlugin extends AutoPlugin {
 
 
   override def globalSettings = Seq(
-    mainClass in Compile := Some("eu.akkamo.Akkamo")
+    mainClass in Global := Some("eu.akkamo.Akkamo")
   ) ++ super.globalSettings
 
   override def projectSettings = Seq(
-    runAkkamo := (thisProjectRef, fullClasspath in runAkkamo in Runtime).map(handleStartAkkamo).dependsOn(products in Runtime).value,
-    stopAkkamo := (thisProjectRef, fullClasspath in stopAkkamo in Runtime).map(handleStopAkkamo).dependsOn(products in Runtime).value
+    runAkkamo := {
+      handleStartAkkamo(thisProjectRef.value,(fullClasspath in Runtime).value)
+      runAkkamo
+    }.dependsOn(products in Runtime),
+    stopAkkamo := {
+      handleStopAkkamo(thisProjectRef.value,(fullClasspath in Runtime).value)
+      stopAkkamo
+    }.dependsOn(products in Runtime)
+    //runAkkamo := (thisProjectRef, fullClasspath in runAkkamo in Runtime).map(handleStartAkkamo).dependsOn(products in Runtime).value,
+    //stopAkkamo := (thisProjectRef, fullClasspath in stopAkkamo in Runtime).map(handleStopAkkamo).dependsOn(products in Runtime).value
   )
 
   def handleStartAkkamo(project: ProjectRef, cp: Classpath) = {

@@ -40,10 +40,10 @@ trait Module {
     *
     * Instead of modules, one can use interfaces that are published by given module, see: [[eu.akkamo.Publisher]] interface for more details
     *
-    * @param dependencies instance of [[eu.akkamo.Dependency]]
+    * @param ds instance of [[eu.akkamo.Dependency]]
     * @return chained module dependencies
     */
-  def dependencies(dependencies: Dependency): Dependency
+  def dependencies(ds: Dependency): Dependency
 
 
   /**

@@ -2,10 +2,38 @@ package eu.akkamo.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo.{Context, Dependency, Disposable, Initializable, InitializableError, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
+import eu.akkamo.m.config.Transformer
+import eu.akkamo.{Context, Dependency, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.util.Try
+
+
+/**
+  * For each configured ''MongoDB'' connection, instance of this trait is registered into the
+  * ''Akkamo context'' and provides API for working with the connection.
+  */
+trait MongoApi {
+
+  /**
+    * Instance of `MongoConnection` for the configured ''MongoDB'' connection (see the
+    * [[http://mongodb.github.io/mongo-scala-driver/1.1/scaladoc/#org.mongodb.scala.MongoClient official Scaladoc]]
+    * for further details).
+    *
+    * @return instance of `MongoConnection`
+    */
+  def client: MongoClient
+
+  /**
+    * Instance of `MongoDatabase`, representing the specific ''MongoDB'' database (see the
+    * [[http://mongodb.github.io/mongo-scala-driver/1.1/scaladoc/#org.mongodb.scala.MongoDatabase official Scaladoc]]
+    * for further details).
+    *
+    * @return instance of `MongoDatabase`
+    */
+  def db: MongoDatabase
+}
+
 
 /**
   * ''Akkamo module'' providing support for ''MongoDB'' database using the official Scala driver
@@ -43,36 +71,44 @@ import scala.util.Try
 class MongoModule extends Module with Initializable with Disposable with Publisher {
 
   import eu.akkamo.config
-  import eu.akkamo.config.implicits._
 
-  object Keys {
-    val Aliases = "aliases"
-    val Default = "default"
-    val Uri = "uri"
-    val ConfigNamespace = "akkamo.mongo"
+  private class MongoApiImpl(uri: String) extends MongoApi {
+
+    override lazy val client: MongoClient = MongoClient(uri)
+
+    override def db: MongoDatabase = client.getDatabase(new ConnectionString(uri).getDatabase)
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies
-    .&&[Config].&&[LoggingAdapterFactory]
 
-  override def publish(): Set[Class[_]] = Set(classOf[MongoApi])
+  val CfgKey = "akkamo.mongo"
+
+  val default =
+    s"""
+       |$CfgKey = {
+       | default = {
+       |  uri = "mongodb://localhost/default"
+       | }
+       |}
+    """.stripMargin
+
+  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory]
+
+  override def publish(ds: Dependency): Dependency = ds.&&[MongoApi]
 
   override def initialize(ctx: Context) = Try {
     val log = ctx.get[LoggingAdapterFactory].apply(getClass)
     log.info("Initializing 'MongoDB' module...")
+
     implicit val cfg: Config = ctx.get[Config]
-    val configMapOpt = config.asOpt[Map[String, Config]](Keys.ConfigNamespace)
-    val configMap = configMapOpt.getOrElse(defaultConfig)
-    parseConfig(configMap).foldLeft(ctx) { case (context, conn) =>
-      log.info(s"Initializing Mongo connection for name '${conn.name}'")
-      val mongoApi: MongoApi = createMongoApi(conn)
 
-      val ctx1 = context.register[MongoApi](mongoApi, Some(conn.name))
+    import config.implicits._
+    implicit val CV2MongoApiImpl: Transformer[MongoApiImpl] = config.generateTransformer[MongoApiImpl]
 
-      val ctx2 = if (conn.default) ctx1.register[MongoApi](mongoApi) else ctx1
-
-      conn.aliases.foldLeft(ctx2) { (ctx, alias) => ctx.register[MongoApi](mongoApi, Some(alias)) }
-    }
+    val registered: List[Initializable.Parsed[MongoApi]] =
+      Initializable.parseConfig[MongoApiImpl](CfgKey).getOrElse {
+        Initializable.parseConfig[MongoApiImpl](CfgKey, ConfigFactory.parseString(default)).get
+      }
+    ctx.register(Initializable.defaultReport(CfgKey, registered))
   }
 
   override def dispose(ctx: Context) = Try {
@@ -83,61 +119,4 @@ class MongoModule extends Module with Initializable with Disposable with Publish
       mongoApi.client.close()
     }
   }
-
-  private def createMongoApi(conn: Connection): MongoApi = new MongoApi {
-    override def client: MongoClient = MongoClient(conn.uri)
-
-    override def db: MongoDatabase = client.getDatabase(new ConnectionString(conn.uri).getDatabase)
-  }
-
-  private def parseConfig(cfg: Map[String, Config]): List[Connection] = {
-    import scala.collection.JavaConverters._
-
-    def aliases(conf: Config): Seq[String] =
-      if (conf.hasPath(Keys.Aliases)) conf.getStringList(Keys.Aliases).asScala else Seq.empty[String]
-
-    val connections: Iterable[Connection] = cfg map { case (key, value) =>
-      val default: Boolean =
-        if (cfg.size == 1) true else value.hasPath(Keys.Default) && value.getBoolean(Keys.Default)
-      Connection(key, aliases(value), default, value.getString(Keys.Uri))
-    }
-
-    val defaultsNo = connections count (_.default)
-    if (defaultsNo > 1) throw InitializableError(s"Found $defaultsNo default config blocks in" +
-      s"module configuration. Only one module can be declared as default.")
-
-    connections.toList
-  }
-
-  private def defaultConfig: Map[String, Config] = Map(
-    "default" -> ConfigFactory.parseString("""uri = "mongodb://localhost/default"	""".stripMargin))
-
-
-  private case class Connection(name: String, aliases: Seq[String], default: Boolean, uri: String)
-
-}
-
-/**
-  * For each configured ''MongoDB'' connection, instance of this trait is registered into the
-  * ''Akkamo context'' and provides API for working with the connection.
-  */
-trait MongoApi {
-
-  /**
-    * Instance of `MongoConnection` for the configured ''MongoDB'' connection (see the
-    * [[http://mongodb.github.io/mongo-scala-driver/1.1/scaladoc/#org.mongodb.scala.MongoClient official Scaladoc]]
-    * for further details).
-    *
-    * @return instance of `MongoConnection`
-    */
-  def client: MongoClient
-
-  /**
-    * Instance of `MongoDatabase`, representing the specific ''MongoDB'' database (see the
-    * [[http://mongodb.github.io/mongo-scala-driver/1.1/scaladoc/#org.mongodb.scala.MongoDatabase official Scaladoc]]
-    * for further details).
-    *
-    * @return instance of `MongoDatabase`
-    */
-  def db: MongoDatabase
 }

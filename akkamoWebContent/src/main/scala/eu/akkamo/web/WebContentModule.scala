@@ -1,46 +1,26 @@
 package eu.akkamo.web
 
+import java.io.File
+
 import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
+import eu.akkamo.m.config.Transformer
 import eu.akkamo.web.WebContentRegistry.{ContentMapping, RouteGenerator}
-import eu.akkamo.{RouteRegistry, _}
+import eu.akkamo.{Context, ContextError, Dependency, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable}
 
 import scala.util.Try
 
 /**
   * Represents registry for single configured static content mapping.
   */
-trait WebContentRegistry extends Registry[ContentMapping] {
+class WebContentRegistry(
+                          val routeRegistryAlias: Option[String],
+                          val mapping: Map[String, RouteGenerator]) extends Registry[ContentMapping] {
 
-  /**
-    * Mapping of route generators.
-    *
-    * @return route generators mapping
-    */
-  def mapping: Map[String, RouteGenerator]
-
-  /**
-    * List of aliases, under which this content mapping registry is registered into the
-    * ''Akkamo context''.
-    *
-    * @return content mapping registry aliases
-    */
-  def aliases: List[String]
-
-  /**
-    * Optional value of the Akka HTTP module's registered `RouteRegistry`
-    *
-    * @return Akka HTTP module's registered `RouteRegistry` alias
-    */
-  def routeRegistryAlias: Option[String]
-
-  /**
-    * Whether this content mapping registry is registered as the `default` service instance.
-    *
-    * @return `true` if this content mapping registry is registered as the `default` service
-    *         instance
-    */
-  def default: Boolean
+  override def copyWith(p: (String, RouteGenerator)): WebContentRegistry.this.type = {
+    if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered")
+    else new WebContentRegistry(routeRegistryAlias, mapping = mapping + p)
+  }
 }
 
 object WebContentRegistry {
@@ -68,13 +48,12 @@ object WebContentRegistry {
   *     // RouteGenerator serving content of web directory and listening on .../web
   *     name2 = {
   *       default = true // at least in one configuration is value mandatory if the number of instances is > 1
-  *       routeGenerators = [
-  *         {
-  *          prefix="web"
+  *       routeGenerators = {
+  *         web = {
   *          class = eu.akkamo.web.FileFromDirGenerator
   *          parameters = ["/web"]
   *         }
-  *       ]
+  *       }
   *     }
   *   }
   * }}}
@@ -84,145 +63,133 @@ object WebContentRegistry {
   * classpath or file system (see [[FileFromDirGenerator]] for more details):
   *
   * {{{
-  *   default = {
-  *     routeRegistryAlias="akkamo.webContent"
-  *     default = true
-  *     routeGenerators = [
-  *         {
-  *           class = eu.akkamo.web.FileFromDirGenerator
-  *         }
-  *      ]
+  * default = {
+  *   routeRegistryAlias="akkamoWebContent"
+  *   default = true
+  *   routeGenerators = {
+  *     web = {
+  *       class = eu.akkamo.web.FileFromDirGenerator
+  *       parameters = ["/web"] // directory from data going to be served
+  *     }
   *   }
+  * }
   * }}}
+  *
+  * If as RoutesGenerator is used: [[FileFromDirGenerator]] , then parameters argument must contains exactly one parameter.
   *
   * @author jubu
   */
 class WebContentModule extends Module with Initializable with Runnable with Publisher {
 
-  import config.implicits._
+  val CfgKey = "akkamo.webContent"
 
-  val WebContentModuleKey = "akkamo.webContent"
+  private val Prefix = "web"
 
-  val RouteRegistryAlias = "routeRegistryAlias"
+  private class RouteGeneratorDefinition(val `class`: String, val parameters: Option[List[String]])
 
-  private val Aliases = "aliases"
-
-  private val Default = "default"
-
-  private val RouteGenerators = "routeGenerators"
-
-  private val Clazz = "class"
-
-  private val Prefix = "prefix"
-
-
-  case class
-  DefaultWebContentRegistry(aliases: List[String],
-                            routeRegistryAlias: Option[String],
-                            default: Boolean,
-                            override val mapping: Map[String, RouteGenerator] = Map.empty) extends WebContentRegistry {
-
-
-    override def copyWith(p: (String, RouteGenerator)): DefaultWebContentRegistry.this.type = {
-      if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered")
-      else this.copy(mapping = mapping + p).asInstanceOf[this.type]
-    }
-
-
-  }
+  private class WebContentDefinition(
+                                      val routeRegistryAlias: Option[String],
+                                      val routeGenerators: Option[Map[String, RouteGeneratorDefinition]])
 
   override def initialize(ctx: Context) = Try {
-    val cfg: Config = ctx.inject[Config].get
+    import eu.akkamo.config
+    implicit val cfg: Config = ctx.inject[Config].get
+    implicit val CV2RouteGeneratorDefinition: Transformer[RouteGeneratorDefinition] =
+      config.generateTransformer[RouteGeneratorDefinition]
+    implicit val CV2WebContentDefinition: Transformer[WebContentDefinition] =
+      config.generateTransformer[WebContentDefinition]
 
-    val mpOption = config.asOpt[Map[String, Config]](WebContentModuleKey, cfg)
-
-    val useGenerators = mpOption.isEmpty && Try(FileFromDirGenerator.defaultBaseSource).isSuccess
-    // check  existence of default
-    val mp = mpOption.getOrElse(defaultFile(useGenerators))
-    val autoDefault = mp.size == 1
-    val rrs = mp.map { case (key, conf) =>
-      val routeRegistryAlias = config.asOpt[String](RouteRegistryAlias, conf)
-      val aliases = key :: config.asOpt[List[String]](Aliases, conf).getOrElse(List.empty[String])
-      val default = config.asOpt[Boolean](Default, conf).getOrElse(autoDefault)
-      val generators = config.asOpt[List[Config]](RouteGenerators, conf).map(getRouteGenerators).getOrElse(List.empty).toMap
-      DefaultWebContentRegistry(aliases, routeRegistryAlias, default, generators)
-    }
-
-    // check if only one default content registry is specified
-    val defaultsNo: Int = rrs.groupBy(_.default).get(true).map(_.size).getOrElse(0)
-    if (defaultsNo > 1) {
-      throw InitializableError("Only one content registry can be marked as `default`")
-    }
-
-    rrs.foldLeft(ctx) { (ctx, registry) =>
-      val ctx1 = if (registry.default) {
-        ctx.register[WebContentRegistry](registry)
-      } else {
-        ctx
+    val parsed: List[Initializable.Parsed[WebContentDefinition]] =
+      Initializable.parseConfig[WebContentDefinition](CfgKey).getOrElse {
+        val prefix = Try {
+          toBaseSource(Prefix) // throws exception if not exists
+          Prefix
+        }.toOption
+        Initializable.parseConfig[WebContentDefinition](CfgKey, ConfigFactory.parseString(default(prefix))).get
       }
-      registry.aliases.foldLeft(ctx1) { (ctx, alias) =>
-        ctx.register[WebContentRegistry](registry, Some(alias))
-      }
+
+    val registered = parsed.map { case (d, l, v) =>
+      val generators = v.routeGenerators.getOrElse(Map.empty)
+        .map { case (key, definition) =>
+          val parameters = definition.parameters.getOrElse(List.empty).toArray
+          val instance = newInstance(Class.forName(definition.`class`), parameters)
+          (key, instance)
+        }
+      (d, l, new WebContentRegistry(v.routeRegistryAlias, generators))
     }
+    ctx.register(Initializable.defaultReport(CfgKey, registered))
   }
 
 
   override def run(ctx: Context) = Try {
-    import akka.http.scaladsl.server.Directives._
     val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    ctx.registered[WebContentRegistry].foldLeft(ctx) {
+      (ctx, r) =>
+        val (wcr, _) = r
+        // build routes
+        val routes = wcr.mapping.map {case (prefix, rg) =>
+            log.debug(s"generating route for prefix: ${prefix}")
+            import akka.http.scaladsl.server.Directives._
+            pathPrefix(prefix)(get(rg()))
+        }
+        // register routes
+        routes.foldLeft(ctx) {
+          (ctx, route) =>
+            log.debug(s"register in route for key: ${wcr.routeRegistryAlias}")
+            ctx.registerIn[RouteRegistry, Route](route, wcr.routeRegistryAlias)
+        }
+    }
+  }
 
-    ctx.registered[WebContentRegistry].foldLeft(ctx) { (ctx, r) =>
-      val (wcr, _) = r
-      // build routes
-      val routes = wcr.mapping.map { case (prefix, rg) =>
-        log.debug(s"generating route for ${Prefix}: ${prefix}")
-        pathPrefix(prefix)(get(rg()))
-      }
-      // register routes
-      routes.foldLeft(ctx) { (ctx, route) =>
-        log.debug(s"register in route for key: ${wcr.routeRegistryAlias}")
-        ctx.registerIn[RouteRegistry, Route](route, wcr.routeRegistryAlias)
+  override def dependencies(ds: Dependency): Dependency = ds.&&[LoggingAdapterFactory].&&[Config].&&[RouteRegistry]
+
+  override def publish(ds: Dependency): Dependency = ds.&&[WebContentRegistry]
+
+
+  private def newInstance(clazz: Class[_], arguments: Array[String]): RouteGenerator =
+    (if (arguments.length == 0)  clazz.newInstance()
+    else clazz.getConstructor(arguments.map(_.getClass): _*).newInstance(arguments: _*)).asInstanceOf[RouteGenerator]
+
+  @throws[IllegalArgumentException]
+  def toBaseSource(path: String) = {
+
+    def fileIsOk(f: File) = f.exists() && f.isDirectory
+
+    val df = new File(path)
+    if (fileIsOk(df)) Left(df)
+    else {
+      // build in zip
+      val res = this.getClass.getClassLoader.getResource(path)
+      if (res != null) Right(path)
+      else {
+        // user dir
+        val d = System.getProperty("user.dir") + File.separator + path
+        val df = new File(d)
+        if (fileIsOk(df)) {
+          Left(df)
+        } else {
+          // user home
+          val d = System.getProperty("user.home") + File.separator + path
+          val df = new File(d)
+          if (fileIsOk(df)) {
+            Left(df)
+          } else throw new IllegalArgumentException(s"Path: $path doesn't exists")
+        }
       }
     }
   }
 
-  override def dependencies(dependencies: Dependency): Dependency =
-    dependencies.&&[LoggingAdapterFactory].&&[Config].&&[RouteRegistry]
-
-
-  override def publish(): Set[Class[_]] = Set(classOf[WebContentRegistry])
-
-  private def getRouteGenerators(p: List[Config]) = p.map { cfg =>
-    val className = config.asOpt[String](Clazz, cfg).getOrElse(classOf[FileFromDirGenerator].getName)
-    val parameters = config.asOpt[List[String]]("parameters", cfg).getOrElse(List.empty).toArray
-    val prefix = config.
-      asOpt[String](Prefix, cfg).getOrElse(FileFromDirGenerator.Prefix)
-    (prefix, newInstance(Class.forName(className), parameters))
-  }
-
-  private def newInstance(clazz: Class[_], arguments: Array[String]): RouteGenerator = (if (arguments.length == 0) {
-    clazz.newInstance()
-  } else {
-    clazz.getConstructor(arguments.map(_.getClass): _*).newInstance(arguments: _*)
-  }).asInstanceOf[RouteGenerator]
-
-  private def defaultFile(useGenerators: Boolean) = {
-    val generators =
-      if (useGenerators)
-        s"""
-           |$RouteGenerators = [{
-           |  $Prefix=${FileFromDirGenerator.Prefix}
-           |  $Clazz = eu.akkamo.web.FileFromDirGenerator
-           |}]
+  private def default(dir: Option[String]) = {
+    dir.map(p =>
+      s"""
+         |routeRegistryAlias = ${CfgKey.replace(".", "_")}
+         |routeGenerators = {
+         |  ${p} = {
+         |    clazz = eu.akkamo.web.FileFromDirGenerator
+         |    parameters = ["${p}"]
+         |  }
+         |}
          """.stripMargin
-      else ""
-    Map(
-      WebContentModuleKey -> ConfigFactory.parseString(
-        s"""
-           |{
-           |  $RouteRegistryAlias=$WebContentModuleKey
-           |  $Default = true
-           |$generators
-           |}""".stripMargin))
+    ).getOrElse(s"""routeRegistryAlias = ${CfgKey.replace(".", "_")}""")
   }
 }

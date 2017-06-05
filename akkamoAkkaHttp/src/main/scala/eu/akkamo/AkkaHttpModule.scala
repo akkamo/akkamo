@@ -140,7 +140,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   import config.implicits._
 
-  private val AkkaHttpKey = "akkamo.akkaHttp"
+  val CfgKey = "akkamo.akkaHttp"
 
   private val Protocol = "protocol"
 
@@ -274,7 +274,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
     import config.implicits._
     // create list of configuration tuples
-    val mp = config.asOpt[Map[String, Config]](AkkaHttpKey, cfg)
+    val mp = config.asOpt[Map[String, Config]](CfgKey, cfg)
 
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
@@ -324,9 +324,9 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
   private def defaultLogFormat(mdc: Boolean) = if (mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
+  override def dependencies(ds: Dependency): Dependency = ds.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
-  override def publish(): Set[Class[_]] = Set(classOf[RouteRegistry])
+  override def publish(ds: Dependency): Dependency = ds.&&[RouteRegistry]
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
