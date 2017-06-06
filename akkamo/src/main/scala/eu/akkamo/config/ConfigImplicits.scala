@@ -64,6 +64,9 @@ trait ConfigImplicits {
         Some(c(v))
       } else None
     }
+    override def apply(key: String, obj: ConfigObject): Option[T] = Option(obj.get(key)).flatMap(this(_))
+    override def apply(path: String, cfg: Config): Option[T] =
+      if (cfg.hasPath(path)) { this(cfg.getValue(path)) } else None
   }
 
   implicit def cv2List[T: Transformer] = new Transformer[List[T]] {

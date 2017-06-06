@@ -14,7 +14,9 @@ import scala.concurrent.Future
   */
 class MongoPersistentConfigModule extends PersistentConfigModule with Initializable {
 
-  val cfgKey = "persistentConfig"
+  val cfgKey = "akkamo.mongoPersistentConfig"
+
+  val ColName = "persistentConfig"
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -22,17 +24,17 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
     dependencies.&&[Config].&&[MongoApi].&&[LoggingAdapterFactory]
 
   def getCollection(ctx: Context) = Future {
-    ctx.inject[MongoApi](cfgKey).getOrElse(throw InitializableError("Missing MongoApi instance!"))
+    ctx.get[MongoApi](Some(cfgKey.replace(".", "_")))
   }.flatMap { api =>
     val db = api.db
     db.listCollectionNames().toFuture().flatMap { collections =>
-      if (collections.contains(cfgKey)) {
+      if (collections.contains(ColName)) {
         // if collection exist just return it
-        Future.successful(db.getCollection[Document](cfgKey))
+        Future.successful(db.getCollection[Document](ColName))
       } else {
         // create and get collection
-        db.createCollection(cfgKey).toFuture().map { _ =>
-          db.getCollection[Document](cfgKey)
+        db.createCollection(ColName).toFuture().map { _ =>
+          db.getCollection[Document](ColName)
         }
       }
     }
@@ -104,7 +106,7 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
     val register = new PersistentConfig with StorageHolder with ConfigHolder {
       override def storage: Storage = mongoStorage
 
-      override def cfg = ctx.inject[Config].get
+      override def cfg = ctx.get[Config]
     }
     ctx.register[PersistentConfig](register)
   }

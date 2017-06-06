@@ -20,9 +20,9 @@ trait PersistentConfig {
   type Writer[T] = (Storage, String, T) => Future[Unit]
 
   /**
-    * Reads value of the persistent property, specified by its ''key''.
+    * Reads value of the persistent property, specified by its ''alias''.
     *
-    * @param key property key
+    * @param key property alias
     * @param r   implicit property reader
     * @tparam T type of the property value
     * @return property value
@@ -32,9 +32,9 @@ trait PersistentConfig {
   }
 
   /**
-    * Stores the persistent property ''value'' using the specified ''key''.
+    * Stores the persistent property ''value'' using the specified ''alias''.
     *
-    * @param key    property key
+    * @param key    property alias
     * @param value  property value
     * @param writer implicit property writer
     * @tparam T type of the property value
@@ -45,9 +45,9 @@ trait PersistentConfig {
   }
 
   /**
-    * Removes the persistent property, specified by its ''key''.
+    * Removes the persistent property, specified by its ''alias''.
     *
-    * @param key property key
+    * @param key property alias
     * @return operation result
     */
   def remove(key: String): Future[Unit] = {

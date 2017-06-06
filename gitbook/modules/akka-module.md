@@ -57,7 +57,7 @@ using the following rules:
   `ctx.inject[ActorSystem]("someActorSystem1")`
 * **inject the default actor system**  
   If any configured actor system has set the `default = true` property, it will be considered as
-  *default* actor system and can be injected without specifying the key, e.g.
+  *default* actor system and can be injected without specifying the alias, e.g.
   `ctx.inject[ActorSystem]`. Please note that only one configured actor system can be specified as
   *default*.
 * **inject by the name alias**  

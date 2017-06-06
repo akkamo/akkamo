@@ -32,17 +32,17 @@ class CTXSpec extends FlatSpec with Matchers {
   "CTX" should "inject an Bean" in {
 
     // no bean of Bean2 registered
-    assert(ctx1.inject[Bean2] == None)
+    assert(ctx1.getOpt[Bean2]() == None)
 
-    assert(ctxBeans.inject[Bean1] == Some(first1))
+    assert(ctxBeans.getOpt[Bean1]() == Some(first1))
 
-    assert(ctxBeans.get[Bean1] == first1)
+    assert(ctxBeans.get[Bean1]() == first1)
 
     assert(ctxBeans.get[Bean1](second1.v) == second1)
 
-    assert(ctxBeans.inject[Bean2] == Some(first2))
+    assert(ctxBeans.getOpt[Bean2]() == Some(first2))
 
-    assert(ctxBeans.get[Bean2] == first2)
+    assert(ctxBeans.get[Bean2]() == first2)
 
     assert(ctxBeans.get[Bean2](second2.v) == second2)
 
@@ -69,10 +69,10 @@ class CTXSpec extends FlatSpec with Matchers {
 
   "CTX" should "after registerIn should contains keep consistent Registries" in {
     val ctx = ctxRegistry.registerIn[MyRegistry, String]("Hi")
-    assert(ctx.get[MyRegistry].data == List("Hi"))
+    assert(ctx.get[MyRegistry]().data == List("Hi"))
     assert(ctx.get[MyRegistry](defaultRegistry.k).data == List("Hi"))
 
     val registered = ctx.registered[MyRegistry]
-    assert(registered.get(ctx.get[MyRegistry]) == Some(Set(defaultRegistry.k)))
+    assert(registered.get(ctx.get[MyRegistry]()) == Some(Set(defaultRegistry.k)))
   }
 }

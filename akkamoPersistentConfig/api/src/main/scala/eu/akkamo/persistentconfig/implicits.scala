@@ -23,7 +23,7 @@ object implicits {
 			f(key).map(_.getOrElse(getFromConfig[T](key, cfg)))
 		}
 		def getFromConfig[T](key:String, cfg:Config)(implicit t:Transformer[T]) =
-			asOpt[T](key, cfg).getOrElse(throw PersistentConfigException(s"persistent property under key: $key doesn't exist"))
+			asOpt[T](key, cfg).getOrElse(throw PersistentConfigException(s"persistent property under alias: $key doesn't exist"))
 	}
 
 	implicit val stringReader:PersistentConfig#Reader[String] =

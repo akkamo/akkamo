@@ -71,7 +71,7 @@ object Initializable {
     *   }
     * }}}
     * parsed result is: List((false, List("a1"), Foo(1)), (true, List("a2", "a3"), Foo(2))) <br/>
-    * __Remark:__ Aliases are ordered, and first is from key  <br/>
+    * __Remark:__ Aliases are ordered, and first is from alias  <br/>
     *
     * @param cfg instance of configuration
     * @tparam T type
@@ -97,7 +97,7 @@ object Initializable {
           parsed.copy(_2 = key :: parsed._2)
         }).toList
       } else throw new IllegalArgumentException(
-        s"The value under key $key is not `OBJECT` (see ConfigValueType for more informations)")
+        s"The value under alias $key is not `OBJECT` (see ConfigValueType for more informations)")
       Some(res match {
         case x :: Nil => x.copy(_1 = true) :: Nil // if only one element in List, then is automatically understand as default
         case xs => xs

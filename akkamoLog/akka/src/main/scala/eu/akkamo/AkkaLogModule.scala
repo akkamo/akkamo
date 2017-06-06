@@ -19,15 +19,12 @@ class AkkaLogModule extends LogModule {
     * Name of the ''Akka'' actor system used for the logging. If no such actor system is found,
     * the default one is used.
     */
-  val LoggingActorSystem = this.getClass.getName
+  val CfgKey = "akkamo.akkaLog"
 
   /** Initializes log module into provided context */
   override def initialize(ctx: Context) = Try {
     // inject the logging actor system (if available, otherwise default actor system)
-    val actorSystem = ctx.inject[ActorSystem](LoggingActorSystem)
-      .getOrElse(throw InitializableError("Can't find any Actor System for logger"))
-
-    // register logging adapter factor into the Akkamo context
+    val actorSystem = ctx.get[ActorSystem](Some(CfgKey.replace(".", "_")))// register logging adapter factor into the Akkamo context
     ctx.register[LoggingAdapterFactory](new LoggingAdapterFactory {
 
       override def apply[T](category: Class[T]): LoggingAdapter = new LoggingAdapter {

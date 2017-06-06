@@ -17,8 +17,8 @@ object TransformerGenerator {
     val transformParam = (p: c.universe.Symbol) => {
       val pTerm: c.universe.TermSymbol = p.asTerm
       val name = pTerm.name.decodedName.toString.stripPrefix("`").stripSuffix("`")
-      val res = q"implicitly[Transformer[${pTerm.typeSignature}]].apply(o.get(`${name}`))"
-      println(res)
+      val res =
+        q"""implicitly[Transformer[${pTerm.typeSignature}]].apply($name, o)"""
       res
     }
     try {
@@ -46,10 +46,10 @@ object TransformerGenerator {
       val r = q"""
       new Transformer[${tpe}] {
           import com.typesafe.config.ConfigValue
-          override def apply(v: ConfigValue): ${tpe} = {
-            assert(v.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
+          override def apply(obj: ConfigValue): ${tpe} = {
+            assert(obj.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
             "Only ConfigObject instance can be converted to:" +  ${typeName.toString})
-            val o = v.asInstanceOf[com.typesafe.config.ConfigObject]
+            val o = obj.asInstanceOf[com.typesafe.config.ConfigObject]
             $instance
           }
       }"""

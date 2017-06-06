@@ -18,8 +18,8 @@ class WebContentRegistry(
                           val mapping: Map[String, RouteGenerator]) extends Registry[ContentMapping] {
 
   override def copyWith(p: (String, RouteGenerator)): WebContentRegistry.this.type = {
-    if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under key: ${p._1} is already registered")
-    else new WebContentRegistry(routeRegistryAlias, mapping = mapping + p)
+    if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under alias: ${p._1} is already registered")
+    else new WebContentRegistry(routeRegistryAlias, mapping = mapping + p).asInstanceOf[this.type]
   }
 }
 
@@ -93,7 +93,9 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
 
   override def initialize(ctx: Context) = Try {
     import eu.akkamo.config
-    implicit val cfg: Config = ctx.inject[Config].get
+    import config.implicits._
+
+    implicit val cfg: Config = ctx.get[Config]
     implicit val CV2RouteGeneratorDefinition: Transformer[RouteGeneratorDefinition] =
       config.generateTransformer[RouteGeneratorDefinition]
     implicit val CV2WebContentDefinition: Transformer[WebContentDefinition] =
@@ -122,7 +124,7 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
 
 
   override def run(ctx: Context) = Try {
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this)).get
+    val log = ctx.get[LoggingAdapterFactory].apply(this)
     ctx.registered[WebContentRegistry].foldLeft(ctx) {
       (ctx, r) =>
         val (wcr, _) = r
@@ -135,7 +137,7 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
         // register routes
         routes.foldLeft(ctx) {
           (ctx, route) =>
-            log.debug(s"register in route for key: ${wcr.routeRegistryAlias}")
+            log.debug(s"register in route for alias: ${wcr.routeRegistryAlias}")
             ctx.registerIn[RouteRegistry, Route](route, wcr.routeRegistryAlias)
         }
     }

@@ -89,7 +89,12 @@ class configSpec extends FlatSpec with Matchers {
   }
 
   "config wrapper, when uses generated transformer" should "parse to instance of Point" in {
-    implicit var cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj"}""")
+    implicit var cfg = ConfigFactory.parseString(
+      """point = {
+        | x = 1
+        | y = 2
+        | label = "ahoj"
+        |}""".stripMargin)
 
     implicit val trp: Transformer[Point] = config.generateTransformer[Point]
 

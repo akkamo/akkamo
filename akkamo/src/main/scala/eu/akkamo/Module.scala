@@ -48,10 +48,10 @@ trait Module {
 
   /**
     * Instance of [[eu.akkamo.Module]] is registered into the ''Akkamo'' context by default under
-    * this module class. Override this method in order to achieve different registration key
+    * this module class. Override this method in order to achieve different registration alias
     * class, for example an interface instead of concrete implementation.
     *
-    * @return registration key class
+    * @return registration alias class
     */
   def iKey(): Class[_] = this.getClass
 

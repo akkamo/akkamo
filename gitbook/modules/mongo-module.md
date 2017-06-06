@@ -55,7 +55,7 @@ using the following rules:
   `ctx.inject[MongoApi]("conn1")`
 - **inject the default connection**  
   If any configured connection has set the `default = true` property, it will be considered as
-  *default* connection and can be injected without specifying the key, e.g.
+  *default* connection and can be injected without specifying the alias, e.g.
   `ctx.inject[MongoApi]`. Please note that only one configured connection can be specified
   as *default*.
 - **inject by the name alias**  

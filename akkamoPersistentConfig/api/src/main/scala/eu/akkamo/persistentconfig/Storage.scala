@@ -47,7 +47,7 @@ trait Storage {
   def storeDoubleList(key: String, value: List[Double]): Future[Unit]
 
 	/**
-		* Remove value under key
+		* Remove value under alias
 		*
 		* @param key
 		* @return

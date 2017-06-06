@@ -34,7 +34,7 @@ Example project [akkamp-demo](https://github.com/akkamo/akkamo-demo) demonstrate
 ## Known issues
 - Each *Akkamo* application must specify the class `eu.akkamo.Main` as its main class, unfortunately
   at this moment is has to be done manually in each project, as the *Akkamo* sbt module is unable
-  to do so. To specify the main class manually, set the following key in your project configuration:
+  to do so. To specify the main class manually, set the following alias in your project configuration:
   
   ```scala
   mainClass in Compile := Some("eu.akkamo.Main")

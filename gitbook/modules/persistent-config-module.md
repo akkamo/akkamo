@@ -44,12 +44,12 @@ specified by choosing the proper module implementation in the build description 
 This module registers into the *Akkamo context* following services:
 
 - `PersistentConfig` - provides following methods for managing the properties:
-  - `def get[T](key: String)(implicit r: Reader[T]): Future[T]`  
-    Returns the value of property specified by the `key`.
-  - `def store[T](key: String, value: T)(implicit writer: Writer[T])`  
-    Stores the property `value` under the specified `key`.
-  - `def remove(key: String)`  
-    Removes the property specified by the `key`.
+  - `def get[T](alias: String)(implicit r: Reader[T]): Future[T]`  
+    Returns the value of property specified by the `alias`.
+  - `def store[T](alias: String, value: T)(implicit writer: Writer[T])`  
+    Stores the property `value` under the specified `alias`.
+  - `def remove(alias: String)`  
+    Removes the property specified by the `alias`.
 
 ## Module dependencies
 The default provided implementation of the `PersistentConfigModule`, the

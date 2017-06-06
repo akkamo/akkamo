@@ -36,5 +36,5 @@ trait ListVDV[T] extends VDV[List[T]] {
 
   import scala.collection.JavaConverters._
 
-  override val back = (d: Document) => d.get[BsonArray]("v").map(_.getValues.asScala.toList.map(convert))
+  override val back = (d: Document) => d.get[BsonArray]("obj").map(_.getValues.asScala.toList.map(convert))
 }

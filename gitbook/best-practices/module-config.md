@@ -93,13 +93,13 @@ com.mycompany.httpServer {
 So what's happening here? Inside the root of our configuration, `com.mycompany.httpServer`, two
 configuration blocks are defined. Each configuration block represents the configuration of single
 `HttpConnection` service. Name of the configuration block (e.g. `httpConnection`) represents the
-*key*, under which the connection will be registered into the *Akkamo context* and under which will
+*alias*, under which the connection will be registered into the *Akkamo context* and under which will
 be available for injection. Same function have the *aliases*, under which the connection is also
-available for injection. Next, notice the `default` config key. When one of the configuration is
-marked as *default*, it is registered and can be injected without explicitly specifying the *key*.
+available for injection. Next, notice the `default` config alias. When one of the configuration is
+marked as *default*, it is registered and can be injected without explicitly specifying the *alias*.
 Note that it should be always possible to mark only one configuration as *default*. When only one
 configuration is present, it should be also considered as *default* without explicitly specifying
-the `default` key.
+the `default` alias.
 
 Based on the recommendations and configuration example above, let's show how our configured services
 can be injected:
@@ -116,8 +116,8 @@ can be injected:
 - Use consistent style for registered services configuration among your modules.
 - Each service should be registered into the *Akkamo context* under its name, and aliases.
 - You should register also *default* service instance, for the configuration marked as *default*
-  using the `default` config key, or implicitly if only one service configuration exists.
-- Keep in mind that combination of service type (e.g. `HttpConnection`) and *key*
+  using the `default` config alias, or implicitly if only one service configuration exists.
+- Keep in mind that combination of service type (e.g. `HttpConnection`) and *alias*
   (e.g. `httpConnection`) must be unique.
 
 ## Further reading

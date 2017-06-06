@@ -74,7 +74,7 @@ class MongoModule extends Module with Initializable with Disposable with Publish
 
   private class MongoApiImpl(uri: String) extends MongoApi {
 
-    override lazy val client: MongoClient = MongoClient(uri)
+    override def client: MongoClient = MongoClient(uri)
 
     override def db: MongoDatabase = client.getDatabase(new ConnectionString(uri).getDatabase)
   }

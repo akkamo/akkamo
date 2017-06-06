@@ -49,7 +49,7 @@ producer and consumer will be registered into the *Akkamo context* under the nam
 aliases `alias1` and `alias2`, Kafka configuration itself will be loaded from properties file called
 `name1.properties`. Second configuration causes that only Kafka consumer will be registered into the
 *Akkamo* context and will be available for injection as *default* service (e.g. without need to
-specify any *key*) and under its name `name2`, Kafka configuration itself will be loaded from
+specify any *alias*) and under its name `name2`, Kafka configuration itself will be loaded from
 properties file called `name2.properties`
 
 ## How to use in your module
@@ -61,7 +61,7 @@ or eventually both of them, and those are available for injection using the foll
   `ctx.inject[KafkaProducer[String, String]]("name1")`
 - **inject the default connection**  
   If any configuration has set the `default = true` property, it will be considered as
-  *default* and can be injected without specifying the key, e.g.
+  *default* and can be injected without specifying the alias, e.g.
   `ctx.inject[KafkaProducer[String, String]]`. Please note that only one configuration can be
   marked as *default*.
 - **inject by the name alias**  

@@ -13,30 +13,49 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
   import scala.collection._
   import scala.reflect.ClassTag
 
-  val Default = "@$DEFAULT$@"
+  val Default = "_@_"
 
   // register newly created context as last
   CTX.last.set((this, Thread.currentThread().getStackTrace))
 
-
-  override def inject[T](implicit ct: ClassTag[T]): Option[T] = {
-    inject(Default)
+  /**
+    * Get service registered in ''Akkamo'' context, using the ''alias''.<br/>
+    * Service alias must be defined in configuration.
+    *
+    * @param alias mapping identifier
+    * @param ct    implicit ClassTag definition
+    * @tparam T type of the service
+    * @return implementation of interface `T` encapsulated in `Some` if exists else `None`
+    */
+  override def getOpt[T](alias: String)(implicit ct: ClassTag[T]) = {
+    getInternal(alias, ct)
   }
 
-  override def inject[T](key: String, strict: Boolean = false)(implicit ct: ClassTag[T]): Option[T] = {
-    class2Key2Inst.get(ct.runtimeClass).flatMap { p =>
-      val ret = p.get(key)
-      if (ret.isEmpty && !strict) {
-        p.get(Default)
-      } else {
-        ret
-      }
-    }.map(_.asInstanceOf[T])
+  /**
+    * Get service registered in ''Akkamo'' context, using the ''alias''.<br/>
+    * Service alias is volatile in this case. If missing, the default value is used
+    *
+    * @param alias
+    * @param ct
+    * @tparam T
+    * @return implementation of interface `T` encapsulated in `Some` if exists else `None`
+    */
+  override def getOpt[T](alias: Option[String] = None)(implicit ct: ClassTag[T]): Option[T] = {
+    getInternal(alias.getOrElse(Default), ct) match {
+      case None => getInternal(Default, ct)
+      case x => x
+    }
   }
+
+  @inline
+  private  def getInternal[T](key: String,  ct: ClassTag[T]): Option[T] = {
+    class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).asInstanceOf[Option[T]]
+  }
+
 
   override def registerIn[T <: Registry[X], X](x: X, key: Option[String])(implicit ct: ClassTag[T]): Context = {
     val k = key.getOrElse(Default)
-    val injected = inject[T](k).getOrElse(throw new ContextError(s"Can't find instance of: ${ct.runtimeClass.getName} for key: $key"))
+    val injected = getOpt[T](k).getOrElse(throw new ContextError(s"Can't find instance of: ${ct.runtimeClass.getName} for alias: $key"))
     val keys = registeredInternal[T].get(injected).get // at least one element must be defined
     val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
     keys.foldLeft(unregisterInternal(ct.runtimeClass, keys)) { (ctx, name) =>
@@ -68,7 +87,7 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
     val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
     val realKey = key.getOrElse(Default)
     if (key2Inst.contains(realKey) && public) {
-      throw ContextError(s"module: ${value} under key: ${key} already registered")
+      throw ContextError(s"module: ${value} under alias: ${key} already registered")
     }
     val resKey2Inst = key2Inst + (key.getOrElse(Default) -> value)
     val res = class2Key2Inst + (clazz -> resKey2Inst)

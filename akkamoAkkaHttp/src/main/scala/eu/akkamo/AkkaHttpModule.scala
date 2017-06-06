@@ -266,9 +266,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     *         Incomplete initialization mean That component is not able to find all dependencies.
     */
   override def initialize(ctx: Context) = {
-    val cfg = ctx.inject[Config]
-    val log = ctx.inject[LoggingAdapterFactory].map(_ (this))
-    initialize(ctx, cfg.get, log.get)
+    initialize(ctx, ctx.get[Config], ctx.get[LoggingAdapterFactory].apply(this))
   }
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
@@ -279,14 +277,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
         Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(false), false, ConnectionContext.noEncryption())(
-        ctx.inject[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
+        ctx.getOpt[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       List(r)
     } else {
       val autoDefault = mp.get.size == 1
       mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, conf) =>
-        val system = config.asOpt[String](AkkaAlias, conf).flatMap(ctx.inject[ActorSystem](_)).orElse(ctx.inject[ActorSystem])
+        val system = config.asOpt[String](AkkaAlias, conf).flatMap(ctx.getOpt[ActorSystem](_)).orElse(ctx.getOpt[ActorSystem])
         if (system.isEmpty) {
-          throw InitializableError(s"Can't find akka system for http configuration key: ${key}")
+          throw InitializableError(s"Can't find akka system for http configuration alias: ${key}")
         }
         val port = config.asOpt[Int](Port, conf).getOrElse(-1)
         val interface = config.asOpt[String](Interface, conf).getOrElse("localhost")
@@ -367,7 +365,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
       throw InitializableError("Can't find keyStorePassword value")).toCharArray
     //val sslCtx = SSLContext.getInstance("TLS")
     val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
-      throw InitializableError(s"Can't initialize key store for keyStoreName: ${keyStoreName}"))
+      throw InitializableError(s"Can't initialize alias store for keyStoreName: ${keyStoreName}"))
     val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.asOpt[String](KeyStoreLocation).getOrElse("server.p12"))
     keyStore.load(keyStoreStream, keyStorePassword)
     val keyManagerFactory = KeyManagerFactory.getInstance(config.asOpt[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
