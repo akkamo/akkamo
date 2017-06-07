@@ -1,12 +1,10 @@
 package eu.akkamo.web
 
-import java.io.File
-
 import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo.m.config.Transformer
 import eu.akkamo.web.WebContentRegistry.{ContentMapping, RouteGenerator}
-import eu.akkamo.{Context, ContextError, TypeInfoChain, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable}
+import eu.akkamo.{Context, ContextError, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable, TypeInfoChain}
 
 import scala.util.Try
 
@@ -61,19 +59,23 @@ object WebContentRegistry {
   * If no configuration is provided, default configuration equivalent to configuration snipped
   * below is used, trying to serve the static content from `/web` directory, either found at
   * classpath or file system (see [[FileFromDirGenerator]] for more details):
+  * If there is not "/web" directory/resource on path, then routeGenerators section is empty
   *
   * {{{
-  * default = {
-  *   routeRegistryAlias="akkamoWebContent"
-  *   default = true
-  *   routeGenerators = {
-  *     web = {
-  *       class = eu.akkamo.web.FileFromDirGenerator
-  *       parameters = ["/web"] // directory from data going to be served
+  * akkamo.webContent = {
+  *   default = {
+  *     routeRegistryAlias="akkamo_webContent"
+  *     routeGenerators = {
+  *      web = {
+  *         class = eu.akkamo.web.FileFromDirGenerator
+  *         parameters = ["web"] // directory from data going to be served
+  *       }
   *     }
   *   }
   * }
   * }}}
+  *
+  *
   *
   * If as RoutesGenerator is used: [[FileFromDirGenerator]] , then parameters argument must contains exactly one parameter.
   *
@@ -104,7 +106,7 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
     val parsed: List[Initializable.Parsed[WebContentDefinition]] =
       Initializable.parseConfig[WebContentDefinition](CfgKey).getOrElse {
         val prefix = Try {
-          toBaseSource(Prefix) // throws exception if not exists
+          FileFromDirGenerator.toBaseSource(Prefix) // throws exception if not exists
           Prefix
         }.toOption
         Initializable.parseConfig[WebContentDefinition](CfgKey, ConfigFactory.parseString(default(prefix))).get
@@ -129,10 +131,10 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
       (ctx, r) =>
         val (wcr, _) = r
         // build routes
-        val routes = wcr.mapping.map {case (prefix, rg) =>
-            log.debug(s"generating route for prefix: ${prefix}")
-            import akka.http.scaladsl.server.Directives._
-            pathPrefix(prefix)(get(rg()))
+        val routes = wcr.mapping.map { case (prefix, rg) =>
+          log.debug(s"generating route for prefix: ${prefix}")
+          import akka.http.scaladsl.server.Directives._
+          pathPrefix(prefix)(get(rg()))
         }
         // register routes
         routes.foldLeft(ctx) {
@@ -149,49 +151,31 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
 
 
   private def newInstance(clazz: Class[_], arguments: Array[String]): RouteGenerator =
-    (if (arguments.length == 0)  clazz.newInstance()
+    (if (arguments.length == 0) clazz.newInstance()
     else clazz.getConstructor(arguments.map(_.getClass): _*).newInstance(arguments: _*)).asInstanceOf[RouteGenerator]
-
-  @throws[IllegalArgumentException]
-  def toBaseSource(path: String) = {
-
-    def fileIsOk(f: File) = f.exists() && f.isDirectory
-
-    val df = new File(path)
-    if (fileIsOk(df)) Left(df)
-    else {
-      // build in zip
-      val res = this.getClass.getClassLoader.getResource(path)
-      if (res != null) Right(path)
-      else {
-        // user dir
-        val d = System.getProperty("user.dir") + File.separator + path
-        val df = new File(d)
-        if (fileIsOk(df)) {
-          Left(df)
-        } else {
-          // user home
-          val d = System.getProperty("user.home") + File.separator + path
-          val df = new File(d)
-          if (fileIsOk(df)) {
-            Left(df)
-          } else throw new IllegalArgumentException(s"Path: $path doesn't exists")
-        }
-      }
-    }
-  }
 
   private def default(dir: Option[String]) = {
     dir.map(p =>
       s"""
-         |routeRegistryAlias = ${CfgKey.replace(".", "_")}
-         |routeGenerators = {
-         |  ${p} = {
-         |    clazz = eu.akkamo.web.FileFromDirGenerator
-         |    parameters = ["${p}"]
+         |akkamo.webContent = {
+         |  default = {
+         |    routeRegistryAlias = ${CfgKey.replace(".", "_")}
+         |    routeGenerators = {
+         |      ${p} = {
+         |        class = "eu.akkamo.web.FileFromDirGenerator"
+         |        parameters = ["${p}"]
+         |      }
+         |    }
          |  }
          |}
          """.stripMargin
-    ).getOrElse(s"""routeRegistryAlias = ${CfgKey.replace(".", "_")}""")
+    ).getOrElse(
+      s"""
+         |akkamo.webContent = {
+         |  default = {
+         |    routeRegistryAlias = ${CfgKey.replace(".", "_")}
+         |  }
+         |}
+         """.stripMargin)
   }
 }

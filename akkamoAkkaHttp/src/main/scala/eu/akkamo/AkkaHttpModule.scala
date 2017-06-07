@@ -226,23 +226,24 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         Http().bindAndHandle(route, interface, port, ctx)
       } else {
         // optimized formatter for each variant
-        val formatter = if (mdc) {
-          (status: String, req: HttpRequest) => {
-            val method = req.method.value
-            val uri = req.uri.toRelative.toString
-            requestLogFormat.format(method, uri, status)
-          }
-        } else {
+        // TODO rethink this kind of decision is
+        val formatter = if (requestLogFormat.contains("%4s")) {
           (status: String, req: HttpRequest) => {
             val method = req.method.value
             val uri = req.uri.toRelative.toString
             val headers = req.headers.mkString(",")
             requestLogFormat.format(method, uri, status, headers)
           }
+        } else {
+          (status: String, req: HttpRequest) => {
+            val method = req.method.value
+            val uri = req.uri.toRelative.toString
+            requestLogFormat.format(method, uri, status)
+          }
         }
         val ld = logDirective(Logging.levelFor(requestLogLevel).getOrElse(Logging.InfoLevel), formatter)
         val finalRoute = if (mdc) {
-          val (logSource, clazz) = LogSource.fromAnyRef(this, as)
+          val (logSource, clazz) = LogSource.fromAnyRef(classOf[RouteRegistry], as)
           val filter = new DefaultLoggingFilter(as.settings, as.eventStream)
           mdcLogger(filter, logSource, clazz, as.eventStream)(ld(route))
         } else {
@@ -276,7 +277,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
     val httpConfigs = if (mp.isEmpty) {
       val r = RouteRegistryImpl(
-        Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(false), false, ConnectionContext.noEncryption())(
+        Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(), false, ConnectionContext.noEncryption())(
         ctx.getOpt[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
       List(r)
     } else {
@@ -292,7 +293,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         val default = config.asOpt[Boolean](Default, conf).getOrElse(autoDefault)
         val mdc = config.asOpt[Boolean](MDC, conf).getOrElse(false)
         val requestLogLevel: String = config.asOpt[String](RequestLogLevel, conf).getOrElse("off")
-        val requestLogFormat: String = config.asOpt[String](RequestLogFormat, conf).getOrElse(defaultLogFormat(mdc))
+        val requestLogFormat: String = config.asOpt[String](RequestLogFormat, conf).getOrElse(defaultLogFormat)
         val (protocol, connectionContext) = config.asOpt[String](Protocol, conf).getOrElse("http").toLowerCase match {
           case "http" => (HTTP, ConnectionContext.noEncryption())
           case "https" => (HTTPS, getHttpsConnectionContext(conf))
@@ -320,7 +321,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
   }
 
-  private def defaultLogFormat(mdc: Boolean) = if (mdc) "%1s %2s: HTTP/%3s" else "%1s %2s: HTTP/%3s headers:%4s"
+  private def defaultLogFormat() = "%1s %2s: HTTP/%3s headers:%4s"
 
   override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
