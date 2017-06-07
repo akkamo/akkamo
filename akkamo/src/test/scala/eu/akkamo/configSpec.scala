@@ -8,6 +8,8 @@ case class Point(x: Int, y: Int, label: Option[String])
 
 case class Points(map: Map[String, Point])
 
+case class PointWithDef(val x: Int, val y: Int , val labelDV: String = "default")
+
 private[akkamo] case class ClassHolder(`class`:String)
 
 
@@ -21,7 +23,8 @@ class configSpec extends FlatSpec with Matchers {
 
   case class X(x: Int)
 
-  private class Point2(val x: Int, val y: Int)(val label: String)
+  class Point2(val x: Int, val y: Int)(val label: String)
+
 
   implicit object CV2Type extends Transformer[X] {
     override def apply(v: ConfigValue): X = {
@@ -130,12 +133,28 @@ class configSpec extends FlatSpec with Matchers {
     implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj" }""")
     implicit val trp: Transformer[Point2] = config.generateTransformer[Point2]
 
+
     val pl = config.as[Point2]("point")
     val pr = new Point2(1, 2)("ahoj")
     assert(pl.x == pr.x)
     assert(pl.y == pr.y)
     assert(pl.label == pr.label)
   }
+
+  "config wrapper, when uses generated transformer" should "parse to instance of class with default values in constructor" in {
+
+    implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2}""")
+    implicit val trp: Transformer[PointWithDef] = config.generateTransformer[PointWithDef]
+
+
+    val pl = config.as[PointWithDef]("point")
+    val pr = new PointWithDef(1, 2, "default")
+    assert(pl.x == pr.x)
+    assert(pl.y == pr.y)
+    assert(pl.labelDV == pr.labelDV)
+  }
+
+
 
   "config wrapper, when uses generated transformer" should "parse to instance of class having parameter named: `class` " in {
     implicit val cfg = ConfigFactory.parseString("""classHolder = { class = "xxx" }""")
