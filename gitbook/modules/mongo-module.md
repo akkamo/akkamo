@@ -3,11 +3,6 @@
 This module provides support for the [MongoDB](https://www.mongodb.com) database, using the official
 [Mongo Scala driver](https://github.com/mongodb/mongo-scala-driver).
 
-> **Info**
-  If you are interested in using
-  the [ReactiveMongo](http://reactivemongo.org) Scala driver instead, please refer the
-  [ReactiveMongo Module](reactivemongo-module.md) document.
-
 ## Module configuration
 This module requires its configuration under the `akkamo.mongo` namespace. Each configuration block
 under this namespace represents the configuration of single MongoDB connection and will be
@@ -70,20 +65,20 @@ example shown above.
 class MyModule extends Module with Initializable {
   override def initialize(ctx: Context) = Try {
     // injects the connection marked as default ('conn1' in this case)
-    val conn1: Option[MongoApi] = ctx.inject[MongoApi]
+    val conn1: Option[MongoApi] = ctx.getOpt[MongoApi]
 
-    // same as above, with explicitly specified name
-    val conn1_1: Option[MongoApi] = ctx.inject[MongoApi]("conn1")
+    // same as above, with explicitly specified name, but conn32 doesn't exist so default is returned
+    val conn1_1: Option[MongoApi] = ctx.getOpt[MongoApi](Some("conn32"))
 
     // injects the connection 'conn2', which has defined the alias 'alias3'
-    val conn2: Option[MongoApi] = ctx.inject[MongoApi]("alias3")
+    val conn2: Option[MongoApi] = ctx.getOpt[MongoApi](Some("alias3"))
 
     // ... rest of method code ...
 
   }
 
   // don't forget to add MongoApi module dependency to your module
-  override def dependencies(dependencies: Dependency): Dependencies =
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
     dependencies.&&[MongoApi]
 }
 ```

@@ -34,16 +34,16 @@ trait Module {
     * overridden method should look like:
     *
     * {{{
-    *   override def dependencies(dependencies: Dependency): Dependency =
+    *   override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
     *     dependencies.&&[ModuleA].&&[ModuleB]
     * }}}
     *
     * Instead of modules, one can use interfaces that are published by given module, see: [[eu.akkamo.Publisher]] interface for more details
     *
-    * @param ds instance of [[eu.akkamo.Dependency]]
+    * @param ds instance of [[eu.akkamo.TypeInfoChain]]
     * @return chained module dependencies
     */
-  def dependencies(ds: Dependency): Dependency
+  def dependencies(ds: TypeInfoChain): TypeInfoChain
 
 
   /**

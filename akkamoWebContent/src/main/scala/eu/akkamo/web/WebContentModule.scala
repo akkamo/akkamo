@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo.m.config.Transformer
 import eu.akkamo.web.WebContentRegistry.{ContentMapping, RouteGenerator}
-import eu.akkamo.{Context, ContextError, Dependency, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable}
+import eu.akkamo.{Context, ContextError, TypeInfoChain, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable}
 
 import scala.util.Try
 
@@ -143,9 +143,9 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
     }
   }
 
-  override def dependencies(ds: Dependency): Dependency = ds.&&[LoggingAdapterFactory].&&[Config].&&[RouteRegistry]
+  override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[LoggingAdapterFactory].&&[Config].&&[RouteRegistry]
 
-  override def publish(ds: Dependency): Dependency = ds.&&[WebContentRegistry]
+  override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[WebContentRegistry]
 
 
   private def newInstance(clazz: Class[_], arguments: Array[String]): RouteGenerator =

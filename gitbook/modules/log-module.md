@@ -29,7 +29,7 @@ class MyModule extends Module with Initializable {
   }
   
   // don't forget to add Log module dependency to your module
-  override def dependencies(dependencies: Dependency): Dependencies =
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
     dependencies.&&[LoggingAdapter]
 }
 ```

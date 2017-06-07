@@ -101,7 +101,7 @@ class MyModule extends Module with Runnable {
   }
   
   // don't forget to add WebContentModule dependency to your module
-  override def dependencies(dependencies: Dependency): Dependencies =
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
     dependencies.&&[WebContentModule]
 }
 ```

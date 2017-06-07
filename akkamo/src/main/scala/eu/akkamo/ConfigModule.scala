@@ -21,7 +21,7 @@ class ConfigModule extends Module with Initializable with Publisher {
     ctx.register(ConfigFactory.load())
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies
 
-  override def publish(dependency: Dependency): Dependency = dependency.&&[Config]
+  override def publish(dependency: TypeInfoChain): TypeInfoChain = dependency.&&[Config]
 }

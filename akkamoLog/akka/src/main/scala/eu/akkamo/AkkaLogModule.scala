@@ -110,7 +110,7 @@ class AkkaLogModule extends LogModule {
     })
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[AkkaModule]
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[AkkaModule]
 
 
 

@@ -330,9 +330,9 @@ class Akkamo {
     case _ => out
   }
 
-  private def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): Dependency = {
-    class W(val res: Boolean) extends Dependency {
-      override def &&[K](implicit ct: ClassTag[K]): Dependency = {
+  private def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): TypeInfoChain = {
+    class W(val res: Boolean) extends TypeInfoChain {
+      override def &&[K](implicit ct: ClassTag[K]): TypeInfoChain = {
         val mr = map.get(ct.runtimeClass)
         val mappedRes = mr.map(p=>dependencies.contains(p))
         new W(this.res && (dependencies.contains(ct.runtimeClass) || mappedRes.getOrElse(false)))
@@ -346,8 +346,8 @@ class Akkamo {
   }
 
   private def createReportDependencies() = {
-    class W(val dependsOn:Seq[Class[_]], val res:Boolean = false) extends Dependency with Depends {
-      override def &&[T](implicit ct: ClassTag[T]): Dependency = {
+    class W(val dependsOn:Seq[Class[_]], val res:Boolean = false) extends TypeInfoChain with Depends {
+      override def &&[T](implicit ct: ClassTag[T]): TypeInfoChain = {
         new W(ct.runtimeClass +: this.dependsOn)
       }
     }
@@ -368,7 +368,7 @@ object Akkamo {
     */
   val Strict = "akkamo.ctx.strict"
 
-  def isContextStrict = System.getProperty(Strict, "false").toBoolean
+  def isContextStrict = System.getProperty(Strict, "true").toBoolean
 
 }
 

@@ -20,7 +20,7 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  override def dependencies(dependencies: Dependency): Dependency =
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
     dependencies.&&[Config].&&[MongoApi].&&[LoggingAdapterFactory]
 
   def getCollection(ctx: Context) = Future {

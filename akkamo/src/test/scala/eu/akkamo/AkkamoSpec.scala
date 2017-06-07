@@ -30,7 +30,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
 
 
     class E extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[A]
+      override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[A]
     }
 
     trait DD
@@ -38,16 +38,16 @@ class AkkamoSpec extends FlatSpec with Matchers {
     trait IKeyD extends Initializable
 
     class D extends P with IKeyD with Publisher {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies
+      override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies
 
-      override def publish(ds: Dependency): Dependency = ds.&&[DD]
+      override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[DD]
 
       override def iKey() = classOf[IKeyD]
     }
 
 
     class C extends P {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[IKeyD]
+      override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[IKeyD]
     }
 
     trait BB
@@ -55,19 +55,19 @@ class AkkamoSpec extends FlatSpec with Matchers {
     trait BBB
 
     class B extends P with Publisher {
-      override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[DD]
+      override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[DD]
 
-      override def publish(ds: Dependency): Dependency = ds.&&[BB].&&[BBB]
+      override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[BB].&&[BBB]
     }
 
 
     class A extends P {
-      override def dependencies(ds: Dependency): Dependency = ds.&&[IKeyD].&&[C].&&[BB]
+      override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[IKeyD].&&[C].&&[BB]
     }
 
 
     class AE extends P {
-      override def dependencies(ds: Dependency): Dependency = ds.&&[DD].&&[C].&&[BBB].&&[E]
+      override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[DD].&&[C].&&[BBB].&&[E]
     }
 
     (new A, new B, new C, new D, new AE)
@@ -80,7 +80,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
       ctx
     }
 
-    override def dependencies(dependencies: Dependency): Dependency = dependencies
+    override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies
   }
 
   class DeadCtx2 extends Module with Runnable {
@@ -90,7 +90,7 @@ class AkkamoSpec extends FlatSpec with Matchers {
       ctx
     }
 
-    override def dependencies(dependencies: Dependency): Dependency = dependencies
+    override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies
   }
 
 

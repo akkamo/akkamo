@@ -10,8 +10,8 @@ due to the incorrect dependency definition the *Akkamo* may initialize module in
 
 ## Use own alias when injecting dependency
 Let's start with simple example. Consider having module `SimpleStorageModule`, which depends on
-[ReactiveMongo module](../modules/reactivemongo-module.md), as it needs access to the *MongoDB*. It
-is clean that you need to inject provided `ReactiveMongoApi`, but using which *alias*?
+[Mongo module](../modules/mongo-module.md), as it needs access to the *MongoDB*. It
+is clean that you need to inject provided `MongoApi`, but using which *alias*?
 
 The answer is: always use your *alias*. One might complain that under that alias, there is probably no
 such service registered in *Akkamo context*, but don't forget that when service for specific *alias*
@@ -22,18 +22,23 @@ service instance. Simple example is shown below:
 ```scala
 class SimpleStorageModule extends Module with Initializable {
 
-  val ContextKey: String = "SimpleStorage"
+  val Alias: String = "SimpleStorage"
 
   override def initialize(ctx: Context) = Try {
     // Using this, adopter of your module can configure dedicated MongoDB connection with
     // alias 'SimpleStorage'. If no such service is provided, default service instance is used.
-    val mongoApi: ReactiveMongoApi = ctx.get[ReactiveMongoApi](ContextKey)
-    
+    val mongoApi: MongoApi = ctx.get[MongoApi](Some(Alias))
+
     // ... rest of the code
   }
 
   // don't forget to add ReactiveMongo module dependency to your module
-  override def dependencies(dependencies: Dependency): Dependencies =
-    dependencies.&&[ReactiveMongoModule]
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
+    dependencies.&&[MongoApi]
 }
 ```
+There is also possibility to have existence of alias mandatory. In this case use Alias directly:
+ ```scala
+    val mongoAPiStrict = ctx.get[MongoApi](Alias) 
+ ```
+ If alias is not defined, system thrown `ContextError` and then application is terminated.

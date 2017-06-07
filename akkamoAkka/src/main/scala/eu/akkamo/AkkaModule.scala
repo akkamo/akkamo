@@ -68,8 +68,8 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
     Future.sequence(futures).map { p => () }
   }
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config]
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[Config]
 
-  override def publish(dependency: Dependency): Dependency = dependency.&&[ActorSystem]
+  override def publish(dependency: TypeInfoChain): TypeInfoChain = dependency.&&[ActorSystem]
 
 }

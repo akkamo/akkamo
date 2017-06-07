@@ -1,6 +1,6 @@
 package eu.akkamo.persistentconfig
 
-import eu.akkamo.{Akkamo, Context, Dependency, Initializable, Module}
+import eu.akkamo.{Akkamo, Context, TypeInfoChain, Initializable, Module}
 import org.scalatest._
 import scala.util.Try
 
@@ -56,7 +56,7 @@ class PersistentConfigModuleApiTest extends AsyncFlatSpec with BeforeAndAfter {
 
 class TestModule extends Module with Initializable {
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[PersistentConfig]
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[PersistentConfig]
 
   override def initialize(ctx: Context) = Try {
     TestModule.pc = ctx.get[PersistentConfig]

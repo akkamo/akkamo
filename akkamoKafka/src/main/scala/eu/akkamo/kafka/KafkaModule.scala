@@ -141,9 +141,9 @@ class KafkaModule extends Module with Initializable with Disposable with Publish
     }
   }
 
-  override def dependencies(ds: Dependency): Dependency = ds.&&[LoggingAdapterFactory].&&[Config]
+  override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[LoggingAdapterFactory].&&[Config]
 
-  override def publish(ds: Dependency): Dependency = ds.&&[KC].&&[KP]
+  override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[KC].&&[KP]
 
   private def buildDef(key: String, cfg: Config) = {
     val propertiesFileName = config.asOpt[String](Properties, cfg)

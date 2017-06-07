@@ -3,7 +3,7 @@ package eu.akkamo.mongo
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
 import eu.akkamo.m.config.Transformer
-import eu.akkamo.{Context, Dependency, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
+import eu.akkamo.{Context, TypeInfoChain, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.util.Try
@@ -91,9 +91,9 @@ class MongoModule extends Module with Initializable with Disposable with Publish
        |}
     """.stripMargin
 
-  override def dependencies(dependencies: Dependency): Dependency = dependencies.&&[Config].&&[LoggingAdapterFactory]
+  override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[Config].&&[LoggingAdapterFactory]
 
-  override def publish(ds: Dependency): Dependency = ds.&&[MongoApi]
+  override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[MongoApi]
 
   override def initialize(ctx: Context) = Try {
     val log = ctx.get[LoggingAdapterFactory].apply(getClass)

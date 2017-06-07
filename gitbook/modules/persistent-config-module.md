@@ -18,7 +18,7 @@ specified by choosing the proper module implementation in the build description 
   `build.sbt` file:
   
   ```scala
-  libraryDependencies += "eu.akkamo" %% "akkamo-mongo-persistent-config" % versionHere
+  libraryTypeInfoChain += "eu.akkamo" %% "akkamo-mongo-persistent-config" % versionHere
   ```
 
 - **Inject service into your module**
@@ -35,7 +35,7 @@ specified by choosing the proper module implementation in the build description 
     }
 
     // don't forget to add PersistentConfig dependency to your module
-    override def dependencies(dependencies: Dependency): Dependencies =
+    override def dependencies(dependencies: TypeInfoChain): TypeInfoChain =
       dependencies.&&[PersistentConfig]
   }
   ```
