@@ -8,7 +8,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Implementation of the Context
   */
-private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]] = Map.empty) extends Context {
+private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRef]] = Map.empty) extends Context {
 
   import scala.collection._
   import scala.reflect.ClassTag
@@ -48,22 +48,20 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
   }
 
   @inline
-  private  def getInternal[T](key: String,  ct: ClassTag[T]): Option[T] = {
-    class2Key2Inst.get(ct.runtimeClass).flatMap(_.get(key)).asInstanceOf[Option[T]]
+  private  def getInternal[T](alias: String,  ct: ClassTag[T]): Option[T] = {
+    class2Alias2Inst.get(ct.runtimeClass).flatMap(_.get(alias)).asInstanceOf[Option[T]]
   }
 
-
-  override def registerIn[T <: Registry[X], X](x: X, key: Option[String])(implicit ct: ClassTag[T]): Context = {
-    val injected = getOpt[T](key).getOrElse(throw new ContextError(s"Can't find instance of: ${ct.runtimeClass.getName} for alias: $key"))
-    val keys = registeredInternal[T].get(injected).get // at least one element must be defined
-    val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
-    keys.foldLeft(unregisterInternal(ct.runtimeClass, keys)) { (ctx, name) =>
-      ctx.registerInternal(updated, Some(name), false)
-    }
+  override def registerIn[T <: Registry[X], X](x: X, alias: Option[String])(implicit ct: ClassTag[T]): Context = {
+    registerInInternal(x, get[T](alias))
   }
 
-  override def register[T <: AnyRef](value: T, key: Option[String])(implicit ct: ClassTag[T]): Context = {
-    registerInternal(value, key)
+  override def registerIn[T <: Registry[X], X](x: X, alias: String)(implicit ct: ClassTag[T]): Context = {
+    registerInInternal(x, get[T](alias))
+  }
+
+  override def register[T <: AnyRef](value: T, alias: Option[String])(implicit ct: ClassTag[T]): Context = {
+    registerInternal(value, alias)
   }
 
   override def registered[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
@@ -72,31 +70,38 @@ private[akkamo] case class CTX(class2Key2Inst: Map[Class[_], Map[String, AnyRef]
     }
   }
 
+  private def registerInInternal[T <:Registry[X], X](x:X, injected:T)(implicit ct: ClassTag[T]):Context = {
+    val aliases = registeredInternal[T].get(injected).get // at least one element must be defined
+    val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
+    aliases.foldLeft(unregisterInternal(ct.runtimeClass, aliases)) { (ctx, name) =>
+      ctx.registerInternal(updated, Some(name), false)
+    }
+  }
 
   private def registeredInternal[T<:AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
-    class2Key2Inst.get(ct.runtimeClass).map { m =>
+    class2Alias2Inst.get(ct.runtimeClass).map { m =>
       m.groupBy(_._2).map { case (k, v) =>
         (k.asInstanceOf[T], v.keySet)
       }
     }.getOrElse(Map.empty)
   }
 
-  private def registerInternal[T <: AnyRef](value: T, key: Option[String], public: Boolean = true)(implicit ct: ClassTag[T]): CTX = {
+  private def registerInternal[T <: AnyRef](value: T, alias: Option[String], public: Boolean = true)(implicit ct: ClassTag[T]): CTX = {
     val clazz = ct.runtimeClass
-    val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
-    val realKey = key.getOrElse(Default)
-    if (key2Inst.contains(realKey) && public) {
-      throw ContextError(s"module: ${value} under alias: ${key} already registered")
+    val alias2Inst = class2Alias2Inst.getOrElse(clazz, Map.empty)
+    val realAlias = alias.getOrElse(Default)
+    if (alias2Inst.contains(realAlias) && public) {
+      throw ContextError(s"module: ${value} under alias: ${alias} already registered")
     }
-    val resKey2Inst = key2Inst + (key.getOrElse(Default) -> value)
-    val res = class2Key2Inst + (clazz -> resKey2Inst)
+    val resAlias2Inst = alias2Inst + (alias.getOrElse(Default) -> value)
+    val res = class2Alias2Inst + (clazz -> resAlias2Inst)
     this.copy(res)
   }
 
-  private def unregisterInternal(clazz: Class[_], keys: Set[String]): CTX = {
-    val key2Inst = class2Key2Inst.getOrElse(clazz, Map.empty)
-    val resKey2Inst = key2Inst -- keys
-    val res = class2Key2Inst + (clazz -> resKey2Inst)
+  private def unregisterInternal(clazz: Class[_], aliases: Set[String]): CTX = {
+    val alias2Inst = class2Alias2Inst.getOrElse(clazz, Map.empty)
+    val resAlias2Inst = alias2Inst -- aliases
+    val res = class2Alias2Inst + (clazz -> resAlias2Inst)
     this.copy(res)
   }
 }

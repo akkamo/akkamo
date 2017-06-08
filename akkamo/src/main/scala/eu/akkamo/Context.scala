@@ -128,7 +128,7 @@ trait Context {
     * it.
     *
     * @param x   value to register
-    * @param key optional alias, under which the service was previously registered into the context
+    * @param alias optional alias, under which the service was previously registered into the context, if None default is used
     * @param ct  class tag evidence
     * @tparam T type of previously registered service
     * @tparam X type of value to be registered into the service
@@ -136,7 +136,25 @@ trait Context {
     * @return updated instance of immutable [[Context]]
     */
   @throws[ContextError]
-  def registerIn[T <: Registry[X], X](x: X, key: Option[String] = None)(implicit ct: ClassTag[T]): Context
+  def registerIn[T <: Registry[X], X](x: X, alias: Option[String] = None)(implicit ct: ClassTag[T]): Context
+
+
+  /**
+    * Registers value into service, specified by its type and optional ''alias'', previously
+    * registered to the ''Akkamo'' context. In fact, this serves as a shorthand for manually
+    * injecting the desired service from the context, and then registering the selected value into
+    * it.
+    *
+    * @param x   value to register
+    * @param alias mandatory alias, under which the service was previously registered into the context
+    * @param ct  class tag evidence
+    * @tparam T type of previously registered service
+    * @tparam X type of value to be registered into the service
+    * @throws ContextError if operation cannot be completed for various reasons
+    * @return updated instance of immutable [[Context]]
+    */
+  @throws[ContextError]
+  def registerIn[T <: Registry[X], X](x: X, alias: String)(implicit ct: ClassTag[T]): Context
 
 
   /**
@@ -147,28 +165,28 @@ trait Context {
     * [[Context]] is immutable, new updated instance will be returned after calling this method.
     *
     * @param value service to register
-    * @param key   optional alias
+    * @param alias   optional alias, if None default alias is used
     * @param ct    class tag evidence
     * @tparam T type of the service
     * @return new updated instance of [[Context]]
     */
-  def register[T <: AnyRef](value: T, key: Option[String] = None)(implicit ct: ClassTag[T]): Context
+  def register[T <: AnyRef](value: T, alias: Option[String] = None)(implicit ct: ClassTag[T]): Context
 
 
   /**
     * Registers service to the ''Akkamo'' context, such service is then available to any other
-    * module. This method allows to register service with ''key'',
+    * module. This method allows to register service with ''alias'',
     * which is primarily used to disambiguate between multiple registered services of same
     * type and must be then specified when injecting the service. Please note that because the
     * [[Context]] is immutable, new updated instance will be returned after calling this method.
     *
     * @param value service to register
-    * @param key   optional key
+    * @param alias  mandatory alias
     * @param ct    class tag evidence
     * @tparam T type of the service
     * @return new updated instance of [[Context]]
     */
-  def register[T <: AnyRef](value: T, key: String)(implicit ct: ClassTag[T]): Context = register[T](value, Some(key))
+  def register[T <: AnyRef](value: T, alias: String)(implicit ct: ClassTag[T]): Context = register[T](value, Some(alias))
 
 
   /**
