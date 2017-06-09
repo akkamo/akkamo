@@ -8,6 +8,14 @@ object TransformerGenerator {
   import scala.language.experimental.macros
   import scala.reflect.macros.blackbox.Context
 
+  trait AT[T] extends Transformer[T] {
+    import com.typesafe.config.ConfigObject
+    @inline
+    def a[V](key:String, t:Transformer[V])(implicit o:ConfigObject):Option[V] = try {
+      Option(t(key, o))
+    } catch { case _:NullPointerException => None }
+  }
+
   def generate[T]: Transformer[T] = macro buildTransformer[T]
 
   def buildTransformer[T: c.WeakTypeTag](c: Context) = {
@@ -15,23 +23,48 @@ object TransformerGenerator {
 
     val tpe: c.universe.Type = weakTypeOf[T]
 
-    def transformParam = (s: c.universe.Symbol) => {
-      val term =  s.asTerm
-      val name = term .name.decodedName.toString.stripPrefix("`").stripSuffix("`")
-      val res = q"""${term .name} = implicitly[Transformer[${term .typeSignature}]].apply($name, o)"""
-      res
+    def makeVals(tpe: c.universe.Type, parameterLists:List[List[(c.universe.TermSymbol, Int, Int)]]) = (p:(c.universe.TermSymbol, Int, Int)) => {
+      val (term, group, index)  = p
+      val name = term.name.decodedName.toString.stripPrefix("`").stripSuffix("`")
+      val vName = TermName(s"$$_$index")
+      if (term.isParamWithDefault) {
+        val companion = tpe.companion
+        val defaultOpt: Option[c.universe.Symbol] = companion.members.find { p =>
+          val method = p.asMethod
+          val name = method.name.decodedName.toString
+          name.endsWith(s"$$default$$${index}") // dirty  hack
+        }
+        val default = defaultOpt.getOrElse(throw new Exception(s"For type: [[${tpe}]] method for parameter: ${term.name} can't be resolved"))
+        val defaultParameterLists = parameterLists.take(group).map(_.map{ p=>TermName(s"$$_${p._3}")})
+        val invokeDefault = q"""${default}(...${defaultParameterLists})"""
+        val res = q"""val $vName:${term.typeSignature} = a($name, implicitly[Transformer[${term.typeSignature}]]).getOrElse(${invokeDefault})"""
+        res
+      } else {
+        val res =
+          q"""val $vName = implicitly[Transformer[${term.typeSignature}]].apply($name, o)"""
+        res
+      }
+    }
+
+    val makeParameter = (p:(c.universe.TermSymbol, Int, Int)) => {
+      val (term, _, index) = p
+      val vName = TermName(s"$$_$index")
+      q"${term.name} = ${vName}"
     }
 
     def createInstance(method: c.universe.MethodSymbol, tpe: c.universe.Type) = {
       // convert
-      val ps: List[List[c.universe.Tree]] = method.paramLists
-        .map{list=>
-          list.filter(!_.asTerm.isParamWithDefault)
-        }.map(_.map(transformParam))
+      val parameterAsTermLists = indexedParameters(method.paramLists.map(_.map(_.asTerm)))
+      val valList = parameterAsTermLists.map(_.map(makeVals(tpe, parameterAsTermLists))).flatten
+      val parameterLists = parameterAsTermLists.map(_.map(makeParameter))
       if(method.isConstructor) {
-        q"new ${tpe}(...${ps})" // call constructor
+        q"""
+          ..$valList
+          new ${tpe}(...${parameterLists})""" // call constructor
       } else {
-        q"${method}(...${ps})" // call apply with params
+        q"""
+           ..$valList
+           ${method}(...${parameterLists})""" // call apply with params
       }
     }
 
@@ -43,6 +76,14 @@ object TransformerGenerator {
         case NoSymbol => None
         case res => Some(res.asMethod)
       }
+    }
+
+    def indexedParameters(lss: List[List[c.universe.TermSymbol]]):List[List[(c.universe.TermSymbol, Int, Int)]] = {
+      val empty:List[List[(c.universe.TermSymbol, Int, Int)]] = Nil
+      lss.zipWithIndex.foldLeft((empty, 0)){case ((res, index), (o, group)) =>
+        var idx = index
+        (o.map(p=>(p.asTerm, group, {idx +=1; idx}))::res, idx)
+      }._1.reverse
     }
 
    def buildClass(tpe:c.universe.Type) = {
@@ -69,12 +110,13 @@ object TransformerGenerator {
       val typeName = TermName(tpe.toString)
       val r =
         q"""
-        new Transformer[${tpe}] {
+        new eu.akkamo.m.config.TransformerGenerator.AT[${tpe}] {
           import com.typesafe.config.ConfigValue
+          import com.typesafe.config.ConfigObject
           override def apply(obj: ConfigValue): ${tpe} = {
             assert(obj.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
             "Only ConfigObject instance can be converted to:" +  ${typeName.toString})
-            val o = obj.asInstanceOf[com.typesafe.config.ConfigObject]
+            implicit val o:ConfigObject = obj.asInstanceOf[ConfigObject]
             $instance
           }
         }"""
