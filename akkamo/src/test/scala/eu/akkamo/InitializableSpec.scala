@@ -11,10 +11,6 @@ case class Foo(x: Int)
   */
 class InitializableSpec extends FlatSpec with Matchers {
 
-  import eu.akkamo.config.implicits._
-
-  implicit val cf2Foo: Transformer[Foo] = config.generateTransformer[Foo]
-
   "parsed config" should "return right values" in {
 
     val cfg1 = ConfigFactory.parseString(

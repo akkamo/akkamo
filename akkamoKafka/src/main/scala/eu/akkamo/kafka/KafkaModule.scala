@@ -39,8 +39,6 @@ import scala.util.{Failure, Success, Try}
   */
 class KafkaModule extends Module with Initializable with Disposable with Publisher {
 
-  import config.implicits._
-
   private case class Def(producer: Boolean, consumer: Boolean, properties: Properties,
                          isDefault: Boolean, aliases: List[String])
 

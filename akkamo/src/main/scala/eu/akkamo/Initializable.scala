@@ -1,7 +1,7 @@
 package eu.akkamo
 
 import com.typesafe.config.{Config, ConfigObject, ConfigValue, ConfigValueType}
-import eu.akkamo.m.config.Transformer
+import eu.akkamo.m.config._
 
 /**
   * Trait indicating that the module extending this requires to perform initialization during Akkamo
@@ -31,8 +31,6 @@ trait Initializable {
   * Helper methods
   */
 object Initializable {
-
-  import config.implicits._
 
   type Parsed[T] = (Boolean, List[String], T)
 
@@ -77,33 +75,31 @@ object Initializable {
     * @tparam T type
     * @return list of triplets containing: true if instance of `T` is default, list of aliases an instance of `T`
     */
-  def parseConfig[T: Transformer](key: String, cfg: Config): Option[List[Parsed[T]]] =
-    parseConfig(key)(implicitly[Transformer[T]], cfg)
-
-  /**
-    * Alternative definition of parseConfig method
-    *
-    * @param key
-    * @param t
-    * @param cfg
-    * @tparam T
-    * @return
-    */
-  def parseConfig[T](key: String)(implicit t: Transformer[T], cfg: Config): Option[List[Parsed[T]]] = {
-    if (cfg.hasPath(key)) {
-      val v = cfg.getValue(key)
+  def parseConfig[T: Transformer](path: String, cfg: Config): Option[List[Parsed[T]]] = {
+    if (cfg.hasPath(path)) {
+      val v = cfg.getValue(path)
       val res = if (v.valueType() == ConfigValueType.OBJECT) {
-        (config.as[Map[String, Parsed[T]]](key, cfg).map { case (key, parsed) =>
+        (config.as[Map[String, Parsed[T]]](path, cfg).map { case (key, parsed) =>
           parsed.copy(_2 = key :: parsed._2)
         }).toList
       } else throw new IllegalArgumentException(
-        s"The value under alias $key is not `OBJECT` (see ConfigValueType for more informations)")
+        s"The value under alias $path is not `OBJECT` (see ConfigValueType for more informations)")
       Some(res match {
         case x :: Nil => x.copy(_1 = true) :: Nil // if only one element in List, then is automatically understand as default
         case xs => xs
       })
     } else None
   }
+
+  /**
+    * Alternative definition of parseConfig method
+    *
+    * @param path
+    * @param cfg
+    * @tparam T
+    * @return
+    */
+  def parseConfig[T:Transformer](path: String)(implicit cfg: Config): Option[List[Parsed[T]]] = parseConfig(path, cfg)
 
   /**
     * structural validation of parsed values

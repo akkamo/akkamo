@@ -1,16 +1,23 @@
 package eu.akkamo
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
-import eu.akkamo.m.config._
 import org.scalatest.{FlatSpec, Matchers}
+import eu.akkamo.m.config._
 
 case class Point(x: Int, y: Int, label: Option[String])
 
 case class Points(map: Map[String, Point])
 
-case class PointWithDef(val x: Int, val y: Int , val labelDV: String = "default")
+class PointWithDef(val x: Int, val y: Int, val labelDV: String = "default")
 
-private[akkamo] case class ClassHolder(`class`:String)
+private[akkamo] case class ClassHolder(`class`: String)
+
+
+case class TopX(x: Int) extends Top
+
+case class TopY(y: Long) extends Top
+
+sealed trait Top
 
 
 /**
@@ -18,21 +25,7 @@ private[akkamo] case class ClassHolder(`class`:String)
   */
 class configSpec extends FlatSpec with Matchers {
 
-  import config.implicits._
 
-
-  case class X(x: Int)
-
-  class Point2(val x: Int, val y: Int)(val label: String)
-
-
-  implicit object CV2Type extends Transformer[X] {
-    override def apply(v: ConfigValue): X = {
-      implicit val cfg = v.asInstanceOf[ConfigObject].toConfig
-      val x = config.as[Int]("x")
-      X(x)
-    }
-  }
 
   private val cfg1 = ConfigFactory.parseString(
     """
@@ -82,7 +75,18 @@ class configSpec extends FlatSpec with Matchers {
   )
 
 
+  case class X(x: Int)
+
   "config wrapper should" should "return right value for new defined custom converter" in {
+
+    implicit object CV2Type extends Transformer[X] {
+      override def apply(v: ConfigValue): X = {
+        implicit val cfg = v.asInstanceOf[ConfigObject].toConfig
+        val x = config.as[Int]("x")
+        X(x)
+      }
+    }
+
 
     implicit val cfg = cfg2
     assert(config.as[X]("aox") == X(1))
@@ -98,10 +102,6 @@ class configSpec extends FlatSpec with Matchers {
         | y = 2
         | label = "ahoj"
         |}""".stripMargin)
-
-    implicit val trp: Transformer[Point] = config.generateTransformer[Point]
-
-    assert(trp != null)
 
     assert(config.as[Point]("point") == Point(1, 2, Some("ahoj")))
 
@@ -121,18 +121,14 @@ class configSpec extends FlatSpec with Matchers {
         | }
         |}""".stripMargin)
 
-    implicit val trp: Transformer[Point] = config.generateTransformer
-    implicit val trps: Transformer[Points] = config.generateTransformer
-
     assert(config.as[Points]("points") == Points(Map("p1" -> Point(1, 2, Some("ahoj")), "p2" -> Point(2, 2, None))))
   }
 
+  class Point2(val x: Int, val y: Int)(val label: String)
 
   "config wrapper, when uses generated transformer" should "parse to instance of class with two parameter lists" in {
 
     implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2, label = "ahoj" }""")
-    implicit val trp: Transformer[Point2] = config.generateTransformer[Point2]
-
 
     val pl = config.as[Point2]("point")
     val pr = new Point2(1, 2)("ahoj")
@@ -141,11 +137,10 @@ class configSpec extends FlatSpec with Matchers {
     assert(pl.label == pr.label)
   }
 
+
   "config wrapper, when uses generated transformer" should "parse to instance of class with default values in constructor" in {
 
     implicit val cfg = ConfigFactory.parseString("""point = {x = 1, y = 2}""")
-    implicit val trp: Transformer[PointWithDef] = config.generateTransformer[PointWithDef]
-
 
     val pl = config.as[PointWithDef]("point")
     val pr = new PointWithDef(1, 2, "default")
@@ -154,14 +149,24 @@ class configSpec extends FlatSpec with Matchers {
     assert(pl.labelDV == pr.labelDV)
   }
 
-
-
   "config wrapper, when uses generated transformer" should "parse to instance of class having parameter named: `class` " in {
     implicit val cfg = ConfigFactory.parseString("""classHolder = { class = "xxx" }""")
-    implicit val trp: Transformer[ClassHolder] = config.generateTransformer[ClassHolder]
 
     val pl = config.as[ClassHolder]("classHolder")
     val pr = new ClassHolder("xxx")
     assert(pl == pr)
+  }
+
+  "config wrapper, when uses generated transformer" should "parse to instance of class from sealed class hierarchy" in {
+    implicit val cfg = ConfigFactory.parseString("""x = { x = 1 },  y = { y = 1.1 }""")
+
+    val plx = config.as[TopX]("x")
+    val prx = new TopX(1)
+    assert(plx == prx)
+
+    val ply = config.as[TopY]("y")
+    val pry = new TopY(1)
+    assert(ply == pry)
+
   }
 }

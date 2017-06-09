@@ -1,7 +1,7 @@
 package eu.akkamo
 
 import com.typesafe.config.Config
-import eu.akkamo.m.config.{Transformer, TransformerGenerator}
+import eu.akkamo.m.config.{Transformer}
 
 
 /**
@@ -85,8 +85,4 @@ package object config {
   } catch {
     case th: Throwable => throw ConfigError(th.getMessage, th)
   }
-
-  import language.experimental.macros
-
-  def generateTransformer[T]: Transformer[T] = macro TransformerGenerator.buildTransformer[T]
 }

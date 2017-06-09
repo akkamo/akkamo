@@ -34,8 +34,6 @@ import scala.util.Try
   */
 class AkkaModule extends Module with Initializable with Disposable with Publisher {
 
-  import config.implicits._
-
   /**
     * pointer to array containing set of akka Actor System names in configuration
     */
@@ -70,6 +68,6 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
 
   override def dependencies(dependencies: TypeInfoChain): TypeInfoChain = dependencies.&&[Config]
 
-  override def publish(dependency: TypeInfoChain): TypeInfoChain = dependency.&&[ActorSystem]
+  override def publish(services: TypeInfoChain): TypeInfoChain = services.&&[ActorSystem]
 
 }

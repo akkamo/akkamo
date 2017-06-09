@@ -94,15 +94,9 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
                                       val routeGenerators: Option[Map[String, RouteGeneratorDefinition]])
 
   override def initialize(ctx: Context) = Try {
-    import eu.akkamo.config
-    import config.implicits._
-
     implicit val cfg: Config = ctx.get[Config]
-    implicit val CV2RouteGeneratorDefinition: Transformer[RouteGeneratorDefinition] =
-      config.generateTransformer[RouteGeneratorDefinition]
-    implicit val CV2WebContentDefinition: Transformer[WebContentDefinition] =
-      config.generateTransformer[WebContentDefinition]
 
+    import eu.akkamo.m.config._ // need by parseConfig
     val parsed: List[Initializable.Parsed[WebContentDefinition]] =
       Initializable.parseConfig[WebContentDefinition](CfgKey).getOrElse {
         val prefix = Try {

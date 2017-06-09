@@ -138,8 +138,6 @@ object RouteRegistry {
   */
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
-  import config.implicits._
-
   val CfgKey = "akkamo.akkaHttp"
 
   private val Protocol = "protocol"
@@ -271,7 +269,6 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
   }
 
   def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
-    import config.implicits._
     // create list of configuration tuples
     val mp = config.asOpt[Map[String, Config]](CfgKey, cfg)
 

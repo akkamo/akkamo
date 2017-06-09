@@ -12,9 +12,8 @@ import scala.concurrent.Future
 object implicits {
 
 	import eu.akkamo.config._
-	import eu.akkamo.config.implicits._
 
-	type FromStorage[T] = (String)=>Future[Option[T]]
+  type FromStorage[T] = (String)=>Future[Option[T]]
 
 	object Reader {
 		import scala.concurrent.ExecutionContext.Implicits.global

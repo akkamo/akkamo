@@ -2,8 +2,7 @@ package eu.akkamo.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo.m.config.Transformer
-import eu.akkamo.{Context, TypeInfoChain, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher}
+import eu.akkamo.{Context, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher, TypeInfoChain}
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 
 import scala.util.Try
@@ -70,8 +69,6 @@ trait MongoApi {
   */
 class MongoModule extends Module with Initializable with Disposable with Publisher {
 
-  import eu.akkamo.config
-
   private class MongoApiImpl(uri: String) extends MongoApi {
 
     override def client: MongoClient = MongoClient(uri)
@@ -101,9 +98,7 @@ class MongoModule extends Module with Initializable with Disposable with Publish
 
     implicit val cfg: Config = ctx.get[Config]
 
-    import config.implicits._
-    implicit val CV2MongoApiImpl: Transformer[MongoApiImpl] = config.generateTransformer[MongoApiImpl]
-
+    import eu.akkamo.m.config._ // need by parseConfig
     val registered: List[Initializable.Parsed[MongoApi]] =
       Initializable.parseConfig[MongoApiImpl](CfgKey).getOrElse {
         Initializable.parseConfig[MongoApiImpl](CfgKey, ConfigFactory.parseString(default)).get

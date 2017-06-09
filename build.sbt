@@ -142,7 +142,8 @@ lazy val akkamoConfigMacro = project.in(file("akkamoConfigMacro")).settings(
   libraryDependencies ++= Seq(
     "com.typesafe" % "config" % "1.3.1",
     "org.scala-lang" % "scala-reflect" % scalaVersion.value withSources,
-    "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided" withSources
+    "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided" withSources,
+    "org.scalatest" %% "scalatest" % cScalaTestVersion % "test" withSources
   )
 )
 
