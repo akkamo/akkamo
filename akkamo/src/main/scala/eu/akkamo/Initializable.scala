@@ -33,18 +33,10 @@ trait Initializable {
 object Initializable {
 
   type Parsed[T] = (Boolean, List[String], T)
+  type Interceptor[T] = (Transformer[T], ConfigValue) => T
 
-  implicit def transformTriplets[T: Transformer] = new Transformer[Parsed[T]] {
-    override def apply(v: ConfigValue): Parsed[T] = {
-      if (v.valueType() != ConfigValueType.OBJECT) {
-        throw new IllegalArgumentException(s"The value: $v is not ype of `OBJECT`")
-      }
-      val obj = v.asInstanceOf[ConfigObject]
-      val default = Option(obj.get("default")).map(implicitly[Transformer[Boolean]].apply(_)).getOrElse(false)
-      val aliases = Option(obj.get("aliases")).map(implicitly[Transformer[List[String]]].apply(_)).getOrElse(List.empty)
-      val t = implicitly[Transformer[T]].apply(v)
-      (default, aliases, t)
-    }
+  private def defaultInterceptor[T] = new Interceptor[T] {
+    override def apply(t: Transformer[T], v: ConfigValue): T = t(v)
   }
 
   /**
@@ -71,11 +63,29 @@ object Initializable {
     * parsed result is: List((false, List("a1"), Foo(1)), (true, List("a2", "a3"), Foo(2))) <br/>
     * __Remark:__ Aliases are ordered, and first is from alias  <br/>
     *
-    * @param cfg instance of configuration
+    * @param path in config
+    * @param cfg config
+    * @param interceptor implicit interceptor with an default
     * @tparam T type
     * @return list of triplets containing: true if instance of `T` is default, list of aliases an instance of `T`
     */
-  def parseConfig[T: Transformer](path: String, cfg: Config): Option[List[Parsed[T]]] = {
+  def parseConfig[T: Transformer](path: String, cfg: Config)
+                                 (implicit interceptor:Interceptor[T] = defaultInterceptor[T] ): Option[List[Parsed[T]]] = {
+
+    implicit val  transformTriplets = new Transformer[Parsed[T]] {
+      override def apply(v: ConfigValue): Parsed[T] = {
+        if (v.valueType() != ConfigValueType.OBJECT) {
+          throw new IllegalArgumentException(s"The value: $v is not ype of `OBJECT`")
+        }
+        val obj = v.asInstanceOf[ConfigObject]
+        val default = Option(obj.get("default")).map(implicitly[Transformer[Boolean]].apply(_)).getOrElse(false)
+        val aliases = Option(obj.get("aliases")).map(implicitly[Transformer[List[String]]].apply(_)).getOrElse(List.empty)
+        val t = implicitly[Transformer[T]]
+        (default, aliases, interceptor(t, v))
+      }
+    }
+
+
     if (cfg.hasPath(path)) {
       val v = cfg.getValue(path)
       val res = if (v.valueType() == ConfigValueType.OBJECT) {
