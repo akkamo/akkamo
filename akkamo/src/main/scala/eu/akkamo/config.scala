@@ -1,7 +1,7 @@
 package eu.akkamo
 
 import com.typesafe.config.Config
-import eu.akkamo.m.config.{Transformer}
+import eu.akkamo.m.config._
 
 
 /**
@@ -33,7 +33,7 @@ package object config {
     * methods, as it provides extensible ''typeclass''-based parsing of desired value type and
     * returns result as value.
     *
-    * @param key config path
+    * @param path config path
     * @param cfg configuration instance
     * @param t   configuration value transformer ''typeclass''
     * @tparam T type of requested value
@@ -42,14 +42,14 @@ package object config {
     */
   @inline
   @throws[ConfigError]
-  def as[T](key: String, cfg: Config)(implicit t: Transformer[T]): T = as(key)(t, cfg)
+  def as[T](path: String, cfg: Config)(implicit t: Transformer[T]): T = as(path)(t, cfg)
 
   /**
     * This method serves as convenient shorthand of native ''Typesafe Config'' `Config.getXX`
     * methods, as it provides extensible ''typeclass''-based parsing of desired value type and
     * returns result as optional value.
     *
-    * @param key config path
+    * @param path config path
     * @param t   configuration value transformer ''typeclass''
     * @param cfg configuration instance (implicitly provided)
     * @tparam T type of requested value
@@ -58,14 +58,14 @@ package object config {
     */
   @inline
   @throws[ConfigError]
-  def asOpt[T](key: String)(implicit t: Transformer[T], cfg: Config): Option[T] = getInternal[T](key, cfg)(t)
+  def asOpt[T](path: String)(implicit t: Transformer[T], cfg: Config): Option[T] = getInternal[T](path, cfg)(t)
 
   /**
     * This method serves as convenient shorthand of native ''Typesafe Config'' `Config.getXX`
     * methods, as it provides extensible ''typeclass''-based parsing of desired value type and
     * returns result as optional value.
     *
-    * @param key config path
+    * @param path config path
     * @param t   configuration value transformer ''typeclass''
     * @param cfg configuration instance (implicitly provided)
     * @tparam T type of requested value
@@ -74,7 +74,7 @@ package object config {
     */
   @inline
   @throws[ConfigError]
-  def asOpt[T](key: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = getInternal[T](key, cfg)(t)
+  def asOpt[T](path: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = getInternal[T](path, cfg)(t)
 
   private def getInternal[T](path: String, cfg: Config)(implicit t: Transformer[T]): Option[T] = try {
     if (cfg.hasPath(path)) {
