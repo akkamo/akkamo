@@ -27,9 +27,7 @@ private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRe
     * @tparam T type of the service
     * @return implementation of interface `T` encapsulated in `Some` if exists else `None`
     */
-  override def getOpt[T](alias: String)(implicit ct: ClassTag[T]) = {
-    getInternal(alias, ct)
-  }
+  override def getOpt[T](alias: String)(implicit ct: ClassTag[T]) = getInternal(alias, ct)
 
   /**
     * Get service registered in ''Akkamo'' context, using the ''alias''.<br/>

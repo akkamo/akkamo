@@ -27,12 +27,17 @@ import scala.collection.{Map, Set}
 trait Registry[T] {
 
   /**
+    * Future self type
+    */
+  type SelfType
+
+  /**
     * Creates new instance of particular [[Registry]] implementation, with the new given value.
     *
     * @param p new value
     * @return new instance of particular [[Registry]] implementation
     */
-  def copyWith(p: T): this.type
+  def copyWith(p: T): SelfType
 }
 
 

@@ -2,7 +2,6 @@ package eu.akkamo.web
 
 import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo.m.config.Transformer
 import eu.akkamo.web.WebContentRegistry.{ContentMapping, RouteGenerator}
 import eu.akkamo.{Context, ContextError, Initializable, LoggingAdapterFactory, Module, Publisher, Registry, RouteRegistry, Runnable, TypeInfoChain}
 
@@ -11,13 +10,14 @@ import scala.util.Try
 /**
   * Represents registry for single configured static content mapping.
   */
-class WebContentRegistry(
-                          val routeRegistryAlias: Option[String],
-                          val mapping: Map[String, RouteGenerator]) extends Registry[ContentMapping] {
+case class WebContentRegistry(
+                          routeRegistryAlias: Option[String],
+                          mapping: Map[String, RouteGenerator]) extends Registry[ContentMapping] {
+  type SelfType = WebContentRegistry
 
-  override def copyWith(p: (String, RouteGenerator)): WebContentRegistry.this.type = {
+  override def copyWith(p: (String, RouteGenerator)) = {
     if (mapping.contains(p._1)) throw ContextError(s"A RouteGenerator under alias: ${p._1} is already registered")
-    else new WebContentRegistry(routeRegistryAlias, mapping = mapping + p).asInstanceOf[this.type]
+    else this.copy(mapping = mapping + p) //.asInstanceOf[this.type]
   }
 }
 

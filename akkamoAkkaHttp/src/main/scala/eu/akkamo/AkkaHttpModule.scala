@@ -186,6 +186,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
                     ctx: ConnectionContext,
                     routes: Set[Route] = Set.empty)
                    (implicit as: ActorSystem) extends RouteRegistry {
+    type SelfType = RouteRegistry
 
     def logDirective(level: LogLevel, formater: (String, HttpRequest) => String) = {
 

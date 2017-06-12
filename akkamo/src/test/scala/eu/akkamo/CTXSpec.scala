@@ -54,7 +54,9 @@ class CTXSpec extends FlatSpec with Matchers {
 
   case class MyRegistry(k:String, data: List[String] = Nil) extends Registry[String] {
 
-    override def copyWith(p: String): MyRegistry.this.type = this.copy(data = p::this.data).asInstanceOf[this.type]
+    type SelfType = MyRegistry
+
+    override def copyWith(p: String): MyRegistry = this.copy(data = p::this.data)
   }
 
   val defaultRegistry = MyRegistry("default")
