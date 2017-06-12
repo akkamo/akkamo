@@ -253,7 +253,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     }
 
     def copyWith(p: Route) = {
-      this.copy(routes = routes + p).asInstanceOf[this.type]
+      this.copy(routes = routes + p)
     }
   }
 
