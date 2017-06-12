@@ -9,11 +9,15 @@ object TransformerGenerator {
   import scala.reflect.macros.blackbox.Context
 
   trait AT[T] extends Transformer[T] {
+
     import com.typesafe.config.ConfigObject
+
     @inline
-    def a[V](key:String, t:Transformer[V])(implicit o:ConfigObject):Option[V] = try {
+    def a[V](key: String, t: Transformer[V])(implicit o: ConfigObject): Option[V] = try {
       Option(t(key, o))
-    } catch { case _:NullPointerException => None }
+    } catch {
+      case _: NullPointerException => None
+    }
   }
 
   def generate[T]: Transformer[T] = macro buildTransformer[T]
@@ -23,19 +27,27 @@ object TransformerGenerator {
 
     val tpe: c.universe.Type = weakTypeOf[T]
 
-    def makeVals(tpe: c.universe.Type, parameterLists:List[List[(c.universe.TermSymbol, Int, Int)]]) = (p:(c.universe.TermSymbol, Int, Int)) => {
-      val (term, group, index)  = p
+    def makeVals(tpe: c.universe.Type, parameterLists: List[List[(c.universe.TermSymbol, Int, Int)]]) = (p: (c.universe.TermSymbol, Int, Int)) => {
+      val (term, group, index) = p
       val name = term.name.decodedName.toString.stripPrefix("`").stripSuffix("`")
       val vName = TermName(s"$$_$index")
       if (term.isParamWithDefault) {
-        val companion = tpe.companion
+        val companion = tpe.companion match {
+          case NoType =>
+            throw new Exception(
+              s"""
+                 |[error] Constructor could not be determined for [[${tpe}]].
+                 |Also this may be due to a bug in scalac (SI-7567) that arises when a case class within a function is derive.
+                 |As a workaround, move the declaration to the module-level.""".stripMargin)
+          case x => x
+        }
         val defaultOpt: Option[c.universe.Symbol] = companion.members.find { p =>
           val method = p.asMethod
           val name = method.name.decodedName.toString
           name.endsWith(s"$$default$$${index}") // dirty  hack
         }
         val default = defaultOpt.getOrElse(throw new Exception(s"For type: [[${tpe}]] method for parameter: ${term.name} can't be resolved"))
-        val defaultParameterLists = parameterLists.take(group).map(_.map{ p=>TermName(s"$$_${p._3}")})
+        val defaultParameterLists = parameterLists.take(group).map(_.map { p => TermName(s"$$_${p._3}") })
         val invokeDefault = q"""${default}(...${defaultParameterLists})"""
         val res = q"""val $vName:${term.typeSignature} = a($name, implicitly[Transformer[${term.typeSignature}]]).getOrElse(${invokeDefault})"""
         res
@@ -46,7 +58,7 @@ object TransformerGenerator {
       }
     }
 
-    val makeParameter = (p:(c.universe.TermSymbol, Int, Int)) => {
+    val makeParameter = (p: (c.universe.TermSymbol, Int, Int)) => {
       val (term, _, index) = p
       val vName = TermName(s"$$_$index")
       q"${term.name} = ${vName}"
@@ -57,7 +69,7 @@ object TransformerGenerator {
       val parameterAsTermLists = indexedParameters(method.paramLists.map(_.map(_.asTerm)))
       val valList = parameterAsTermLists.map(_.map(makeVals(tpe, parameterAsTermLists))).flatten
       val parameterLists = parameterAsTermLists.map(_.map(makeParameter))
-      if(method.isConstructor) {
+      if (method.isConstructor) {
         q"""
           ..$valList
           new ${tpe}(...${parameterLists})""" // call constructor
@@ -78,31 +90,27 @@ object TransformerGenerator {
       }
     }
 
-    def indexedParameters(lss: List[List[c.universe.TermSymbol]]):List[List[(c.universe.TermSymbol, Int, Int)]] = {
-      val empty:List[List[(c.universe.TermSymbol, Int, Int)]] = Nil
-      lss.zipWithIndex.foldLeft((empty, 0)){case ((res, index), (o, group)) =>
+    def indexedParameters(lss: List[List[c.universe.TermSymbol]]): List[List[(c.universe.TermSymbol, Int, Int)]] = {
+      val empty: List[List[(c.universe.TermSymbol, Int, Int)]] = Nil
+      lss.zipWithIndex.foldLeft((empty, 0)) { case ((res, index), (o, group)) =>
         var idx = index
-        (o.map(p=>(p.asTerm, group, {idx +=1; idx}))::res, idx)
+        (o.map(p => (p.asTerm, group, {
+          idx += 1; idx
+        })) :: res, idx)
       }._1.reverse
     }
 
-   def buildClass(tpe:c.universe.Type) = {
+    def buildClass(tpe: c.universe.Type) = {
       val instance = tpe.companion match {
         case NoType => // no companion object let find constructor
           val constructor = findConstructor(tpe).getOrElse(
-            throw new Exception(
-              s"""[error] Constructor could not be determined for [[${tpe}]].
-                 |Also this may be due to a bug in scalac (SI-7567) that arises when a case class within a function is derive.
-                 |As a workaround, move the declaration to the module-level.""".stripMargin)
+            throw new Exception(s"[error] Constructor could not be determined for [[${tpe}]]")
           )
           createInstance(constructor, tpe)
         case companion => // there is a companion object
           val applyMethodorConstructor = findApplyMethod(companion).getOrElse(
             findConstructor(tpe).getOrElse(
-              throw new Exception(
-                s"""[error] The apply method from companion object, or regular constructor could not be determined for [[${tpe}]].
-                   |This may be due to a bug in scalac (SI-7567) that arises when a case class within a function is derive.
-                   |As a workaround, move the declaration to the module-level.""".stripMargin)
+              throw new Exception(s"[error] The apply method from companion object could not be determined for [[${tpe}]].")
 
             ))
           createInstance(applyMethodorConstructor, tpe)
@@ -122,6 +130,7 @@ object TransformerGenerator {
         }"""
       r
     }
+
     try {
       buildClass(tpe)
     } catch {
