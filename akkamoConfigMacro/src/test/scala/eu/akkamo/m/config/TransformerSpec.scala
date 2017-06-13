@@ -17,6 +17,10 @@ object TypeHolder {
 
 }
 
+case class Label(name:String)
+
+case class PointWithImplicit(x:Int, y:Int, z:Int = 0)(implicit val l:Label)
+
 
 /**
   * @author jubu.
@@ -69,6 +73,16 @@ class TransformerSpec extends WordSpecLike {
         val pr = Point(x = 1, y = 2)
         assert(pl == pr)
       }
+
+      "parse to instance of case class having implicit parameters" in {
+        implicit val l =  Label("Implicit label")
+        val cfg = ConfigFactory.parseString("""point = {x = 1, y= 2}""")
+        val tr = implicitly[Transformer[PointWithImplicit]]
+        val pl = tr("point", cfg)
+        val pr = PointWithImplicit(x = 1, y = 2)
+        assert(pl == pr)
+      }
+
     }
   }
 }

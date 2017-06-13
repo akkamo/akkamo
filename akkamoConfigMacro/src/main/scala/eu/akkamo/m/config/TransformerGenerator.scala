@@ -1,6 +1,18 @@
 package eu.akkamo.m.config
 
 /**
+  * Macro generate implementation of Transformer for given Type
+  * A type can be case class or class, with multiple arguments  apply (constructor) method.
+  * Block with implicits in apply (constructor) methjod is supported.<br/>
+  * Example:
+  * {{{ case class Point(x:Int, y:Int)(implicit val l:Label)}}}
+  * Default values for parameters also supported.<br/>
+  * Example:
+  * {{{
+  * case class Point(x:Int, y:Int, l:String = "default")
+  * case class Point3D(x:Int, y:Int, z:Int = 0)(implicit val l:Label)
+  * }}}
+  *
   * @author jubu.
   */
 object TransformerGenerator {
@@ -65,8 +77,12 @@ object TransformerGenerator {
     }
 
     def createInstance(method: c.universe.MethodSymbol, tpe: c.universe.Type) = {
-      // convert
-      val parameterAsTermLists = indexedParameters(method.paramLists.map(_.map(_.asTerm)))
+      // convert parameters to terms and kikoff implicit parameters
+      val paramLists = method.paramLists.map(_.map(_.asTerm)).filter(
+        _.headOption.map(!_.isImplicit).getOrElse(true))
+      val parameterAsTermLists = indexedParameters(paramLists)
+
+
       val valList = parameterAsTermLists.map(_.map(makeVals(tpe, parameterAsTermLists))).flatten
       val parameterLists = parameterAsTermLists.map(_.map(makeParameter))
       if (method.isConstructor) {
