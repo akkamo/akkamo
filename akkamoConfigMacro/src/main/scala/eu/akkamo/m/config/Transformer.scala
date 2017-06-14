@@ -141,5 +141,5 @@ object Transformer {
   }
 
 
-  implicit def materializeTransformer[T]: Transformer[T] = macro TransformerGenerator.buildTransformer[T]
+  implicit def materialize[T]: Transformer[T] = macro TransformerGenerator.buildTransformer[T]
 }

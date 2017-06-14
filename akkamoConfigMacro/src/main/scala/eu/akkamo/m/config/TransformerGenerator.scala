@@ -1,5 +1,7 @@
 package eu.akkamo.m.config
 
+import scala.reflect.ClassTag
+
 /**
   * Macro generate implementation of Transformer for given Type
   * A type can be case class or class, with multiple arguments  apply (constructor) method.
@@ -23,12 +25,19 @@ object TransformerGenerator {
   trait AT[T] extends Transformer[T] {
 
     import com.typesafe.config.ConfigObject
+    import com.typesafe.config.ConfigValue
 
     @inline
     def a[V](key: String, t: Transformer[V])(implicit o: ConfigObject): Option[V] = try {
       Option(t(key, o))
     } catch {
       case _: NullPointerException => None
+    }
+
+    def to(p: ConfigValue)(implicit t: ClassTag[T]) = {
+      assert(p.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
+        "Only ConfigObject instance can be converted to:" + t.runtimeClass.getName)
+      p.asInstanceOf[ConfigObject]
     }
   }
 
@@ -131,16 +140,13 @@ object TransformerGenerator {
             ))
           createInstance(applyMethodorConstructor, tpe)
       }
-      val typeName = TermName(tpe.toString)
       val r =
         q"""
         new eu.akkamo.m.config.TransformerGenerator.AT[${tpe}] {
           import com.typesafe.config.ConfigValue
           import com.typesafe.config.ConfigObject
           override def apply(obj: ConfigValue): ${tpe} = {
-            assert(obj.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
-            "Only ConfigObject instance can be converted to:" +  ${typeName.toString})
-            implicit val o:ConfigObject = obj.asInstanceOf[ConfigObject]
+            implicit val o:ConfigObject = to(obj)
             $instance
           }
         }"""
