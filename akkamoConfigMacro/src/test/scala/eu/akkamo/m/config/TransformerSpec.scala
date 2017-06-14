@@ -11,7 +11,7 @@ case class PointWithDef2(x: Int, y: Int)(labelDV: String = "default")(val descri
 })
 
 
-object TypeHolder {
+trait PointHolder {
 
   case class Point(x: Int, y: Int)
 
@@ -19,13 +19,13 @@ object TypeHolder {
 
 case class Label(name:String)
 
-case class PointWithImplicit(x:Int, y:Int, z:Int = 0)(implicit val l:Label)
+case class PointWithLabel(x:Int, y:Int, z:Int = 0)(implicit val l:Label)
 
 
 /**
   * @author jubu.
   */
-class TransformerSpec extends WordSpecLike {
+class TransformerSpec extends WordSpecLike with PointHolder {
 
   "Config wrapper" when {
 
@@ -65,7 +65,7 @@ class TransformerSpec extends WordSpecLike {
       }
 
       "parse to instance of case class defined inside module" in {
-        import TypeHolder.Point
+        //import PointHolder.Point
         val cfg = ConfigFactory.parseString("""point = {x = 1, y= 2}""")
         val tr = implicitly[Transformer[Point]]
 
@@ -77,9 +77,9 @@ class TransformerSpec extends WordSpecLike {
       "parse to instance of case class having implicit parameters" in {
         implicit val l =  Label("Implicit label")
         val cfg = ConfigFactory.parseString("""point = {x = 1, y= 2}""")
-        val tr = implicitly[Transformer[PointWithImplicit]]
+        val tr = implicitly[Transformer[PointWithLabel]]
         val pl = tr("point", cfg)
-        val pr = PointWithImplicit(x = 1, y = 2)
+        val pr = PointWithLabel(x = 1, y = 2)
         assert(pl == pr)
       }
 

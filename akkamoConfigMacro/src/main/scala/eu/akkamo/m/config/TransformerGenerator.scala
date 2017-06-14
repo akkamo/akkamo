@@ -89,20 +89,18 @@ object TransformerGenerator {
       // convert parameters to terms and kikoff implicit parameters
       val paramLists = method.paramLists.map(_.map(_.asTerm)).filter(
         _.headOption.map(!_.isImplicit).getOrElse(true))
+
       val parameterAsTermLists = indexedParameters(paramLists)
 
-
       val valList = parameterAsTermLists.map(_.map(makeVals(tpe, parameterAsTermLists))).flatten
+
       val parameterLists = parameterAsTermLists.map(_.map(makeParameter))
-      if (method.isConstructor) {
-        q"""
-          ..$valList
-          new ${tpe}(...${parameterLists})""" // call constructor
-      } else {
-        q"""
-           ..$valList
-           ${method}(...${parameterLists})""" // call apply with params
-      }
+
+      // always call constructor, because problem with inheritance
+      // in case class the constructor has same shape as apply method
+      q"""
+        ..$valList
+        new ${tpe}(...${parameterLists})"""
     }
 
     def findConstructor(tpe: c.universe.Type) = tpe.members.find(_.isConstructor).map(_.asMethod)
@@ -145,7 +143,7 @@ object TransformerGenerator {
         new eu.akkamo.m.config.TransformerGenerator.AT[${tpe}] {
           import com.typesafe.config.ConfigValue
           import com.typesafe.config.ConfigObject
-          override def apply(obj: ConfigValue): ${tpe} = {
+          override def apply(obj: ConfigValue) = {
             implicit val o:ConfigObject = to(obj)
             $instance
           }
