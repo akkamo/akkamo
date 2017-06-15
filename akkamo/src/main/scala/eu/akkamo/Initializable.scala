@@ -3,6 +3,8 @@ package eu.akkamo
 import com.typesafe.config.{Config, ConfigObject, ConfigValue, ConfigValueType}
 import eu.akkamo.m.config._
 
+import scala.reflect.ClassTag
+
 /**
   * Trait indicating that the module extending this requires to perform initialization during Akkamo
   * startup. Initialization is the very first stage of ''Akkamo'' module lifecycle and in this stage,
@@ -66,16 +68,17 @@ object Initializable {
     * @param path in config
     * @param cfg config
     * @param interceptor implicit interceptor with an default
+    * @param ct ClassTag
     * @tparam T type
     * @return list of triplets containing: true if instance of `T` is default, list of aliases an instance of `T`
     */
   def parseConfig[T: Transformer](path: String, cfg: Config)
-                                 (implicit interceptor:Interceptor[T] = defaultInterceptor[T] ): Option[List[Parsed[T]]] = {
+                                 (implicit interceptor:Interceptor[T] = defaultInterceptor[T], ct:ClassTag[T] ): Option[List[Parsed[T]]] = {
 
     implicit val  transformTriplets = new Transformer[Parsed[T]] {
       override def apply(v: ConfigValue): Parsed[T] = {
         if (v.valueType() != ConfigValueType.OBJECT) {
-          throw new IllegalArgumentException(s"The value: $v is not ype of `OBJECT`")
+          throw new IllegalArgumentException(s"The value: $v is not `OBJECT`. Can't be parsed to type: ${ct.runtimeClass.getName}")
         }
         val obj = v.asInstanceOf[ConfigObject]
         val default = Option(obj.get("default")).map(implicitly[Transformer[Boolean]].apply(_)).getOrElse(false)
@@ -85,7 +88,6 @@ object Initializable {
       }
     }
 
-
     if (cfg.hasPath(path)) {
       val v = cfg.getValue(path)
       val res = if (v.valueType() == ConfigValueType.OBJECT) {
@@ -93,7 +95,7 @@ object Initializable {
           parsed.copy(_2 = key :: parsed._2)
         }).toList
       } else throw new IllegalArgumentException(
-        s"The value under alias $path is not `OBJECT` (see ConfigValueType for more informations)")
+        s"The value under alias $path is not `OBJECT` (see ConfigValueType)")
       Some(res match {
         case x :: Nil => x.copy(_1 = true) :: Nil // if only one element in List, then is automatically understand as default
         case xs => xs

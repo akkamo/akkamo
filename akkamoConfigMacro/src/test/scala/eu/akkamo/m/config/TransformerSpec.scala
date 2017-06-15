@@ -17,9 +17,9 @@ trait PointHolder {
 
 }
 
-case class Label(name:String)
+case class Label(name: String)
 
-case class PointWithLabel(x:Int, y:Int, z:Int = 0)(implicit val l:Label)
+case class PointWithLabel(x: Int, y: Int, z: Int = 0)(implicit val l: Label)
 
 
 /**
@@ -75,7 +75,7 @@ class TransformerSpec extends WordSpecLike with PointHolder {
       }
 
       "parse to instance of case class having implicit parameters" in {
-        implicit val l =  Label("Implicit label")
+        implicit val l = Label("Implicit label")
         val cfg = ConfigFactory.parseString("""point = {x = 1, y= 2}""")
         val tr = implicitly[Transformer[PointWithLabel]]
         val pl = tr("point", cfg)
@@ -83,6 +83,14 @@ class TransformerSpec extends WordSpecLike with PointHolder {
         assert(pl == pr)
       }
 
+      "throw IllegalArgumentException if wrong input" in {
+        implicit val l = Label("Implicit label")
+        val cfg = ConfigFactory.parseString("""point = 2""")
+        val tr = implicitly[Transformer[PointWithLabel]]
+        assertThrows[Exception] {
+          tr("point", cfg)
+        }
+      }
     }
   }
 }

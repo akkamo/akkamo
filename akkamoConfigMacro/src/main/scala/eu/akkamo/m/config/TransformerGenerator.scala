@@ -26,6 +26,7 @@ object TransformerGenerator {
 
     import com.typesafe.config.ConfigObject
     import com.typesafe.config.ConfigValue
+    import com.typesafe.config.ConfigValueType.OBJECT
 
     @inline
     def a[V](key: String, t: Transformer[V])(implicit o: ConfigObject): Option[V] = try {
@@ -34,9 +35,10 @@ object TransformerGenerator {
       case _: NullPointerException => None
     }
 
-    def to(p: ConfigValue)(implicit t: ClassTag[T]) = {
-      assert(p.valueType() == com.typesafe.config.ConfigValueType.OBJECT,
-        "Only ConfigObject instance can be converted to:" + t.runtimeClass.getName)
+    def to(p: ConfigValue)(implicit ct: ClassTag[T]) = {
+      if (p.valueType() != OBJECT) {
+        throw new IllegalArgumentException(s"The value: $p is not `OBJECT`. Can't be parsed to type: ${ct.runtimeClass.getName}")
+      }
       p.asInstanceOf[ConfigObject]
     }
   }
