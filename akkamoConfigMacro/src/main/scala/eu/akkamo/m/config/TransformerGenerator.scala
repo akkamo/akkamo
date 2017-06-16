@@ -59,8 +59,8 @@ object TransformerGenerator {
           case NoType =>
             throw new Exception(
               s"""
-                 |[error] Constructor could not be determined for [[${tpe}]].
-                 |Also this may be due to a bug in scalac (SI-7567) that arises when a case class within a function is derive.
+                 |[error] Companion object could not be determined for [[${tpe}]].
+                 |Also this may be due to  bug in scalac (SI-7567) that arises when a case class within a function is derive.
                  |As a workaround, move the declaration to the module-level.""".stripMargin)
           case x => x
         }
@@ -71,7 +71,10 @@ object TransformerGenerator {
         }
         val default = defaultOpt.getOrElse(throw new Exception(s"For type: [[${tpe}]] method for parameter: ${term.name} can't be resolved"))
         val defaultParameterLists = parameterLists.take(group).map(_.map { p => TermName(s"$$_${p._3}") })
-        val invokeDefault = q"""${default}(...${defaultParameterLists})"""
+        // this dirty hack solve problems with compiler crash
+        // search on internet: error: Internal error: unable to find the outer accessor symbol of  .....
+        val companionAsTermName = TermName(companion.typeSymbol.name.encodedName.toString)
+        val invokeDefault = q"""${companionAsTermName}.${default.asMethod.name}(...${defaultParameterLists})"""
         val res = q"""val $vName:${term.typeSignature} = a($name, implicitly[Transformer[${term.typeSignature}]]).getOrElse(${invokeDefault})"""
         res
       } else {

@@ -1,24 +1,23 @@
 package eu.akkamo
 
+import java.io.{File, FileInputStream, InputStream}
 import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 
 import akka.actor.ActorSystem
 import akka.event.Logging.{LogLevel, MDC}
-import akka.event._
+import akka.event.{DefaultLoggingFilter, DiagnosticMarkerBusLoggingAdapter, LogSource, Logging, LoggingBus, LoggingFilter}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
-import akka.http.scaladsl.server._
 import akka.http.scaladsl.server.directives.BasicDirectives.mapInnerRoute
 import akka.http.scaladsl.server.directives.{DebuggingDirectives, LoggingMagnet}
+import akka.http.scaladsl.server.{Directive, Route, RouteResult}
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
-import com.typesafe.config.Config
-import eu.akkamo.RouteRegistry.{HTTP, HTTPS, Protocol}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue, ConfigValueType}
 
 import scala.concurrent.Future
-import scala.util.Try
 
 /**
   * For each configuration block, an instance of [[RouteRegistry]] is registered to the
@@ -28,70 +27,7 @@ import scala.util.Try
   *
   * @author jubu
   */
-trait RouteRegistry extends Registry[Route] {
-
-  /**
-    * Returns port number, on which the ''Akka HTTP'' server is running.
-    *
-    * @return port number
-    */
-  def port: Int
-
-  /**
-    * Returns the interface (i.e. host name), on which the ''Akka HTTP'' server is running.
-    *
-    * @return interface (i.e. host name)
-    */
-  def interface: String
-
-  /**
-    * Returns the protocol (e.g. HTTP, HTTPS).
-    *
-    * @return the protocol
-    */
-  def protocol: Protocol
-
-  /**
-    * Returns whether the current ''Akka HTTP'' server configuration is the default one.
-    *
-    * @return `true` if the current ''Akka HTTP'' server configuratino is the default one
-    */
-  def default: Boolean
-}
-
-/**
-  * Companion object for the [[RouteRegistry]] trait.
-  */
-object RouteRegistry {
-
-  /**
-    * Represents the protocol (e.g. HTTP, HTTPS).
-    */
-  sealed trait Protocol {
-
-    /**
-      * Returns the protocol name.
-      *
-      * @return protocol name
-      */
-    def name = toString
-  }
-
-  /**
-    * Implementation of [[Protocol]], representing the HTTP protocol.
-    */
-  case object HTTP extends Protocol {
-    override def toString: String = "http"
-  }
-
-  /**
-    * Implementation of [[Protocol]], representing the HTTPS protocol.
-    */
-  case object HTTPS extends Protocol {
-    override def toString: String = "https"
-  }
-
-}
+trait RouteRegistry extends Registry[Route]
 
 // TODO - documentation details about ssl config + factory: HttpsConnectionContextFactory description
 /**
@@ -105,9 +41,9 @@ object RouteRegistry {
   *       aliases = ["alias1", "alias2"]
   *       port = 9000 // port, not mandatory
   *       protocol = "http" // http, https, ...
-  *       host = "localhost" // host, default localhost
+  *       interface = "localhost" // host, default localhost
   *       akkaAlias = "alias" // not required, default is used if exists
-  *       requestLogLevel = "INFO"  // defines level for request level logging. Default "off" means no logging
+  *       requestLogLevel = "info"  // defines level for request level logging. Default "off" means no logging
   *       useMDC = false // defines usage of logger than support custom MDC, in this case headers mapped  in to MDC
   *       requestLogFormat = "%1s %2s: HTTP/%3s headers:%4s" // defines log format, defaults to this if not specified
   *     },
@@ -126,11 +62,11 @@ object RouteRegistry {
   * <br/>
   * log format:
   * <ol>
-  *   <li>method</li>
-  *   <li>relative uri</li>
-  *   <li>status</li>
-  *   <li>headers (only if use MDC is false)</li>
-  *</ol>
+  * <li>method</li>
+  * <li>relative uri</li>
+  * <li>status</li>
+  * <li>headers (only if use MDC is false)</li>
+  * </ol>
   *
   * @author jubu
   * @see RouteRegistry
@@ -138,59 +74,50 @@ object RouteRegistry {
   */
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
+  import eu.akkamo.Initializable.Interceptor
+  import eu.akkamo.m.config._ // need by parseConfig
+
   val CfgKey = "akkamo.akkaHttp"
+
+
+  val default =
+    s"""
+       |$CfgKey = {
+       | default = { }
+       |}
+    """.stripMargin
 
   private val Protocol = "protocol"
 
-  private val Port = "port"
-
-  private val Interface = "interface"
-
-  private val RequestLogLevel = "requestLogLevel"
-
-  private val RequestLogFormat = "requestLogFormat"
-
   private val AkkaAlias = "akkaAlias"
 
-  private val Aliases = "aliases"
-
-  private val Default = "default"
-
-  private val MDC = "useMDC"
-
-  private val KeyStorePassword = "keyStorePassword"
-
-  private val KeyStoreName = "keyStorePassword"
-
-  private val KeyStoreLocation = "keyStorePassword"
-
-  private val KeyManagerAlgorithm = "keyManagerAlgorithm"
-
-  private val SSLContextAlgorithm = "sSLContext Algorithms"
-
-  private val HttpsConnectionContextFactoryClassName = "httpsConnectionContextFactoryClassName"
+  private val SSLCfg = "sslCfg"
 
   type HttpsConnectionContextFactory = (Config) => HttpsConnectionContext
 
   private val bindings = List.empty[ServerBinding]
 
-  private[AkkaHttpModule] case class
-  RouteRegistryImpl(aliases: List[String],
-                    port: Int,
-                    interface: String,
-                    protocol: Protocol,
-                    default: Boolean,
-                    requestLogLevel: String,
-                    requestLogFormat: String,
-                    mdc: Boolean,
-                    ctx: ConnectionContext,
-                    routes: Set[Route] = Set.empty)
-                   (implicit as: ActorSystem) extends RouteRegistry {
-    type SelfType = RouteRegistry
+  private case class
+  RouteRegistryData(port: Int = -1,
+                    interface: String = "localhost",
+                    protocol: String = "http"
+                   )
+                   (
+                     val requestLogLevel: String = "info",
+                     val requestLogFormat: String = "%1s %2s: HTTP/%3s headers:%4s",
+                     val useMDC: Boolean = false
+                   )
+
+
+  private case class
+  RouteRegistryImpl(data: RouteRegistryData, routes: Set[Route] = Set.empty)
+                   (implicit as: ActorSystem, cc: ConnectionContext) extends RouteRegistry {
+
+    type SelfType = RouteRegistryImpl
 
     def logDirective(level: LogLevel, formater: (String, HttpRequest) => String) = {
 
-      def myLoggingFunction(logger: akka.event.LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
+      def loggingFunction(logger: akka.event.LoggingAdapter)(req: HttpRequest)(res: RouteResult): Unit = {
         val status = res match {
           case c: Complete => c.response.status.toString
           case r: Rejected => if (r.rejections.isEmpty) "404 Not Found" else "400 Bad Request"
@@ -198,7 +125,7 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
         logger.log(level, formater(status, req))
       }
 
-      DebuggingDirectives.logRequestResult(LoggingMagnet(log => myLoggingFunction(log)))
+      DebuggingDirectives.logRequestResult(LoggingMagnet(log => loggingFunction(log)))
     }
 
     def mdcLogger(filter: LoggingFilter, logSource: String, clazz: Class[_], loggingBus: LoggingBus): Directive[Unit] = {
@@ -221,41 +148,75 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     def bind(route: Route): Future[ServerBinding] = {
       implicit val am = ActorMaterializer()
       import scala.concurrent.ExecutionContext.Implicits.global
-      if (requestLogLevel == "off") {
-        Http().bindAndHandle(route, interface, port, ctx)
+      if (data.requestLogLevel == "off") {
+        Http().bindAndHandle(route, data.interface, data.port, cc)
       } else {
         // optimized formatter for each variant
         // TODO rethink this kind of decision is
-        val formatter = if (requestLogFormat.contains("%4s")) {
+        val formatter = if (data.requestLogFormat.contains("%4s")) {
           (status: String, req: HttpRequest) => {
             val method = req.method.value
             val uri = req.uri.toRelative.toString
             val headers = req.headers.mkString(",")
-            requestLogFormat.format(method, uri, status, headers)
+            data.requestLogFormat.format(method, uri, status, headers)
           }
         } else {
           (status: String, req: HttpRequest) => {
             val method = req.method.value
             val uri = req.uri.toRelative.toString
-            requestLogFormat.format(method, uri, status)
+            data.requestLogFormat.format(method, uri, status)
           }
         }
-        val ld = logDirective(Logging.levelFor(requestLogLevel).getOrElse(Logging.InfoLevel), formatter)
-        val finalRoute = if (mdc) {
+        val ld = logDirective(Logging.levelFor(data.requestLogLevel).getOrElse(Logging.InfoLevel), formatter)
+        val finalRoute = if (data.useMDC) {
           val (logSource, clazz) = LogSource.fromAnyRef(classOf[RouteRegistry], as)
           val filter = new DefaultLoggingFilter(as.settings, as.eventStream)
           mdcLogger(filter, logSource, clazz, as.eventStream)(ld(route))
         } else {
           ld(route)
         }
-        Http().bindAndHandle(finalRoute, interface, port, ctx)
+        Http().bindAndHandle(finalRoute, data.interface, data.port, cc)
       }
     }
 
-    def copyWith(p: Route) = {
-      this.copy(routes = routes + p)
+    override def copyWith(p: Route): SelfType = {
+      copy(routes = this.routes + p)(as, cc)
     }
   }
+
+
+  private case class
+  SSLConfig(
+             keyStoreName: String,
+             keyStorePassword: String,
+             keyStoreLocation: String = "server.p12",
+             keyManagerAlgorithm: String = KeyManagerFactory.getDefaultAlgorithm,
+             sSLContextAlgorithm: Option[String] = None
+           ) {
+
+
+    val sSLContext: SSLContext = {
+
+      val keyStore: KeyStore = {
+        val keyStoreStream = getResource(keyStoreLocation)
+        val keyStore = KeyStore.getInstance(keyStoreName)
+        keyStore.load(keyStoreStream, keyStorePassword.toCharArray)
+        keyStore
+      }
+
+      val keyManagerFactory: KeyManagerFactory = {
+        val instance = KeyManagerFactory.getInstance(keyManagerAlgorithm)
+        instance.init(keyStore, keyStorePassword.toCharArray)
+        instance
+      }
+
+      val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
+      val sSLContext = sSLContextAlgorithm.map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
+      sSLContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
+      sSLContext
+    }
+  }
+
 
   /**
     * register module mappings
@@ -266,64 +227,38 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     *         Incomplete initialization mean That component is not able to find all dependencies.
     */
   override def initialize(ctx: Context) = {
-    initialize(ctx, ctx.get[Config], ctx.get[LoggingAdapterFactory].apply(this))
+
+    val cfg = ctx.get[Config]
+
+    val ir = interceptor(ctx)
+
+    val registered: List[Initializable.Parsed[RouteRegistry]] =
+      Initializable.parseConfig(CfgKey, cfg, ir).getOrElse {
+        Initializable.parseConfig(CfgKey, ConfigFactory.parseString(default), ir).get
+      }
+    ctx.register(Initializable.defaultReport(CfgKey, registered))
+
   }
 
-  def initialize(ctx: Context, cfg: Config, log: LoggingAdapter) = Try {
-    // create list of configuration tuples
-    val mp = config.asOpt[Map[String, Config]](CfgKey, cfg)
-
-    val httpConfigs = if (mp.isEmpty) {
-      val r = RouteRegistryImpl(
-        Nil, 9000, "localhost", HTTP, true, "off", defaultLogFormat(), false, ConnectionContext.noEncryption())(
-        ctx.getOpt[ActorSystem].getOrElse(throw InitializableError("Can't find default akka system")))
-      List(r)
-    } else {
-      val autoDefault = mp.get.size == 1
-      mp.get.toList.filter(_._1 != RequestLogLevel).map { case (key, conf) =>
-        val system = config.asOpt[String](AkkaAlias, conf).flatMap(ctx.getOpt[ActorSystem](_)).orElse(ctx.getOpt[ActorSystem])
-        if (system.isEmpty) {
-          throw InitializableError(s"Can't find akka system for http configuration alias: ${key}")
-        }
-        val port = config.asOpt[Int](Port, conf).getOrElse(-1)
-        val interface = config.asOpt[String](Interface, conf).getOrElse("localhost")
-        val aliases = key :: config.asOpt[List[String]](Aliases, conf).getOrElse(List.empty[String])
-        val default = config.asOpt[Boolean](Default, conf).getOrElse(autoDefault)
-        val mdc = config.asOpt[Boolean](MDC, conf).getOrElse(false)
-        val requestLogLevel: String = config.asOpt[String](RequestLogLevel, conf).getOrElse("off")
-        val requestLogFormat: String = config.asOpt[String](RequestLogFormat, conf).getOrElse(defaultLogFormat)
-        val (protocol, connectionContext) = config.asOpt[String](Protocol, conf).getOrElse("http").toLowerCase match {
-          case "http" => (HTTP, ConnectionContext.noEncryption())
-          case "https" => (HTTPS, getHttpsConnectionContext(conf))
-          case p => throw InitializableError(s"unknown protocol: ${p} in route registry")
-        }
-        val r = RouteRegistryImpl(
-          aliases, port, interface, protocol, default, requestLogLevel, requestLogFormat, mdc, connectionContext)(system.get)
-        log.info(s"route registry created: ${r.aliases.mkString(",")}, protocol:${r.protocol}, port: ${r.port}")
-        r
+  private def interceptor(ctx: Context): Interceptor[RouteRegistryData, RouteRegistryImpl] =
+    (t: Transformer[RouteRegistryData], v: ConfigValue) => {
+      if (v.valueType() != ConfigValueType.OBJECT) {
+        throw new IllegalArgumentException(s"The value: $v is not `OBJECT`. Can't be parsed to type: ${classOf[RouteRegistry].getName}")
       }
-    }
-    val combinations = httpConfigs.groupBy(_.interface).map(_._2.groupBy(_.port).size).sum
-    if (combinations != httpConfigs.size) {
-      throw InitializableError(s"Akka http configuration contains ambiguous combination of port and protocol.")
-    }
-    httpConfigs.foldLeft(ctx) { (ctx, cfg) =>
-      val ctx1 = if (cfg.default) {
-        ctx.register[RouteRegistry](cfg)
-      } else {
-        ctx
+      implicit val cfg: Config = v.asInstanceOf[ConfigObject].toConfig
+      // need actor system
+      val as = config.asOpt[String](AkkaAlias).flatMap(ctx.getOpt[ActorSystem](_)).getOrElse(ctx.get[ActorSystem])
+
+      val cc: ConnectionContext = config.asOpt[String](Protocol).getOrElse("http") match {
+        case "http" => ConnectionContext.noEncryption()
+        case "https" =>
+          val sSLConfig = config.as[SSLConfig](SSLCfg)
+          ConnectionContext.https(sSLConfig.sSLContext)
+        case x => throw new IllegalArgumentException(s"Unsupported protocol: $x. Can't be parsed to type: ${classOf[RouteRegistry].getName}")
       }
-      cfg.aliases.foldLeft(ctx1) { (ctx, alias) =>
-        ctx.register[RouteRegistry](cfg, Some(alias))
-      }
+      val data = t(v)
+      RouteRegistryImpl(data)(as, cc)
     }
-  }
-
-  private def defaultLogFormat() = "%1s %2s: HTTP/%3s headers:%4s"
-
-  override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
-
-  override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[RouteRegistry]
 
   override def run(ctx: Context) = {
     import scala.concurrent.ExecutionContext.Implicits.global
@@ -340,39 +275,41 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     Future.sequence(futures).map { p => () }
   }
 
-  private def getHttpsConnectionContext(cfg: Config): HttpsConnectionContext =
+  override def dependencies(ds: TypeInfoChain): TypeInfoChain = ds.&&[Config].&&[LoggingAdapterFactory].&&[ActorSystem]
 
-    config.asOpt[String](HttpsConnectionContextFactoryClassName, cfg)
-      .map(getHttpsConnectionContextFormFactory(cfg)).getOrElse(getHttpsConnectionContextFormConfig(cfg))
+  override def publish(ds: TypeInfoChain): TypeInfoChain = ds.&&[RouteRegistry]
 
-  private def getHttpsConnectionContextFormFactory(cfg: Config) = (clazzName: String) => {
-    try {
-      import scala.reflect.runtime.universe
-      val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-      val module = runtimeMirror.staticModule(clazzName)
-      val companionObj = runtimeMirror.reflectModule(module).instance.asInstanceOf[HttpsConnectionContextFactory]
-      companionObj(cfg)
-    } catch {
-      case th: Throwable => throw InitializableError(s"Can't construct HttpsConnectionContext from the factory: ${clazzName}", th)
+  /**
+    *
+    * @param path
+    * @return
+    */
+  @throws[IllegalArgumentException]
+  private def getResource(path: String): InputStream = {
+
+    def fileIsOk(f: File) = f.exists() && f.isFile
+
+    val df = new File(path)
+    if (fileIsOk(df)) new FileInputStream(df)
+    else {
+      // in zip
+      val res = this.getClass.getClassLoader.getResource(path)
+      if (res != null) this.getClass.getClassLoader.getResourceAsStream(res.toExternalForm)
+      else {
+        // in user dir
+        val d = System.getProperty("user.dir") + File.separator + path
+        val df = new File(d)
+        if (fileIsOk(df)) {
+          new FileInputStream(df)
+        } else {
+          // in user home
+          val d = System.getProperty("user.home") + File.separator + path
+          val df = new File(d)
+          if (fileIsOk(df)) {
+            new FileInputStream(df)
+          } else throw new IllegalArgumentException(s"Path: $path doesn't exists")
+        }
+      }
     }
-  }
-
-  private def getHttpsConnectionContextFormConfig(implicit cfg: Config) = {
-    val keyStoreName = config.asOpt[String](KeyStoreName).getOrElse(
-      throw InitializableError("Can't find keyStoreName value"))
-    val keyStorePassword = config.asOpt[String](KeyStorePassword).getOrElse(
-      throw InitializableError("Can't find keyStorePassword value")).toCharArray
-    //val sslCtx = SSLContext.getInstance("TLS")
-    val keyStore = Option(KeyStore.getInstance(keyStoreName)).getOrElse(
-      throw InitializableError(s"Can't initialize alias store for keyStoreName: ${keyStoreName}"))
-    val keyStoreStream = getClass.getClassLoader.getResourceAsStream(config.asOpt[String](KeyStoreLocation).getOrElse("server.p12"))
-    keyStore.load(keyStoreStream, keyStorePassword)
-    val keyManagerFactory = KeyManagerFactory.getInstance(config.asOpt[String](KeyManagerAlgorithm).getOrElse(KeyManagerFactory.getDefaultAlgorithm))
-    keyManagerFactory.init(keyStore, keyStorePassword)
-    val trustManagerFactory: TrustManagerFactory = TrustManagerFactory.getInstance(keyManagerFactory.getAlgorithm)
-    trustManagerFactory.init(keyStore)
-    val sslContext: SSLContext = config.asOpt[String](SSLContextAlgorithm).map(SSLContext.getInstance).getOrElse(SSLContext.getDefault)
-    sslContext.init(keyManagerFactory.getKeyManagers, trustManagerFactory.getTrustManagers, SecureRandom.getInstanceStrong)
-    ConnectionContext.https(sslContext)
   }
 }

@@ -51,8 +51,8 @@ class AkkaModule extends Module with Initializable with Disposable with Publishe
     * Initializes the module into provided mutable context, blocking
     */
   override def initialize(ctx: Context) = Try {
-    implicit val cfg = ctx.get[Config]
-    val registered = Initializable.parseConfig[Config](CfgKey).getOrElse {
+    val cfg = ctx.get[Config]
+    val registered = Initializable.parseConfig[Config](CfgKey, cfg).getOrElse {
       Initializable.parseConfig[Config](CfgKey, ConfigFactory.parseString(default)).get
     }.map { case (default, alliases, cfg) => (default, alliases, ActorSystem.apply(alliases.head, cfg)) }
 

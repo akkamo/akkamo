@@ -1,15 +1,15 @@
 package eu.akkamo
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValue}
 import eu.akkamo.m.config.Transformer
 import org.scalatest.{FlatSpec, Matchers}
-
-case class Foo(x: Int)
 
 /**
   * @author jubu.
   */
 class InitializableSpec extends FlatSpec with Matchers {
+
+  private case class Foo(x: Int)
 
   "parsed config" should "return right values" in {
 
@@ -33,14 +33,14 @@ class InitializableSpec extends FlatSpec with Matchers {
 
   "validation of parsed config" should "return (false, false, true) when empty" in {
 
-    implicit val cfg = ConfigFactory.parseString(
+    val cfg = ConfigFactory.parseString(
       """
         |foos {
         |}
         |""".stripMargin
     )
 
-    val parsed = Initializable.parseConfig[Foo]("foos")
+    val parsed = Initializable.parseConfig[Foo]("foos", cfg)
     val r = Initializable.validate(parsed.get)
     val c = (false, false, true)
     assert(r == c)
@@ -48,7 +48,7 @@ class InitializableSpec extends FlatSpec with Matchers {
 
   "validation of parsed config" should "return (true, false, true) when multiple defaults" in {
 
-    implicit  val cfg = ConfigFactory.parseString(
+    val cfg = ConfigFactory.parseString(
       """
         |foos {
         | a1 = {
@@ -64,7 +64,7 @@ class InitializableSpec extends FlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val parsed = Initializable.parseConfig[Foo]("foos")
+    val parsed = Initializable.parseConfig[Foo]("foos", cfg)
     val r = Initializable.validate(parsed.get)
     val c = (true, false, true)
     assert(r == c)
@@ -72,7 +72,7 @@ class InitializableSpec extends FlatSpec with Matchers {
 
   "validation of parsed config" should "return (true, false, true) when default is missing" in {
 
-    implicit  val cfg = ConfigFactory.parseString(
+    val cfg = ConfigFactory.parseString(
       """
         |foos {
         | a1 = {
@@ -86,7 +86,7 @@ class InitializableSpec extends FlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val parsed = Initializable.parseConfig[Foo]("foos")
+    val parsed = Initializable.parseConfig[Foo]("foos", cfg)
     val r = Initializable.validate(parsed.get)
     val c = (true, false, true)
     assert(r == c)
@@ -94,7 +94,7 @@ class InitializableSpec extends FlatSpec with Matchers {
 
   "validation of parsed config" should "return (true, true, false) when ambigious aliases detected" in {
 
-    implicit  val cfg = ConfigFactory.parseString(
+    val cfg = ConfigFactory.parseString(
       """
         |foos {
         | a1 = {
@@ -109,16 +109,36 @@ class InitializableSpec extends FlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val parsed = Initializable.parseConfig[Foo]("foos")
+    val parsed = Initializable.parseConfig[Foo]("foos", cfg)
     val r = Initializable.validate(parsed.get)
     val c = (true, true, false)
     assert(r == c)
   }
 
+  "parsed Foo" should "should be converted" in {
 
+    val cfg = ConfigFactory.parseString(
+      """
+        |foos {
+        | a1 = {
+        |   default = true
+        |   x = 1
+        | }
+        | a2 = {
+        |   x = 2
+        | }
+        |}
+        |""".stripMargin
+    )
+
+    val ir = (t:Transformer[Foo], c:ConfigValue) => t(c).x
+
+    val parsed: Option[List[(Boolean, List[String], Int)]] = Initializable.parseConfig("foos", cfg, ir)
+    assert(parsed.get.map(_._3) == List(1, 2))
+  }
 
   "parsed config to `Config`" should "return right value" in {
-    implicit val cfg = ConfigFactory.parseString(
+    val cfg = ConfigFactory.parseString(
       """
         |akkamo.akka = {
         |  name1{
@@ -136,7 +156,7 @@ class InitializableSpec extends FlatSpec with Matchers {
         |}
         |""".stripMargin
     )
-    val res = Initializable.parseConfig[Config]("akkamo.akka").get
+    val res = Initializable.parseConfig[Config]("akkamo.akka", cfg).get
 
     // map is in reverse order
     assert(res(0)._3.hasPath("akka") == false)

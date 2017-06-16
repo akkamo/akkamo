@@ -69,6 +69,8 @@ trait MongoApi {
   */
 class MongoModule extends Module with Initializable with Disposable with Publisher {
 
+  import eu.akkamo.m.config._ // need by parseConfig
+
   private class MongoApiImpl(uri: String) extends MongoApi {
 
     override def client: MongoClient = MongoClient(uri)
@@ -96,11 +98,10 @@ class MongoModule extends Module with Initializable with Disposable with Publish
     val log = ctx.get[LoggingAdapterFactory].apply(getClass)
     log.info("Initializing 'MongoDB' module...")
 
-    implicit val cfg: Config = ctx.get[Config]
+    val cfg = ctx.get[Config]
 
-    import eu.akkamo.m.config._ // need by parseConfig
     val registered: List[Initializable.Parsed[MongoApi]] =
-      Initializable.parseConfig[MongoApiImpl](CfgKey).getOrElse {
+      Initializable.parseConfig[MongoApiImpl](CfgKey, cfg).getOrElse {
         Initializable.parseConfig[MongoApiImpl](CfgKey, ConfigFactory.parseString(default)).get
       }
     ctx.register(Initializable.defaultReport(CfgKey, registered))

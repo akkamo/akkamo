@@ -35,9 +35,9 @@ trait Initializable {
 object Initializable {
 
   type Parsed[T] = (Boolean, List[String], T)
-  type Interceptor[T] = (Transformer[T], ConfigValue) => T
+  type Interceptor[T, V] = (Transformer[T], ConfigValue) => V
 
-  private def defaultInterceptor[T] = new Interceptor[T] {
+  private def identityInterceptor[T] = new Interceptor[T, T] {
     override def apply(t: Transformer[T], v: ConfigValue): T = t(v)
   }
 
@@ -65,18 +65,30 @@ object Initializable {
     * parsed result is: List((false, List("a1"), Foo(1)), (true, List("a2", "a3"), Foo(2))) <br/>
     * __Remark:__ Aliases are ordered, and first is from alias  <br/>
     *
-    * @param path in config
-    * @param cfg config
-    * @param interceptor implicit interceptor with an default
-    * @param ct ClassTag
+    * @param path        in config
+    * @param cfg         config
+    * @param ct          ClassTag
     * @tparam T type
     * @return list of triplets containing: true if instance of `T` is default, list of aliases an instance of `T`
     */
-  def parseConfig[T: Transformer](path: String, cfg: Config)
-                                 (implicit interceptor:Interceptor[T] = defaultInterceptor[T], ct:ClassTag[T] ): Option[List[Parsed[T]]] = {
+  def parseConfig[T: Transformer](path: String, cfg: Config)(implicit ct: ClassTag[T]):Option[List[Parsed[T]]] =
+    parseConfig(path, cfg, identityInterceptor[T])
 
-    implicit val  transformTriplets = new Transformer[Parsed[T]] {
-      override def apply(v: ConfigValue): Parsed[T] = {
+  /**
+    *
+    * @param path
+    * @param cfg
+    * @param interceptor
+    * @param ct
+    * @tparam T
+    * @tparam V
+    * @return
+    */
+  def parseConfig[T: Transformer, V](path: String, cfg: Config, interceptor: Interceptor[T, V])(implicit ct: ClassTag[T]):
+  Option[List[Parsed[V]]] = {
+
+    implicit val transformTriplets = new Transformer[Parsed[V]] {
+      override def apply(v: ConfigValue): Parsed[V] = {
         if (v.valueType() != ConfigValueType.OBJECT) {
           throw new IllegalArgumentException(s"The value: $v is not `OBJECT`. Can't be parsed to type: ${ct.runtimeClass.getName}")
         }
@@ -91,7 +103,7 @@ object Initializable {
     if (cfg.hasPath(path)) {
       val v = cfg.getValue(path)
       val res = if (v.valueType() == ConfigValueType.OBJECT) {
-        (config.as[Map[String, Parsed[T]]](path, cfg).map { case (key, parsed) =>
+        (config.as[Map[String, Parsed[V]]](path, cfg).map { case (key, parsed) =>
           parsed.copy(_2 = key :: parsed._2)
         }).toList
       } else throw new IllegalArgumentException(
@@ -102,16 +114,6 @@ object Initializable {
       })
     } else None
   }
-
-  /**
-    * Alternative definition of parseConfig method
-    *
-    * @param path
-    * @param cfg
-    * @tparam T
-    * @return
-    */
-  def parseConfig[T:Transformer](path: String)(implicit cfg: Config): Option[List[Parsed[T]]] = parseConfig(path, cfg)
 
   /**
     * structural validation of parsed values
@@ -138,9 +140,9 @@ object Initializable {
   @throws[InitializableError]
   def defaultReport[T](key: String, parsed: List[Parsed[T]]): List[Parsed[T]] = {
     val (notEmpty, oneDefault, uniqueAliases) = validate(parsed)
-    if(!notEmpty) throw InitializableError(s"Empty configuration for: $key detected.")
-    if(!oneDefault) throw InitializableError(s"Multiple `default` values for: $key detected.")
-    if(!uniqueAliases) throw InitializableError(s"Ambigious aliases for: $key detected.")
+    if (!notEmpty) throw InitializableError(s"Empty configuration for: $key detected.")
+    if (!oneDefault) throw InitializableError(s"Multiple `default` values for: $key detected.")
+    if (!uniqueAliases) throw InitializableError(s"Ambigious aliases for: $key detected.")
 
     parsed
   }

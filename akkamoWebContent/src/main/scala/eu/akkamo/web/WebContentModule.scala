@@ -83,6 +83,8 @@ object WebContentRegistry {
   */
 class WebContentModule extends Module with Initializable with Runnable with Publisher {
 
+  import eu.akkamo.m.config._ // need by parseConfig
+
   val CfgKey = "akkamo.webContent"
 
   private val Prefix = "web"
@@ -94,11 +96,9 @@ class WebContentModule extends Module with Initializable with Runnable with Publ
                                       val routeGenerators: Option[Map[String, RouteGeneratorDefinition]])
 
   override def initialize(ctx: Context) = Try {
-    implicit val cfg: Config = ctx.get[Config]
-
-    import eu.akkamo.m.config._ // need by parseConfig
+    val cfg: Config = ctx.get[Config]
     val parsed: List[Initializable.Parsed[WebContentDefinition]] =
-      Initializable.parseConfig[WebContentDefinition](CfgKey).getOrElse {
+      Initializable.parseConfig[WebContentDefinition](CfgKey, cfg).getOrElse {
         val prefix = Try {
           FileFromDirGenerator.toBaseSource(Prefix) // throws exception if not exists
           Prefix

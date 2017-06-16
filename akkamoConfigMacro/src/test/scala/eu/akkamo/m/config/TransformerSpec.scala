@@ -1,6 +1,7 @@
 package eu.akkamo.m.config
 
 import com.typesafe.config.ConfigFactory
+import eu.akkamo.m.config.x.PointX
 import org.scalatest.WordSpecLike
 
 
@@ -82,6 +83,15 @@ class TransformerSpec extends WordSpecLike with PointHolder {
         val pr = PointWithLabel(x = 1, y = 2)
         assert(pl == pr)
       }
+
+      "parse to instance of case class from diferent package" in {
+        val cfg = ConfigFactory.parseString("""point = {x = 1, y= 2}""")
+        val tr = implicitly[Transformer[PointX]]
+        val pl = tr("point", cfg)
+        val pr = PointX(x = 1, y = 2)()
+        assert(pl == pr)
+      }
+
 
       "throw IllegalArgumentException if wrong input" in {
         implicit val l = Label("Implicit label")

@@ -14,6 +14,8 @@ import scala.concurrent.Future
   */
 class MongoPersistentConfigModule extends PersistentConfigModule with Initializable {
 
+  import internalImplicits._
+
   val cfgKey = "akkamo.mongoPersistentConfig"
 
   val ColName = "persistentConfig"
@@ -44,8 +46,6 @@ class MongoPersistentConfigModule extends PersistentConfigModule with Initializa
   override def initialize(ctx: Context) = getCollection(ctx).map { collection =>
 
     val mongoStorage = new Storage {
-
-      import internalImplicits._
 
       override def getString(key: String): Future[Option[String]] = find[String](key)
 
