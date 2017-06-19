@@ -16,6 +16,7 @@ import akka.http.scaladsl.server.{Directive, Route, RouteResult}
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.stream.ActorMaterializer
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue, ConfigValueType}
+import eu.akkamo.Initializable.Builder
 
 import scala.concurrent.Future
 
@@ -74,7 +75,6 @@ trait RouteRegistry extends Registry[Route]
   */
 class AkkaHttpModule extends Module with Initializable with Runnable with Disposable with Publisher {
 
-  import eu.akkamo.Initializable.Interceptor
   import eu.akkamo.m.config._ // need by parseConfig
 
   val CfgKey = "akkamo.akkaHttp"
@@ -230,34 +230,31 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
 
     val cfg = ctx.get[Config]
 
-    val ir = interceptor(ctx)
+    val rrib = builder(ctx)
 
     val registered: List[Initializable.Parsed[RouteRegistry]] =
-      Initializable.parseConfig(CfgKey, cfg, ir).getOrElse {
-        Initializable.parseConfig(CfgKey, ConfigFactory.parseString(default), ir).get
+      Initializable.parseConfig(CfgKey, cfg, rrib).getOrElse {
+        Initializable.parseConfig(CfgKey, ConfigFactory.parseString(default), rrib).get
       }
     ctx.register(Initializable.defaultReport(CfgKey, registered))
-
   }
 
-  private def interceptor(ctx: Context): Interceptor[RouteRegistryData, RouteRegistryImpl] =
-    (t: Transformer[RouteRegistryData], v: ConfigValue) => {
+  private def builder(ctx: Context): Builder[RouteRegistryImpl] =
+    (v: ConfigValue) => {
       if (v.valueType() != ConfigValueType.OBJECT) {
         throw new IllegalArgumentException(s"The value: $v is not `OBJECT`. Can't be parsed to type: ${classOf[RouteRegistry].getName}")
       }
       implicit val cfg: Config = v.asInstanceOf[ConfigObject].toConfig
-      // need actor system
-      val as = config.asOpt[String](AkkaAlias).flatMap(ctx.getOpt[ActorSystem](_)).getOrElse(ctx.get[ActorSystem])
-
-      val cc: ConnectionContext = config.asOpt[String](Protocol).getOrElse("http") match {
+      implicit val as = config.asOpt[String](AkkaAlias).flatMap(ctx.getOpt[ActorSystem](_)).getOrElse(ctx.get[ActorSystem])
+      implicit val cc: ConnectionContext = config.asOpt[String](Protocol).getOrElse("http") match {
         case "http" => ConnectionContext.noEncryption()
         case "https" =>
           val sSLConfig = config.as[SSLConfig](SSLCfg)
           ConnectionContext.https(sSLConfig.sSLContext)
         case x => throw new IllegalArgumentException(s"Unsupported protocol: $x. Can't be parsed to type: ${classOf[RouteRegistry].getName}")
       }
-      val data = t(v)
-      RouteRegistryImpl(data)(as, cc)
+      val data = implicitly[Transformer[RouteRegistryData]].apply(v)
+      RouteRegistryImpl(data)
     }
 
   override def run(ctx: Context) = {
@@ -286,16 +283,14 @@ class AkkaHttpModule extends Module with Initializable with Runnable with Dispos
     */
   @throws[IllegalArgumentException]
   private def getResource(path: String): InputStream = {
-
     def fileIsOk(f: File) = f.exists() && f.isFile
 
     val df = new File(path)
+
     if (fileIsOk(df)) new FileInputStream(df)
     else {
       // in zip
-      val res = this.getClass.getClassLoader.getResource(path)
-      if (res != null) this.getClass.getClassLoader.getResourceAsStream(res.toExternalForm)
-      else {
+      Option(this.getClass.getClassLoader.getResourceAsStream(path)).getOrElse {
         // in user dir
         val d = System.getProperty("user.dir") + File.separator + path
         val df = new File(d)

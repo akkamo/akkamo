@@ -35,14 +35,14 @@ trait Initializable {
 object Initializable {
 
   type Parsed[T] = (Boolean, List[String], T)
-  type Interceptor[T, V] = (Transformer[T], ConfigValue) => V
+  type Builder[T] = ConfigValue => T
 
-  private def identityInterceptor[T] = new Interceptor[T, T] {
-    override def apply(t: Transformer[T], v: ConfigValue): T = t(v)
+  private def typeBuilder[T:Transformer] = new Builder[T] {
+    override def apply(c: ConfigValue): T = implicitly[Transformer[T]].apply(c)
   }
 
   /**
-    * Parse list of 'T' from configuration. Transformer[T] must be accessible as implicit value.
+    * Parse list of 'T' from configuration
     * Here is an example:
     * {{{
     *   // let  parse:
@@ -64,46 +64,31 @@ object Initializable {
     * }}}
     * parsed result is: List((false, List("a1"), Foo(1)), (true, List("a2", "a3"), Foo(2))) <br/>
     * __Remark:__ Aliases are ordered, and first is from alias  <br/>
-    *
-    * @param path        in config
-    * @param cfg         config
-    * @param ct          ClassTag
-    * @tparam T type
-    * @return list of triplets containing: true if instance of `T` is default, list of aliases an instance of `T`
-    */
-  def parseConfig[T: Transformer](path: String, cfg: Config)(implicit ct: ClassTag[T]):Option[List[Parsed[T]]] =
-    parseConfig(path, cfg, identityInterceptor[T])
 
-  /**
-    *
-    * @param path
-    * @param cfg
-    * @param interceptor
-    * @param ct
-    * @tparam T
-    * @tparam V
-    * @return
+    * @param path in configuration
+    * @param cfg reference to `Config` instance
+    * @param builder of `T`
+    * @param ct ClassTag reference
+    * @tparam T result type
+    * @return list of triplets (Boolean, List[String], T) <=> (default, aliases, instance) encapsulated in Option
     */
-  def parseConfig[T: Transformer, V](path: String, cfg: Config, interceptor: Interceptor[T, V])(implicit ct: ClassTag[T]):
-  Option[List[Parsed[V]]] = {
+  def parseConfig[T](path: String, cfg: Config, builder: Builder[T])(implicit ct: ClassTag[T]):Option[List[Parsed[T]]] = {
 
-    implicit val transformTriplets = new Transformer[Parsed[V]] {
-      override def apply(v: ConfigValue): Parsed[V] = {
+    implicit val transformTriplets = new Transformer[Parsed[T]] {
+      override def apply(v: ConfigValue): Parsed[T] = {
         if (v.valueType() != ConfigValueType.OBJECT) {
           throw new IllegalArgumentException(s"The value: $v is not `OBJECT`. Can't be parsed to type: ${ct.runtimeClass.getName}")
         }
         val obj = v.asInstanceOf[ConfigObject]
         val default = Option(obj.get("default")).map(implicitly[Transformer[Boolean]].apply(_)).getOrElse(false)
         val aliases = Option(obj.get("aliases")).map(implicitly[Transformer[List[String]]].apply(_)).getOrElse(List.empty)
-        val t = implicitly[Transformer[T]]
-        (default, aliases, interceptor(t, v))
+        (default, aliases, builder(v))
       }
     }
-
     if (cfg.hasPath(path)) {
       val v = cfg.getValue(path)
       val res = if (v.valueType() == ConfigValueType.OBJECT) {
-        (config.as[Map[String, Parsed[V]]](path, cfg).map { case (key, parsed) =>
+        (config.as[Map[String, Parsed[T]]](path, cfg).map { case (key, parsed) =>
           parsed.copy(_2 = key :: parsed._2)
         }).toList
       } else throw new IllegalArgumentException(
@@ -114,6 +99,19 @@ object Initializable {
       })
     } else None
   }
+
+  /**
+    * Simplified version of `parseConfig` with default builder instance. Transformer[T] is created on demand.
+    *
+    * @param path in configuration
+    * @param cfg reference to `Config` instance
+    * @param ct ClassTag reference
+    * @tparam T result type
+    * @return list of triplets (Boolean, List[String], T) <=> (default, aliases, instance) encapsulated in Option
+    */
+  def parseConfig[T:Transformer](path: String, cfg: Config)(implicit ct: ClassTag[T]):
+  Option[List[Parsed[T]]] = parseConfig(path, cfg, typeBuilder[T])
+
 
   /**
     * structural validation of parsed values

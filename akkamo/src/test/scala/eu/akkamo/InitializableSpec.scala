@@ -131,7 +131,7 @@ class InitializableSpec extends FlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val ir = (t:Transformer[Foo], c:ConfigValue) => t(c).x
+    val ir = (c:ConfigValue) => implicitly[Transformer[Foo]].apply(c).x
 
     val parsed: Option[List[(Boolean, List[String], Int)]] = Initializable.parseConfig("foos", cfg, ir)
     assert(parsed.get.map(_._3) == List(1, 2))
