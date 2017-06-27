@@ -1,5 +1,7 @@
 package eu.akkamo.m.config
 
+import java.util.Properties
+
 import com.typesafe.config.ConfigFactory
 import eu.akkamo.m.config.x.PointX
 import org.scalatest.WordSpecLike
@@ -90,6 +92,14 @@ class TransformerSpec extends WordSpecLike with PointHolder {
         val pl = tr("point", cfg)
         val pr = PointX(x = 1, y = 2)()
         assert(pl == pr)
+      }
+
+      "parse to instance of Properties" in {
+        val cfg = ConfigFactory.parseString("""props = {a.x = 1, a.y= "y"}""")
+        val tr = implicitly[Transformer[Properties]]
+        val pl = tr("props", cfg)
+        assert(pl.size() == 2)
+        assert(pl.getProperty("a.x") == "1")
       }
 
 

@@ -1,5 +1,7 @@
 package eu.akkamo.m.config
 
+import java.util.Properties
+
 import com.typesafe.config.{Config, ConfigList, ConfigObject, ConfigValue}
 
 import scala.collection.immutable.ListMap
@@ -99,10 +101,26 @@ object Transformer {
     }
   }
 
-
   implicit object CVBoolean extends Transformer[Boolean] {
     override def apply(v: ConfigValue): Boolean = v.unwrapped().asInstanceOf[Boolean]
   }
+
+  implicit object CV2Properties extends Transformer[Properties] {
+    override def apply(v: ConfigValue):Properties  = v match {
+      case o:ConfigObject =>
+        val entries = o.toConfig.entrySet()
+        val ret = new Properties
+        entries.forEach{p=>
+          val key = p.getKey
+          val value = p.getValue.render()
+          ret.setProperty(key, value)
+          ()
+        }
+        ret
+      case _ => throw new IllegalArgumentException(s"Can't parse value: $v as Properties")
+    }
+  }
+
 
   implicit def cv2OPtion[T: Transformer] = new Transformer[Option[T]] {
     override def apply(v: ConfigValue): Option[T] = {

@@ -135,6 +135,15 @@ object Initializable {
   }
 
 
+  /**
+    * Call `validate` and throws [[InitializableError]] if validation fails.
+    *
+    * @param key
+    * @param parsed
+    * @tparam T
+    * @throws InitializableError
+    * @return list of triplets (Boolean, List[String], T) <=> (default, aliases, instance)
+    */
   @throws[InitializableError]
   def defaultReport[T](key: String, parsed: List[Parsed[T]]): List[Parsed[T]] = {
     val (notEmpty, oneDefault, uniqueAliases) = validate(parsed)

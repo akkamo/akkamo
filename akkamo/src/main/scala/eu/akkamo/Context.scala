@@ -29,7 +29,7 @@ trait Registry[T] {
   /**
     * Future self type
     */
-  type SelfType
+  type SelfType <: Registry[T]
 
   /**
     * Creates new instance of particular [[Registry]] implementation, with the new given value.
