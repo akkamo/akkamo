@@ -1,10 +1,14 @@
 package eu.akkamo.mongo
 
 import com.mongodb.ConnectionString
+import com.mongodb.client.model.IndexOptions
 import com.typesafe.config.{Config, ConfigFactory}
-import eu.akkamo.{Context, Disposable, Initializable, LoggingAdapter, LoggingAdapterFactory, Module, Publisher, TypeInfoChain}
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import eu.akkamo.{Context, Disposable, Initializable, InitializableError, LoggingAdapter, LoggingAdapterFactory, Module, Publisher, TypeInfoChain}
+import org.bson.conversions.Bson
+import org.mongodb.scala.{MongoClient, MongoCollection, MongoDatabase}
 
+import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 import scala.util.Try
 
 
@@ -31,6 +35,55 @@ trait MongoApi {
     * @return instance of `MongoDatabase`
     */
   def db: MongoDatabase
+}
+
+object EnsureCollection {
+  /**
+    * @param mongoAlias     the alias of mongo database
+    * @param collectionName the name of collection
+    * @param indexBuilder   index builder data
+    * @param dbTransformer  transformer for database, default identity
+    * @param ctx
+    * @tparam CollectionType
+    * @return collection as Future
+    */
+  def apply[CollectionType](
+                             mongoAlias: String,
+                             collectionName: String,
+                             indexBuilder: Option[Iterable[(Bson, Option[IndexOptions])]] = None,
+                             dbTransformer: Option[MongoDatabase => MongoDatabase] = None)(
+                             implicit ec: ExecutionContext, ctx: Context, ct:ClassTag[CollectionType]): Future[MongoCollection[CollectionType]] = {
+    val mongo: MongoApi = ctx.get[MongoApi](Some(mongoAlias))
+    val log = ctx.get[LoggingAdapterFactory].apply(this)
+    val db = dbTransformer.map(_(mongo.db)).getOrElse(mongo.db)
+    db.listCollectionNames().toFuture().flatMap { collections =>
+      if (collections.contains(collectionName)) {
+        // if collection exist just return it
+        Future.successful(db.getCollection[CollectionType](collectionName))
+      } else {
+        // create and get collection
+        val collFuture = db.createCollection(collectionName).toFuture().map { _ =>
+          db.getCollection[CollectionType](collectionName)
+        }
+        // then create indexes and return collection
+        collFuture.flatMap { coll =>
+          val indexFutures = indexBuilder.getOrElse(List.empty).map { case (index, indexOption) =>
+            if (indexOption.isDefined)
+              coll.createIndex(index, indexOption.get).toFuture()
+            else
+              coll.createIndex(index).toFuture()
+          }
+          Future.sequence(indexFutures).transform(
+            { indexes =>
+              log.info(s"Indexes: ${indexes.flatten} for collection: $collectionName created.")
+              coll
+            },
+            InitializableError(s"Can't create collection: $collectionName", _)
+          )
+        }
+      }
+    }
+  }
 }
 
 
@@ -68,8 +121,8 @@ trait MongoApi {
   * @author Vaclav Svejcar (vaclav.svejcar@gmail.com)
   */
 class MongoModule extends Module with Initializable with Disposable with Publisher {
-
-  import eu.akkamo.m.config._ // need by parseConfig
+  // need by parseConfig
+  import eu.akkamo.m.config._
 
   private class MongoApiImpl(uri: String) extends MongoApi {
 

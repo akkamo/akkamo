@@ -201,9 +201,10 @@ trait Context {
     * type and must be then specified when injecting the service. Please note that because the
     * [[Context]] is immutable, new updated instance will be returned after calling this method.
     *
-    * @param values
-    * @tparam T
-    * @return
+    * @param values services to register
+    * @param ct    class tag evidence
+    * @tparam T type of the service
+    * @return new updated instance of [[Context]]
     */
   def register[T <: AnyRef](values: List[Initializable.Parsed[T]])(implicit ct: ClassTag[T]): Context = {
     values.flatMap { case (default, aliases, value) =>
@@ -225,6 +226,14 @@ trait Context {
     * @return map of all registered instances of service of type `T`
     */
   def registered[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]]
+
+
+  /**
+    * Unregister temporary registered services of type 'T'
+    * @param ct    class tag evidence
+    * @tparam T type of the service
+    */
+  def unregister[T <: AnyRef](implicit ct: ClassTag[T]):Context
 }
 
 /**

@@ -1,3 +1,15 @@
+/**
+  *
+  * .█████╗ ██╗  ██╗██╗  ██╗ █████╗ ███╗   ███╗ ██████╗
+  * ██╔══██╗██║ ██╔╝██║ ██╔╝██╔══██╗████╗ ████║██╔═══██╗
+  * ███████║█████╔╝ █████╔╝ ███████║██╔████╔██║██║   ██║
+  * ██╔══██║██╔═██╗ ██╔═██╗ ██╔══██║██║╚██╔╝██║██║   ██║
+  * ██║  ██║██║  ██╗██║  ██╗██║  ██║██║ ╚═╝ ██║╚██████╔╝     Copyright (c) 2017 by Akkamo team
+  * ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝
+  *
+  * logo by: http://patorjk.com/software/taag/
+  **/
+
 package eu.akkamo
 
 import java.util.concurrent.atomic.AtomicReference
@@ -46,7 +58,7 @@ private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRe
   }
 
   @inline
-  private  def getInternal[T](alias: String,  ct: ClassTag[T]): Option[T] = {
+  private def getInternal[T](alias: String, ct: ClassTag[T]): Option[T] = {
     class2Alias2Inst.get(ct.runtimeClass).flatMap(_.get(alias)).asInstanceOf[Option[T]]
   }
 
@@ -64,11 +76,11 @@ private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRe
 
   override def registered[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
     registeredInternal[T].map { case (k, v) =>
-      (k, v-Default)
+      (k, v - Default)
     }
   }
 
-  private def registerInInternal[T <:Registry[X], X](x:X, injected:T)(implicit ct: ClassTag[T]):Context = {
+  private def registerInInternal[T <: Registry[X], X](x: X, injected: T)(implicit ct: ClassTag[T]): Context = {
     val aliases = registeredInternal[T].get(injected).get // at least one element must be defined
     val updated = injected.copyWith(x).asInstanceOf[T] // is this construct ok in any case ?
     aliases.foldLeft(unregisterInternal(ct.runtimeClass, aliases)) { (ctx, name) =>
@@ -76,7 +88,7 @@ private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRe
     }
   }
 
-  private def registeredInternal[T<:AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
+  private def registeredInternal[T <: AnyRef](implicit ct: ClassTag[T]): Map[T, Set[String]] = {
     class2Alias2Inst.get(ct.runtimeClass).map { m =>
       m.groupBy(_._2).map { case (k, v) =>
         (k.asInstanceOf[T], v.keySet)
@@ -102,36 +114,40 @@ private[akkamo] case class CTX(class2Alias2Inst: Map[Class[_], Map[String, AnyRe
     val res = class2Alias2Inst + (clazz -> resAlias2Inst)
     this.copy(res)
   }
+
+  override def unregister[T <: AnyRef](implicit ct: ClassTag[T]) = this.copy(class2Alias2Inst - ct.runtimeClass)
 }
 
 private[akkamo] object CTX {
   /**
     *
     * keep last created context in local thread variable
-     */
-  private[CTX] val last  = new AtomicReference[(Context, Array[StackTraceElement])]()
+    */
+  private[CTX] val last = new AtomicReference[(Context, Array[StackTraceElement])]()
 
   /**
     * compare `ctx` with last created Context
+    *
     * @param ctx
     * @return true if `ctx` eq last.get
     */
-  def isLast(ctx:Context) = getContext.map(_ eq ctx).getOrElse(false)
+  def isLast(ctx: Context) = getContext.map(_ eq ctx).getOrElse(false)
 
   /**
     *
-    * @return  formatted information about place when the problem happened
+    * @return formatted information about place when the problem happened
     */
-  def getInvocationInfo = getStackTrace.map{p=>
+  def getInvocationInfo = getStackTrace.map { p =>
     val el = p.toSeq.tail.filterNot(filter).headOption
-    el.map(el=>s"(${el.getFileName}${el.getClassName}:${el.getMethodName} at line ${el.getLineNumber})").getOrElse("unknown location")
+    el.map(el => s"(${el.getFileName}${el.getClassName}:${el.getMethodName} at line ${el.getLineNumber})").getOrElse("unknown location")
   }
 
   private def getContext = Option(last.get()).map(_._1)
+
   private def getStackTrace = Option(last.get()).map(_._2)
 
   private val names = Set(classOf[CTX].getName)
-  private val filter = (e:StackTraceElement) => names.contains(e.getClassName)
+  private val filter = (e: StackTraceElement) => names.contains(e.getClassName)
 }
 
 class Akkamo {
@@ -190,7 +206,7 @@ class Akkamo {
   }
 
   private def publisherMap(modules: List[Module]): Map[Class[_], Class[_]] = modules.flatMap(_ match {
-    case c:Publisher =>
+    case c: Publisher =>
       val keys = c.asInstanceOf[Publisher].publish(createReportDependencies()).asInstanceOf[Depends].dependsOn
       keys.map(_ -> c.iKey())
     case _ => List.empty
@@ -200,13 +216,13 @@ class Akkamo {
   /**
     * order list of the modules by dependencies if X depends on Y then X is before Y
     *
-    * @param in input modules
+    * @param in  input modules
     * @param map map between interface and Module, given mapping is defined by `Publisher`
     * @param set helper set contains included dependencies (out)
     * @param out dependencies ordered by
     * @return ordered list of modules
     */
-  private def order(in: List[Module], map:Map[Class[_], Class[_]], set: Set[Class[_]] = Set.empty, out: List[Module] = Nil): List[Module] = {
+  private def order(in: List[Module], map: Map[Class[_], Class[_]], set: Set[Class[_]] = Set.empty, out: List[Module] = Nil): List[Module] = {
 
     // one round of this method sohould put at least one elemnt to set and out
     def orderRound(in: List[Module], set: Set[Class[_]], out: List[Module] = Nil): (Set[Class[_]], List[Module]) = {
@@ -229,16 +245,16 @@ class Akkamo {
       rout ++ out
     } else {
       if (rout.isEmpty) {
-        val missingMap = in.reverse.flatMap{m=>
+        val missingMap = in.reverse.flatMap { m =>
           val dependsOn = m.dependencies(createReportDependencies()).asInstanceOf[Depends].dependsOn
           // missing dependencies for given module
-          val moduleDiffs = dependsOn.map{ dependency =>
+          val moduleDiffs = dependsOn.map { dependency =>
             // try get transform to modules
             map.getOrElse(dependency, dependency)
           }.toSet.diff(in.map(_.iKey()).toSet).map(_.getSimpleName)
-          if(moduleDiffs.isEmpty) List.empty else List((m.toString, moduleDiffs))
+          if (moduleDiffs.isEmpty) List.empty else List((m.toString, moduleDiffs))
         }
-        val mappingMsg = missingMap.map{case (k,v) => s"for: $k is missing: ${v.mkString(", ")}"}.mkString("\n")
+        val mappingMsg = missingMap.map { case (k, v) => s"for: $k is missing: ${v.mkString(", ")}" }.mkString("\n")
         val msg =
           s"""
              |Can't initialize modules: (${in.mkString(", ")}), cycle or unresolved dependency detected.
@@ -248,7 +264,7 @@ class Akkamo {
         throw InitializationError(msg)
       }
       val df = in.diff(rout)
-      order(df, map,rset, rout ++ out)
+      order(df, map, rset, rout ++ out)
     }
   }
 
@@ -260,10 +276,10 @@ class Akkamo {
         Try(x.asInstanceOf[Initializable].initialize(ctx).asTry()).flatten match {
           case Failure(th) => init(xs, (x, th) :: out)(ctx)
           case Success(c) => {
-            if(!CTX.isLast(c)) {
+            if (!CTX.isLast(c)) {
               val info = CTX.getInvocationInfo.getOrElse("unknown location")
               log(s"-----------------\nUnused context created at: ${info} during initialization\n-----------------\n")
-              if(Akkamo.isContextStrict) {
+              if (Akkamo.isContextStrict) {
                 throw InitializationError(s"Unused context created: ${info}")
               }
             }
@@ -285,10 +301,10 @@ class Akkamo {
         Try(x.asInstanceOf[Runnable].run(ctx).asTry()).flatten match {
           case Failure(th) => run(xs, (x, th) :: out)(ctx)
           case Success(c) => {
-            if(!CTX.isLast(c)) {
+            if (!CTX.isLast(c)) {
               val info = CTX.getInvocationInfo.getOrElse("unknown location")
               log(s"-----------------\nUnused context created at: ${info} during run\n-----------------\n")
-              if(Akkamo.isContextStrict) {
+              if (Akkamo.isContextStrict) {
                 throw RunError(s"Unused context created: ${info}")
               }
             }
@@ -332,11 +348,11 @@ class Akkamo {
     case _ => out
   }
 
-  private def createDependencies(dependencies: Set[Class[_]], map:Map[Class[_], Class[_]]): TypeInfoChain = {
+  private def createDependencies(dependencies: Set[Class[_]], map: Map[Class[_], Class[_]]): TypeInfoChain = {
     class W(val res: Boolean) extends TypeInfoChain {
       override def &&[K](implicit ct: ClassTag[K]): TypeInfoChain = {
         val mr = map.get(ct.runtimeClass)
-        val mappedRes = mr.map(p=>dependencies.contains(p))
+        val mappedRes = mr.map(p => dependencies.contains(p))
         new W(this.res && (dependencies.contains(ct.runtimeClass) || mappedRes.getOrElse(false)))
       }
     }
@@ -344,11 +360,11 @@ class Akkamo {
   }
 
   private trait Depends {
-    def dependsOn:Seq[Class[_]]
+    def dependsOn: Seq[Class[_]]
   }
 
   private def createReportDependencies() = {
-    class W(val dependsOn:Seq[Class[_]], val res:Boolean = false) extends TypeInfoChain with Depends {
+    class W(val dependsOn: Seq[Class[_]], val res: Boolean = false) extends TypeInfoChain with Depends {
       override def &&[T](implicit ct: ClassTag[T]): TypeInfoChain = {
         new W(ct.runtimeClass +: this.dependsOn)
       }
